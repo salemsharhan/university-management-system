@@ -120,6 +120,15 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* RTL Support */
+  [dir="rtl"] {
+    direction: rtl;
+  }
+  
+  [dir="ltr"] {
+    direction: ltr;
+  }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -173,5 +182,40 @@
       padding-right: 2rem;
       max-width: 1280px; /* Standard content width */
     }
+  }
+  
+  /* RTL-aware utilities */
+  .rtl\:mr-auto {
+    margin-inline-start: auto;
+  }
+  
+  .rtl\:ml-auto {
+    margin-inline-end: auto;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(0.95 0.01 250);
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.75 0.01 250);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.01 250);
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
   }
 }
