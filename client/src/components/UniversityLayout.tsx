@@ -93,10 +93,10 @@ export default function UniversityLayout({ children }: { children: React.ReactNo
             
             return (
               <Link key={item.path} href={item.path}>
-                <a
+                <div
                   className={`
                     flex items-center gap-3 px-4 py-3 rounded-lg
-                    transition-colors
+                    transition-colors cursor-pointer
                     ${isActive 
                       ? "bg-primary text-primary-foreground" 
                       : "text-foreground hover:bg-accent"
@@ -105,7 +105,7 @@ export default function UniversityLayout({ children }: { children: React.ReactNo
                 >
                   <Icon className="w-5 h-5" />
                   <span className="text-sm font-medium">{item.label}</span>
-                </a>
+                </div>
               </Link>
             );
           })}
