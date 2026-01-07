@@ -1,0 +1,267 @@
+-- Seed data for testing
+-- Note: These users need to be created in Supabase Auth first, then their records added here
+
+-- Insert a test college
+INSERT INTO colleges (
+  code, 
+  name_en, 
+  name_ar, 
+  abbreviation, 
+  official_email, 
+  phone_number,
+  primary_color,
+  secondary_color,
+  academic_settings,
+  financial_settings,
+  email_settings,
+  onboarding_settings,
+  system_settings,
+  examination_settings
+) VALUES (
+  'TEST001',
+  'Test University',
+  'جامعة الاختبار',
+  'TU',
+  'admin@testuniversity.edu',
+  '+966501234567',
+  '#952562',
+  '#E82B5E',
+  '{
+    "creditHours": {
+      "minPerSemester": 12,
+      "maxPerSemester": 18,
+      "maxWithPermission": 21,
+      "minGpaForOverload": 3
+    },
+    "gpa": {
+      "minPassing": 2,
+      "maxScale": 4,
+      "honorRollMin": 3.5,
+      "probationThreshold": 2
+    },
+    "gradingScale": [
+      {"letter": "A+", "minPercent": 95, "maxPercent": 100, "points": 4.0, "passing": true},
+      {"letter": "A", "minPercent": 90, "maxPercent": 94, "points": 3.7, "passing": true},
+      {"letter": "B+", "minPercent": 85, "maxPercent": 89, "points": 3.3, "passing": true},
+      {"letter": "B", "minPercent": 80, "maxPercent": 84, "points": 3.0, "passing": true},
+      {"letter": "C+", "minPercent": 75, "maxPercent": 79, "points": 2.7, "passing": true},
+      {"letter": "C", "minPercent": 70, "maxPercent": 74, "points": 2.0, "passing": true},
+      {"letter": "D", "minPercent": 60, "maxPercent": 69, "points": 1.0, "passing": true},
+      {"letter": "F", "minPercent": 0, "maxPercent": 59, "points": 0.0, "passing": false}
+    ],
+    "attendance": {
+      "required": true,
+      "minPercentage": 75,
+      "warningThreshold": 80,
+      "maxAbsenceDays": 7,
+      "presentWeight": 100,
+      "lateWeight": 100,
+      "excusedWeight": 100,
+      "countExcusedInRate": true,
+      "countLateAsFull": true,
+      "enableWarnings": true,
+      "sendNotifications": true,
+      "enforceMaxAbsence": true,
+      "createAlertAtMax": true,
+      "editWindowHours": 24,
+      "requireApprovalAfterWindow": true,
+      "allowInstructorOverride": true,
+      "lateArrivalGraceMinutes": 15,
+      "lateArrivalCutoffMinutes": 30,
+      "earlyDepartureMinutes": 15,
+      "contestDeadlineDays": 7,
+      "contestReviewDeadlineDays": 14,
+      "maxContestDocumentSizeMB": 5,
+      "autoRejectExpired": true,
+      "requireDocumentForContests": true,
+      "defaultUpcomingSessionsDays": 7,
+      "maxUpcomingSessionsDays": 30,
+      "autoExcludeWeekends": true,
+      "autoDropEnabled": true,
+      "autoDropThreshold": 50
+    },
+    "courseRegistration": {
+      "enablePrerequisiteChecking": true,
+      "allowWaitlist": true,
+      "addDropPeriodDays": 14
+    }
+  }'::jsonb,
+  '{
+    "paymentGateway": {
+      "tapApiKey": "",
+      "tapSecretKey": "",
+      "testMode": true
+    },
+    "discounts": {
+      "enableEarlyPayment": true,
+      "earlyPaymentPercent": 5,
+      "earlyPaymentDays": 10,
+      "enableSiblingDiscount": true,
+      "siblingDiscountPercent": 10
+    },
+    "lateFees": {
+      "enabled": true,
+      "amount": 25,
+      "percentage": 5,
+      "gracePeriodDays": 7
+    },
+    "installments": {
+      "minInstallments": 2,
+      "maxInstallments": 24
+    },
+    "reminders": {
+      "daysBeforeDue": 3,
+      "minDaysBetween": 2,
+      "upcomingDueWindow": 7
+    },
+    "invoice": {
+      "prefix": "INV",
+      "format": "{prefix}-{year}-{sequence:D6}",
+      "dueDays": 30
+    },
+    "currency": {
+      "code": "USD",
+      "symbol": "$",
+      "decimalPlaces": 2
+    },
+    "refund": {
+      "allowRefunds": true,
+      "fullRefundPeriodDays": 7,
+      "partialRefundPeriodDays": 30,
+      "partialRefundPercent": 50
+    }
+  }'::jsonb,
+  '{
+    "smtp": {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "enableSsl": true,
+      "username": "",
+      "password": "",
+      "fromEmail": "noreply@testuniversity.edu",
+      "fromName": "Test University"
+    },
+    "notifications": {
+      "enableEmailNotifications": true
+    },
+    "testEmail": "test@example.com"
+  }'::jsonb,
+  '{
+    "application": {
+      "enableOnlineApplications": true,
+      "deadlineDays": 30,
+      "requireDocumentUpload": true,
+      "applicationFee": 100,
+      "offerAcceptanceDays": 14,
+      "documentSubmissionDays": 7,
+      "autoArchiveDays": 365,
+      "minApplicantAge": 16,
+      "maxApplicantAge": 100,
+      "minScholarshipPercent": 1,
+      "maxScholarshipPercent": 100,
+      "personalStatementMinLength": 100,
+      "personalStatementMaxLength": 2000,
+      "scholarshipJustificationMinLength": 50,
+      "scholarshipJustificationMaxLength": 1000,
+      "defaultPriority": "normal",
+      "defaultInterviewType": "in_person"
+    },
+    "documents": {
+      "maxSizeMB": 5,
+      "allowedTypes": ["PDF", "JPG", "JPEG", "PNG", "DOC", "DOCX"]
+    },
+    "committee": {
+      "minMembers": 3,
+      "requireUnanimous": false,
+      "decisionTimeoutDays": 30
+    }
+  }'::jsonb,
+  '{
+    "security": {
+      "sessionTimeoutMinutes": 30,
+      "passwordExpiryDays": 90,
+      "maxLoginAttempts": 5,
+      "accountLockoutMinutes": 15,
+      "enableTwoFactor": false
+    },
+    "fileUpload": {
+      "maxSizeMB": 10,
+      "storageProvider": "local"
+    },
+    "maintenance": {
+      "enabled": false,
+      "message": ""
+    },
+    "backup": {
+      "enabled": true,
+      "retentionDays": 30,
+      "schedule": "0 2 * * *"
+    },
+    "localization": {
+      "defaultLanguage": "en",
+      "autoDetectLanguage": true,
+      "enableRTL": true
+    }
+  }'::jsonb,
+  '{
+    "grading": {
+      "minPassingPercentage": 50,
+      "minPassingGradePoints": 2,
+      "minExcellencePercentage": 90,
+      "minGoodPercentage": 75
+    },
+    "examTypes": {
+      "defaultMidtermWeight": 30,
+      "defaultFinalWeight": 40,
+      "defaultQuizWeight": 10,
+      "defaultAssignmentWeight": 20,
+      "enforceWeightSum100": true,
+      "allowCustomTypes": true
+    },
+    "scheduling": {
+      "generationWindowDays": 90,
+      "defaultUpcomingExamsWindowDays": 7,
+      "minPreparationDays": 7,
+      "maxExamsPerDay": 3,
+      "allowWeekendExams": false,
+      "allowOverlappingExams": false
+    },
+    "makeup": {
+      "allowMakeupExams": true,
+      "requestDeadlineDays": 3,
+      "maxAttempts": 2,
+      "penaltyPercentage": 0
+    },
+    "roomAllocation": {
+      "requireRoomAllocation": true,
+      "studentsPerRoom": 30,
+      "socialDistancingCapacityPercent": 50,
+      "enforceSocialDistancing": false
+    },
+    "invigilator": {
+      "requireInvigilators": true,
+      "minInvigilatorsPerRoom": 1,
+      "maxAssignmentsPerDay": 3,
+      "studentsPerInvigilator": 30
+    },
+    "conflictDetection": {
+      "enabled": true,
+      "checkStudentConflicts": true,
+      "checkInvigilatorConflicts": true,
+      "checkRoomConflicts": true
+    }
+  }'::jsonb
+) ON CONFLICT (code) DO NOTHING;
+
+-- Note: Users need to be created in Supabase Auth first via the dashboard or API
+-- After creating auth users, you can link them here using their auth.uid as openId
+-- 
+-- Example SQL to link after creating auth users:
+-- UPDATE users SET role = 'admin', college_id = NULL WHERE email = 'admin@university.edu';
+-- UPDATE users SET role = 'user', college_id = (SELECT id FROM colleges WHERE code = 'TEST001') WHERE email = 'college@testuniversity.edu';
+-- UPDATE users SET role = 'instructor', college_id = (SELECT id FROM colleges WHERE code = 'TEST001') WHERE email = 'instructor@testuniversity.edu';
+-- UPDATE users SET role = 'student', college_id = (SELECT id FROM colleges WHERE code = 'TEST001') WHERE email = 'student@testuniversity.edu';
+
+
+
+

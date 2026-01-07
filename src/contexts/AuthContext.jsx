@@ -1,0 +1,326 @@
+import { createContext, useContext, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
+const AuthContext = createContext({})
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null)
+  const [session, setSession] = useState(null)
+  const [userRole, setUserRole] = useState(null)
+  const [collegeId, setCollegeId] = useState(null)
+  const [departmentId, setDepartmentId] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchUserRole = async (email) => {
+    if (!email) {
+      setUserRole(null)
+      setCollegeId(null)
+      setDepartmentId(null)
+      return null
+    }
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('role, college_id')
+        .eq('email', email)
+        .single()
+      
+      if (!error && data) {
+        setUserRole(data.role)
+        setCollegeId(data.college_id)
+        
+        // If user is an instructor, fetch their department_id
+        if (data.role === 'instructor' && data.college_id) {
+          try {
+            const { data: instructorData, error: instructorError } = await supabase
+              .from('instructors')
+              .select('department_id, college_id')
+              .eq('email', email)
+              .eq('college_id', data.college_id)
+              .limit(1)
+            
+            if (!instructorError && instructorData && instructorData.length > 0) {
+              setDepartmentId(instructorData[0].department_id)
+            } else {
+              setDepartmentId(null)
+            }
+          } catch (instructorErr) {
+            console.error('Error fetching instructor department:', instructorErr)
+            setDepartmentId(null)
+          }
+        } else {
+          setDepartmentId(null)
+        }
+        
+        return data.role
+      } else {
+        // User not found in users table, but has auth session
+        // Set role to null but don't block the app
+        console.warn('User not found in users table:', email)
+        setUserRole(null)
+        setCollegeId(null)
+        setDepartmentId(null)
+        return null
+      }
+    } catch (err) {
+      console.error('Error fetching user role:', err)
+      setUserRole(null)
+      setCollegeId(null)
+      setDepartmentId(null)
+      return null
+    }
+  }
+
+  useEffect(() => {
+    let mounted = true
+    let initComplete = false
+
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && !initComplete) {
+        console.warn('Auth initialization timeout, setting loading to false')
+        setLoading(false)
+        initComplete = true
+      }
+    }, 2000) // 2 second timeout - don't block the UI
+
+    // Get initial session - but don't block if it's slow
+    const initializeAuth = async () => {
+      try {
+        // Try to get session with a timeout
+        const getSessionWithTimeout = () => {
+          return Promise.race([
+            supabase.auth.getSession(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 1500)
+            )
+          ])
+        }
+
+        let currentSession = null
+        let sessionError = null
+
+        try {
+          const result = await getSessionWithTimeout()
+          if (result && result.data !== undefined) {
+            currentSession = result.data.session
+            sessionError = result.error
+          }
+        } catch (timeoutErr) {
+          console.warn('Session fetch timed out, will rely on auth state change listener')
+          // Don't block - let onAuthStateChange handle it
+          if (mounted && !initComplete) {
+            setLoading(false)
+            initComplete = true
+          }
+          return
+        }
+        
+        if (!mounted || initComplete) return
+
+        if (sessionError) {
+          console.error('Error getting session:', sessionError)
+          setSession(null)
+          setUser(null)
+          setUserRole(null)
+          setCollegeId(null)
+          setDepartmentId(null)
+          if (mounted && !initComplete) {
+            clearTimeout(timeoutId)
+            setLoading(false)
+            initComplete = true
+          }
+          return
+        }
+
+        // Process session if we got one
+        if (currentSession) {
+          setSession(currentSession)
+          setUser(currentSession?.user ?? null)
+          
+          if (currentSession?.user?.email) {
+            // Fetch role in background, don't block
+            fetchUserRole(currentSession.user.email).catch(() => {})
+          } else {
+            setUserRole(null)
+            setCollegeId(null)
+            setDepartmentId(null)
+          }
+        } else {
+          // No session
+          setSession(null)
+          setUser(null)
+          setUserRole(null)
+          setCollegeId(null)
+          setDepartmentId(null)
+        }
+      } catch (err) {
+        console.error('Error initializing auth:', err)
+        if (mounted) {
+          setSession(null)
+          setUser(null)
+          setUserRole(null)
+          setCollegeId(null)
+          setDepartmentId(null)
+        }
+      } finally {
+        if (mounted && !initComplete) {
+          clearTimeout(timeoutId)
+          setLoading(false)
+          initComplete = true
+        }
+      }
+    }
+
+    // Start initialization
+    initializeAuth()
+
+    // Listen for auth changes - this is the primary way we get session updates
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+
+      try {
+        console.log('Auth state changed:', event, session ? 'has session' : 'no session')
+        
+        // Handle all events
+        if (event === 'SIGNED_OUT' || !session) {
+          setSession(null)
+          setUser(null)
+          setUserRole(null)
+          setCollegeId(null)
+          setDepartmentId(null)
+        } else {
+          // We have a session
+          setSession(session)
+          setUser(session?.user ?? null)
+          
+          if (session?.user?.email) {
+            // Fetch role, but don't block if it fails
+            fetchUserRole(session.user.email).catch((err) => {
+              console.warn('Failed to fetch user role:', err)
+              setUserRole(null)
+              setCollegeId(null)
+              setDepartmentId(null)
+            })
+          } else {
+            setUserRole(null)
+            setCollegeId(null)
+            setDepartmentId(null)
+          }
+        }
+      } catch (err) {
+        console.error('Error in auth state change:', err)
+        setUserRole(null)
+        setCollegeId(null)
+        setDepartmentId(null)
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    })
+
+    return () => {
+      mounted = false
+      if (timeoutId) clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  const signIn = async (email, password, expectedRole = null) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    
+    if (error) {
+      return { data, error }
+    }
+
+    // If role is specified, verify user has that role
+    if (expectedRole && data?.user) {
+      try {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('role, college_id')
+          .eq('email', email)
+          .single()
+
+        if (userError || !userData) {
+          await supabase.auth.signOut()
+          return { 
+            data: null, 
+            error: { message: 'User not found in system' } 
+          }
+        }
+
+        // Map 'user' role to 'college' for clarity
+        const userRole = userData.role === 'user' ? 'college' : userData.role
+        
+        // Allow 'college' to match 'user' role in database
+        if (expectedRole === 'college' && userData.role === 'user') {
+          // This is valid - college admin uses 'user' role
+        } else if (expectedRole !== userRole) {
+          await supabase.auth.signOut()
+          return { 
+            data: null, 
+            error: { message: `Access denied. This login is for ${expectedRole}s only.` } 
+          }
+        }
+
+        // Store role and college_id in session metadata
+        if (data.session) {
+          data.session.user.user_metadata = {
+            ...data.session.user.user_metadata,
+            role: userData.role,
+            college_id: userData.college_id,
+          }
+        }
+      } catch (err) {
+        console.error('Error verifying user role:', err)
+      }
+    }
+
+    return { data, error }
+  }
+
+  const signUp = async (email, password, metadata = {}) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: metadata,
+      },
+    })
+    return { data, error }
+  }
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    return { error }
+  }
+
+  const value = {
+    user,
+    session,
+    userRole,
+    collegeId,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
