@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { 
@@ -13,6 +15,8 @@ import {
 } from 'lucide-react'
 
 export default function AttendanceDashboard() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId, departmentId } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -114,13 +118,13 @@ export default function AttendanceDashboard() {
         // .eq('status', 'active')
         .order('start_date', { ascending: false })
 
-      // Filter by college for college admins - include their college's semesters AND university-wide semesters
+      // Filter by college for college admins - only their college's semesters
       if (userRole === 'user' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
       }
       // For instructors, filter by their college
       else if (userRole === 'instructor' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
       }
 
       const { data, error } = await query
@@ -160,22 +164,22 @@ export default function AttendanceDashboard() {
 
   const quickActions = [
     {
-      title: 'View Alerts',
-      description: 'Check low attendance warnings',
+      title: t('attendance.dashboard.viewAlerts'),
+      description: t('attendance.dashboard.viewAlertsDesc'),
       icon: AlertTriangle,
       color: 'yellow',
       onClick: () => navigate('/attendance/alerts'),
     },
     {
-      title: 'Review Contests',
-      description: 'Handle student attendance disputes',
+      title: t('attendance.dashboard.reviewContests'),
+      description: t('attendance.dashboard.reviewContestsDesc'),
       icon: FileText,
       color: 'blue',
       onClick: () => navigate('/attendance/contests'),
     },
     {
-      title: 'Generate Reports',
-      description: 'View attendance statistics',
+      title: t('attendance.dashboard.generateReports'),
+      description: t('attendance.dashboard.generateReportsDesc'),
       icon: TrendingUp,
       color: 'blue',
       onClick: () => navigate('/attendance/reports'),
@@ -186,11 +190,11 @@ export default function AttendanceDashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center space-x-2">
+        <h1 className={`text-3xl font-bold text-gray-900 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Calendar className="w-8 h-8" />
-          <span>Attendance Management</span>
+          <span>{t('attendance.dashboard.title')}</span>
         </h1>
-        <p className="text-gray-600 mt-1">Track and manage student attendance across all classes</p>
+        <p className="text-gray-600 mt-1">{t('attendance.dashboard.subtitle')}</p>
       </div>
 
       {/* Summary Cards */}
@@ -201,7 +205,7 @@ export default function AttendanceDashboard() {
               <Calendar className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Today's Sessions</p>
+              <p className="text-sm text-gray-600">{t('attendance.dashboard.todaysSessions')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {loading ? '-' : stats.todaySessions}
               </p>
@@ -210,12 +214,12 @@ export default function AttendanceDashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6">
-          <div className="flex items-center space-x-3">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Recorded</p>
+              <p className="text-sm text-gray-600">{t('attendance.dashboard.recorded')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {loading ? '-' : stats.recorded}
               </p>
@@ -224,12 +228,12 @@ export default function AttendanceDashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-yellow-200 p-6">
-          <div className="flex items-center space-x-3">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
               <AlertTriangle className="w-6 h-6 text-yellow-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Low Attendance Alerts</p>
+              <p className="text-sm text-gray-600">{t('attendance.dashboard.lowAttendanceAlerts')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {loading ? '-' : stats.lowAttendanceAlerts}
               </p>
@@ -238,12 +242,12 @@ export default function AttendanceDashboard() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-blue-200 p-6">
-          <div className="flex items-center space-x-3">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Pending Contests</p>
+              <p className="text-sm text-gray-600">{t('attendance.dashboard.pendingContests')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {loading ? '-' : stats.pendingContests}
               </p>
@@ -254,18 +258,18 @@ export default function AttendanceDashboard() {
 
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Zap className="w-5 h-5" />
-          <span>Quick Actions</span>
+          <span>{t('attendance.dashboard.quickActions')}</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {quickActions.map((action, idx) => (
             <button
               key={idx}
               onClick={action.onClick}
-              className={`p-4 rounded-lg border-2 border-${action.color}-200 hover:border-${action.color}-400 hover:bg-${action.color}-50 transition-all text-left`}
+              className={`p-4 rounded-lg border-2 border-${action.color}-200 hover:border-${action.color}-400 hover:bg-${action.color}-50 transition-all ${isRTL ? 'text-right' : 'text-left'}`}
             >
-              <div className="flex items-center space-x-3 mb-2">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-2`}>
                 <action.icon className={`w-6 h-6 text-${action.color}-600`} />
                 <h3 className="font-semibold text-gray-900">{action.title}</h3>
               </div>
@@ -277,11 +281,11 @@ export default function AttendanceDashboard() {
 
       {/* Find Class Sessions */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Clock className="w-5 h-5" />
-          <span>Find Class Sessions</span>
+          <span>{t('attendance.dashboard.findClassSessions')}</span>
         </h2>
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className={`flex flex-col md:flex-row gap-4 ${isRTL ? 'md:flex-row-reverse' : ''}`}>
           <select 
             value={selectedSemesterId}
             onChange={(e) => {
@@ -290,7 +294,7 @@ export default function AttendanceDashboard() {
             }}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
           >
-            <option value="">Select Semester</option>
+            <option value="">{t('attendance.dashboard.selectSemester')}</option>
             {semesters.map(semester => (
               <option key={semester.id} value={semester.id}>
                 {semester.name_en} ({semester.code})
@@ -303,7 +307,7 @@ export default function AttendanceDashboard() {
             disabled={!selectedSemesterId || classes.length === 0}
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
-            <option value="">{selectedSemesterId && classes.length === 0 ? 'No classes available' : 'Select Class'}</option>
+            <option value="">{selectedSemesterId && classes.length === 0 ? t('attendance.dashboard.noClassesAvailable') : t('attendance.dashboard.selectClass')}</option>
             {classes.map(cls => (
               <option key={cls.id} value={cls.id}>
                 {cls.code}-{cls.section} - {cls.subjects?.name_en || cls.subjects?.code}
@@ -319,9 +323,9 @@ export default function AttendanceDashboard() {
               }
             }}
             disabled={!selectedClassId}
-            className="px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            <span>View Sessions</span>
+            <span>{t('attendance.dashboard.viewSessions')}</span>
             <Clock className="w-4 h-4" />
           </button>
         </div>
@@ -329,15 +333,15 @@ export default function AttendanceDashboard() {
 
       {/* Recent Activity */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Clock className="w-5 h-5" />
-          <span>Recent Activity</span>
-          <span className="ml-auto text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">0</span>
+          <span>{t('attendance.dashboard.recentActivity')}</span>
+          <span className={`${isRTL ? 'mr-auto' : 'ml-auto'} text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full`}>0</span>
         </h2>
         <div className="text-center py-12 text-gray-500">
           <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p className="text-lg font-medium">No recent activity</p>
-          <p className="text-sm mt-2">Attendance records will appear here once sessions are recorded</p>
+          <p className="text-lg font-medium">{t('attendance.dashboard.noRecentActivity')}</p>
+          <p className="text-sm mt-2">{t('attendance.dashboard.noRecentActivityDesc')}</p>
         </div>
       </div>
     </div>

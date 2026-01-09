@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
 
 export default function CreateAcademicYear() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole } = useAuth()
@@ -115,7 +119,7 @@ export default function CreateAcademicYear() {
         navigate('/academic/years')
       }, 2000)
     } catch (err) {
-      setError(err.message || 'Failed to create academic year')
+      setError(err.message || t('academic.academicYears.createdSuccess'))
       console.error('Error creating academic year:', err)
     } finally {
       setLoading(false)
@@ -128,13 +132,13 @@ export default function CreateAcademicYear() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('academic.academicYears.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create Academic Year</h1>
-          <p className="text-gray-600 mt-1">Add a new academic year to the system</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('academic.academicYears.createTitle')}</h1>
+          <p className="text-gray-600 mt-1">{t('academic.academicYears.createSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -145,15 +149,15 @@ export default function CreateAcademicYear() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Academic year created successfully! Redirecting...</span>
+                <span>{t('academic.academicYears.createdSuccess')}</span>
               </div>
             )}
 
             <div className="space-y-6">
               {userRole === 'admin' && (
-                <div className="flex items-center space-x-2 p-4 bg-gray-50 rounded-lg">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} p-4 bg-gray-50 rounded-lg`}>
                   <input
                     type="checkbox"
                     checked={isUniversityWide}
@@ -168,20 +172,20 @@ export default function CreateAcademicYear() {
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   <label className="text-sm font-medium text-gray-700">
-                    University-wide (available to all colleges)
+                    {t('academic.academicYears.universityWide')}
                   </label>
                 </div>
               )}
 
               {userRole === 'admin' && !isUniversityWide && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">College</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.college')}</label>
                   <select
                     value={formData.college_id || ''}
                     onChange={(e) => handleChange('college_id', e.target.value ? parseInt(e.target.value) : null)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select College...</option>
+                    <option value="">{t('academic.academicYears.selectCollege')}</option>
                     {colleges.map(college => (
                       <option key={college.id} value={college.id}>{college.name_en}</option>
                     ))}
@@ -190,45 +194,45 @@ export default function CreateAcademicYear() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.name')} *</label>
                 <input
                   type="text"
                   value={formData.name_en}
                   onChange={(e) => handleChange('name_en', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="e.g., Academic Year 2024-2025"
+                  placeholder={t('academic.academicYears.namePlaceholder')}
                 />
-                <p className="text-xs text-gray-500 mt-1">The display name for this academic year</p>
+                <p className="text-xs text-gray-500 mt-1">{t('academic.academicYears.nameHint')}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.nameAr')}</label>
                 <input
                   type="text"
                   value={formData.name_ar}
                   onChange={(e) => handleChange('name_ar', e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="السنة الأكاديمية 2024-2025"
+                  placeholder={t('academic.academicYears.nameArPlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Code *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.code')} *</label>
                 <input
                   type="text"
                   value={formData.code}
                   onChange={(e) => handleChange('code', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="e.g., 2024-2025"
+                  placeholder={t('academic.academicYears.codePlaceholder')}
                 />
-                <p className="text-xs text-gray-500 mt-1">Unique identifier for this academic year</p>
+                <p className="text-xs text-gray-500 mt-1">{t('academic.academicYears.codeHint')}</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.startDate')} *</label>
                   <input
                     type="date"
                     value={formData.start_date}
@@ -238,7 +242,7 @@ export default function CreateAcademicYear() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.endDate')} *</label>
                   <input
                     type="date"
                     value={formData.end_date}
@@ -250,44 +254,44 @@ export default function CreateAcademicYear() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.description')}</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => handleChange('description', e.target.value)}
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Brief description of this academic year"
+                  placeholder={t('academic.academicYears.descriptionPlaceholder')}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.academicYears.descriptionAr')}</label>
                 <textarea
                   value={formData.description_ar}
                   onChange={(e) => handleChange('description_ar', e.target.value)}
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="وصف السنة الأكاديمية"
+                  placeholder={t('academic.academicYears.descriptionArPlaceholder')}
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse' : 'justify-end'} space-x-4`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('academic.academicYears.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Creating...' : 'Create Academic Year'}</span>
+              <span>{loading ? t('academic.academicYears.creating') : t('academic.academicYears.create')}</span>
             </button>
           </div>
         </form>

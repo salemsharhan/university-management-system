@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
 
 export default function CreateMajor() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole } = useAuth()
@@ -214,13 +218,13 @@ export default function CreateMajor() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('academic.majors.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create Major</h1>
-          <p className="text-gray-600 mt-1">Add a new academic major to the system</p>
+          <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.createTitle')}</h1>
+          <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.createSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -231,9 +235,9 @@ export default function CreateMajor() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Major created successfully! Redirecting...</span>
+                <span>{t('academic.majors.createdSuccess')}</span>
               </div>
             )}
 
@@ -250,28 +254,28 @@ export default function CreateMajor() {
                       } else {
                         setFormData(prev => ({ ...prev, college_id: collegeId }))
                       }
-                      fetchFaculties()
+                      fetchDepartments()
                     }}
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <label className="text-sm font-medium text-gray-700">
-                    University-wide (available to all colleges)
+                  <label className={`text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    {t('academic.majors.universityWide')}
                   </label>
                 </div>
               )}
 
               {userRole === 'admin' && !isUniversityWide && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">College</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.college')}</label>
                   <select
                     value={formData.college_id || ''}
                     onChange={(e) => {
                       handleChange('college_id', e.target.value ? parseInt(e.target.value) : null)
-                      fetchFaculties()
+                      fetchDepartments()
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select College...</option>
+                    <option value="">{t('academic.majors.selectCollege')}</option>
                     {colleges.map(college => (
                       <option key={college.id} value={college.id}>{college.name_en}</option>
                     ))}
@@ -281,82 +285,85 @@ export default function CreateMajor() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Code *</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.code')} *</label>
                   <input
                     type="text"
                     value={formData.code}
                     onChange={(e) => handleChange('code', e.target.value)}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="e.g., CS, ENG, BUS"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                    placeholder={t('academic.majors.codePlaceholder')}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name (English) *</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.name')} *</label>
                   <input
                     type="text"
                     value={formData.name_en}
                     onChange={(e) => handleChange('name_en', e.target.value)}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                    placeholder={t('academic.majors.namePlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name (Arabic)</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.nameAr')}</label>
                   <input
                     type="text"
                     value={formData.name_ar}
                     onChange={(e) => handleChange('name_ar', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                    placeholder={t('academic.majors.nameArPlaceholder')}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Degree Level *</label>
+                <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.degreeLevel')} *</label>
                 <select
                   value={formData.degree_level}
                   onChange={(e) => handleChange('degree_level', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="bachelor">Bachelor</option>
-                  <option value="master">Master</option>
-                  <option value="phd">PhD</option>
-                  <option value="diploma">Diploma</option>
+                  <option value="bachelor">{t('academic.majors.bachelor')}</option>
+                  <option value="master">{t('academic.majors.master')}</option>
+                  <option value="phd">{t('academic.majors.phd')}</option>
+                  <option value="diploma">{t('academic.majors.diploma')}</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Degree Title</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.degreeTitle')}</label>
                   <input
                     type="text"
                     value={formData.degree_title_en}
                     onChange={(e) => handleChange('degree_title_en', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="e.g., Bachelor of Science in Computer Science"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                    placeholder={t('academic.majors.degreeTitlePlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Degree Title (Arabic)</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.degreeTitleAr')}</label>
                   <input
                     type="text"
                     value={formData.degree_title_ar}
                     onChange={(e) => handleChange('degree_title_ar', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                    placeholder={t('academic.majors.degreeTitleArPlaceholder')}
                   />
                 </div>
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Academic Requirements</h3>
+                <h3 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicRequirements')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Credits *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.totalCredits')} *</label>
                     <input
                       type="number"
                       value={formData.total_credits}
@@ -366,7 +373,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Core Credits *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.coreCredits')} *</label>
                     <input
                       type="number"
                       value={formData.core_credits}
@@ -376,7 +383,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Elective Credits *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.electiveCredits')} *</label>
                     <input
                       type="number"
                       value={formData.elective_credits}
@@ -386,7 +393,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Min Semesters *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.minSemesters')} *</label>
                     <input
                       type="number"
                       value={formData.min_semesters}
@@ -396,7 +403,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Semesters *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.maxSemesters')} *</label>
                     <input
                       type="number"
                       value={formData.max_semesters}
@@ -406,7 +413,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Min GPA *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.minGpa')} *</label>
                     <input
                       type="number"
                       step="0.1"
@@ -420,10 +427,10 @@ export default function CreateMajor() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Information</h3>
+                <h3 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.financialInformation')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tuition Fee</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.tuitionFee')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -433,7 +440,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Lab Fee</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.labFee')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -443,7 +450,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Registration Fee</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.registrationFee')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -456,10 +463,10 @@ export default function CreateMajor() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Accreditation & Contact</h3>
+                <h3 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.accreditationContact')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Accreditation Date</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.accreditationDate')}</label>
                     <input
                       type="date"
                       value={formData.accreditation_date}
@@ -468,7 +475,7 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Accreditation Expiry</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.accreditationExpiry')}</label>
                     <input
                       type="date"
                       value={formData.accreditation_expiry}
@@ -477,16 +484,16 @@ export default function CreateMajor() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Accrediting Body</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.accreditingBody')}</label>
                     <input
                       type="text"
                       value={formData.accrediting_body}
                       onChange={(e) => handleChange('accrediting_body', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Head of Major (Instructor)</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.headOfMajor')}</label>
                     <select
                       value={formData.head_of_major_id}
                       onChange={(e) => {
@@ -507,7 +514,7 @@ export default function CreateMajor() {
                       }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     >
-                      <option value="">Select Instructor...</option>
+                      <option value="">{t('academic.majors.selectInstructor')}</option>
                       {instructors.map(instructor => (
                         <option key={instructor.id} value={instructor.id}>
                           {instructor.name_en} {instructor.title ? `(${instructor.title})` : ''}
@@ -516,22 +523,22 @@ export default function CreateMajor() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Head Email</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.headEmail')}</label>
                     <input
                       type="email"
                       value={formData.head_email}
                       onChange={(e) => handleChange('head_email', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                       readOnly={!!formData.head_of_major_id}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Head Phone</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.headPhone')}</label>
                     <input
                       type="tel"
                       value={formData.head_phone}
                       onChange={(e) => handleChange('head_phone', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                       readOnly={!!formData.head_of_major_id}
                     />
                   </div>
@@ -540,52 +547,52 @@ export default function CreateMajor() {
 
               <div className="border-t pt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description (English)</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.description')}</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => handleChange('description', e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                   />
                 </div>
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.descriptionAr')}</label>
                   <textarea
                     value={formData.description_ar}
                     onChange={(e) => handleChange('description_ar', e.target.value)}
                     rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
                   checked={formData.status === 'active'}
                   onChange={(e) => handleChange('status', e.target.checked ? 'active' : 'inactive')}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label className="text-sm font-medium text-gray-700">Active</label>
+                <label className={`text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.active')}</label>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse' : 'justify-end space-x-4'}`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('academic.majors.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Creating...' : 'Create Major'}</span>
+              <span>{loading ? t('academic.majors.creating') : t('academic.majors.create')}</span>
             </button>
           </div>
         </form>

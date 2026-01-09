@@ -35,16 +35,60 @@ export const AuthProvider = ({ children }) => {
       
       if (!error && data) {
         setUserRole(data.role)
-        setCollegeId(data.college_id)
+        let finalCollegeId = data.college_id
+        
+        // If user is a college admin (role === 'user') but college_id is null,
+        // try to find the college by matching email with college contact emails
+        if (data.role === 'user' && !data.college_id) {
+          console.warn('College admin has null college_id, attempting to find college by email...', email)
+          try {
+            // Try to find college by matching email with various college email fields
+            const { data: collegeData, error: collegeError } = await supabase
+              .from('colleges')
+              .select('id, contact_email, official_email, dean_email, name_en')
+              .or(`contact_email.ilike.%${email}%,official_email.ilike.%${email}%,dean_email.ilike.%${email}%`)
+              .eq('status', 'active')
+              .limit(1)
+            
+            if (!collegeError && collegeData && collegeData.length > 0) {
+              finalCollegeId = collegeData[0].id
+              console.log('✅ Found college by email:', finalCollegeId, 'College:', collegeData[0].name_en)
+              
+              // Update the user record with the found college_id
+              try {
+                const { error: updateError } = await supabase
+                  .from('users')
+                  .update({ college_id: finalCollegeId })
+                  .eq('email', email)
+                
+                if (!updateError) {
+                  console.log('✅ Updated user record with college_id:', finalCollegeId)
+                } else {
+                  console.error('❌ Failed to update user record with college_id:', updateError)
+                }
+              } catch (updateErr) {
+                console.error('❌ Error updating user record with college_id:', updateErr)
+              }
+            } else {
+              console.error('❌ Could not find college for email:', email, 'Error:', collegeError)
+              console.warn('⚠️ Please ensure college_id is set in users table or email matches a college contact email')
+            }
+          } catch (collegeErr) {
+            console.error('❌ Error fetching college by email:', collegeErr)
+          }
+        }
+        
+        setCollegeId(finalCollegeId)
+        console.log('User role fetched:', data.role, 'College ID:', finalCollegeId)
         
         // If user is an instructor, fetch their department_id
-        if (data.role === 'instructor' && data.college_id) {
+        if (data.role === 'instructor' && finalCollegeId) {
           try {
             const { data: instructorData, error: instructorError } = await supabase
               .from('instructors')
               .select('department_id, college_id')
               .eq('email', email)
-              .eq('college_id', data.college_id)
+              .eq('college_id', finalCollegeId)
               .limit(1)
             
             if (!instructorError && instructorData && instructorData.length > 0) {
@@ -64,7 +108,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         // User not found in users table, but has auth session
         // Set role to null but don't block the app
-        console.warn('User not found in users table:', email)
+        console.warn('User not found in users table:', email, 'Error:', error)
         setUserRole(null)
         setCollegeId(null)
         setDepartmentId(null)

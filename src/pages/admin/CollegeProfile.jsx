@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { 
   ArrowLeft, 
@@ -22,6 +24,8 @@ import {
 } from 'lucide-react'
 
 export default function CollegeProfile() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
   const [college, setCollege] = useState(null)
@@ -250,10 +254,10 @@ export default function CollegeProfile() {
       <div className="space-y-6">
         <button
           onClick={() => navigate('/admin/colleges')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Colleges</span>
+          <span>{t('colleges.profile.backToColleges')}</span>
         </button>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
           {error || 'College not found'}
@@ -263,42 +267,42 @@ export default function CollegeProfile() {
   }
 
   const tabs = [
-    { id: 'overview', name: 'Overview', icon: TrendingUp },
-    { id: 'students', name: 'Students', icon: GraduationCap },
-    { id: 'instructors', name: 'Instructors', icon: Users },
-    { id: 'academic-years', name: 'Academic Years', icon: CalendarDays },
-    { id: 'semesters', name: 'Semesters', icon: CalendarDays },
-    { id: 'departments', name: 'Departments', icon: Building2 },
-    { id: 'majors', name: 'Majors', icon: BookOpen },
-    { id: 'subjects', name: 'Subjects', icon: BookOpen },
-    { id: 'classes', name: 'Classes', icon: FileText },
-    { id: 'attendance', name: 'Attendance', icon: Calendar },
-    { id: 'settings', name: 'Settings', icon: Settings },
+    { id: 'overview', name: t('colleges.profile.overview'), icon: TrendingUp },
+    { id: 'students', name: t('colleges.profile.students'), icon: GraduationCap },
+    { id: 'instructors', name: t('colleges.profile.instructors'), icon: Users },
+    { id: 'academic-years', name: t('colleges.profile.academicYears'), icon: CalendarDays },
+    { id: 'semesters', name: t('colleges.profile.semesters'), icon: CalendarDays },
+    { id: 'departments', name: t('colleges.profile.departments'), icon: Building2 },
+    { id: 'majors', name: t('colleges.profile.majors'), icon: BookOpen },
+    { id: 'subjects', name: t('colleges.profile.subjects'), icon: BookOpen },
+    { id: 'classes', name: t('colleges.profile.classes'), icon: FileText },
+    { id: 'attendance', name: t('colleges.profile.attendance'), icon: Calendar },
+    { id: 'settings', name: t('colleges.profile.settings'), icon: Settings },
   ]
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <button
           onClick={() => navigate('/admin/colleges')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Colleges</span>
+          <span>{t('colleges.profile.backToColleges')}</span>
         </button>
         <button
           onClick={() => navigate(`/admin/colleges/${id}/edit`)}
-          className="flex items-center space-x-2 bg-primary-gradient text-white px-6 py-2 rounded-xl font-semibold hover:shadow-lg transition-all"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-2 rounded-xl font-semibold hover:shadow-lg transition-all`}
         >
           <Edit className="w-5 h-5" />
-          <span>Edit College</span>
+          <span>{t('colleges.profile.editCollege')}</span>
         </button>
       </div>
 
       {/* College Header */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <div className="flex items-start space-x-6">
+        <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-6'}`}>
           <div
             className="w-24 h-24 rounded-xl flex items-center justify-center shadow-lg"
             style={{ backgroundColor: college.primary_color || '#952562' }}
@@ -310,7 +314,7 @@ export default function CollegeProfile() {
             {college.name_ar && (
               <p className="text-2xl text-gray-600 mt-1">{college.name_ar}</p>
             )}
-            <div className="flex items-center space-x-4 mt-4">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'} mt-4`}>
               <span className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
                 Code: {college.code}
               </span>
@@ -341,14 +345,14 @@ export default function CollegeProfile() {
       {/* Tabs */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-1 p-2 overflow-x-auto">
+          <nav className={`flex ${isRTL ? 'space-x-reverse' : 'space-x-1'} p-2 overflow-x-auto`}>
             {tabs.map((tab) => {
               const TabIcon = tab.icon
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+                  className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-primary-gradient text-white shadow-lg'
                       : 'text-gray-600 hover:bg-gray-100'
@@ -408,22 +412,22 @@ export default function CollegeProfile() {
               {/* Contact Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Contact Information</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('colleges.profile.contactInformation')}</h3>
                   <div className="space-y-3">
                     {college.official_email && (
-                      <div className="flex items-center space-x-3">
+                      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
                         <Mail className="w-5 h-5 text-gray-400" />
                         <span className="text-gray-700">{college.official_email}</span>
                       </div>
                     )}
                     {college.phone_number && (
-                      <div className="flex items-center space-x-3">
+                      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
                         <Phone className="w-5 h-5 text-gray-400" />
                         <span className="text-gray-700">{college.phone_number}</span>
                       </div>
                     )}
                     {college.website_url && (
-                      <div className="flex items-center space-x-3">
+                      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
                         <Globe className="w-5 h-5 text-gray-400" />
                         <a href={college.website_url} target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">
                           {college.website_url}
@@ -431,7 +435,7 @@ export default function CollegeProfile() {
                       </div>
                     )}
                     {college.address_en && (
-                      <div className="flex items-start space-x-3">
+                      <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
                         <MapPin className="w-5 h-5 text-gray-400 mt-1" />
                         <span className="text-gray-700">{college.address_en}</span>
                       </div>
@@ -440,29 +444,29 @@ export default function CollegeProfile() {
                 </div>
 
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Additional Information</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('colleges.profile.additionalInformation')}</h3>
                   <div className="space-y-3">
                     {college.established_date && (
                       <div>
-                        <span className="text-sm text-gray-500">Established:</span>
-                        <span className="ml-2 text-gray-700">
+                        <span className="text-sm text-gray-500">{t('colleges.profile.established')}</span>
+                        <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-700`}>
                           {new Date(college.established_date).toLocaleDateString()}
                         </span>
                       </div>
                     )}
                     {college.dean_name && (
                       <div>
-                        <span className="text-sm text-gray-500">Dean:</span>
-                        <span className="ml-2 text-gray-700">{college.dean_name}</span>
+                        <span className="text-sm text-gray-500">{t('colleges.profile.dean')}</span>
+                        <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-700`}>{college.dean_name}</span>
                       </div>
                     )}
                     {college.building && (
                       <div>
-                        <span className="text-sm text-gray-500">Location:</span>
-                        <span className="ml-2 text-gray-700">
+                        <span className="text-sm text-gray-500">{t('colleges.profile.location')}</span>
+                        <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-700`}>
                           {college.building}
-                          {college.floor && `, Floor ${college.floor}`}
-                          {college.room_number && `, Room ${college.room_number}`}
+                          {college.floor && `, ${t('common.floor')} ${college.floor}`}
+                          {college.room_number && `, ${t('common.room')} ${college.room_number}`}
                         </span>
                       </div>
                     )}
@@ -475,13 +479,13 @@ export default function CollegeProfile() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {college.vision && (
                     <div className="bg-blue-50 rounded-lg p-6">
-                      <h3 className="font-semibold text-gray-900 mb-3">Vision</h3>
+                      <h3 className="font-semibold text-gray-900 mb-3">{t('colleges.profile.vision')}</h3>
                       <p className="text-gray-700">{college.vision}</p>
                     </div>
                   )}
                   {college.mission && (
                     <div className="bg-green-50 rounded-lg p-6">
-                      <h3 className="font-semibold text-gray-900 mb-3">Mission</h3>
+                      <h3 className="font-semibold text-gray-900 mb-3">{t('colleges.profile.mission')}</h3>
                       <p className="text-gray-700">{college.mission}</p>
                     </div>
                   )}
@@ -491,12 +495,12 @@ export default function CollegeProfile() {
               {/* Description */}
               {(college.description_en || college.description_ar) && (
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-3">Description</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3">{t('colleges.profile.description')}</h3>
                   {college.description_en && (
                     <p className="text-gray-700 mb-3">{college.description_en}</p>
                   )}
                   {college.description_ar && (
-                    <p className="text-gray-700" dir="rtl">{college.description_ar}</p>
+                    <p className={`text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`} dir="rtl">{college.description_ar}</p>
                   )}
                 </div>
               )}
@@ -506,13 +510,13 @@ export default function CollegeProfile() {
           {/* Render tab content based on activeTab */}
           {activeTab === 'students' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Students ({stats.students})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.students')} ({stats.students})</h3>
                 <button
                   onClick={() => navigate(`/students/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Student
+                  {t('colleges.profile.addStudent')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -529,13 +533,13 @@ export default function CollegeProfile() {
 
           {activeTab === 'instructors' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Instructors ({stats.instructors})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.instructors')} ({stats.instructors})</h3>
                 <button
                   onClick={() => navigate(`/instructors/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Instructor
+                  {t('colleges.profile.addInstructor')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -554,13 +558,13 @@ export default function CollegeProfile() {
           {/* Similar rendering for other tabs */}
           {activeTab === 'academic-years' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Academic Years ({stats.academicYears})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.academicYears')} ({stats.academicYears})</h3>
                 <button
                   onClick={() => navigate(`/academic/academic-years/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Academic Year
+                  {t('colleges.profile.addAcademicYear')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -576,13 +580,13 @@ export default function CollegeProfile() {
 
           {activeTab === 'semesters' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Semesters ({stats.semesters})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.semesters')} ({stats.semesters})</h3>
                 <button
                   onClick={() => navigate(`/academic/semesters/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Semester
+                  {t('colleges.profile.addSemester')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -598,13 +602,13 @@ export default function CollegeProfile() {
 
           {activeTab === 'departments' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Departments ({stats.departments})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.departments')} ({stats.departments})</h3>
                 <button
                   onClick={() => navigate(`/academic/departments/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Department
+                  {t('colleges.profile.addDepartment')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -620,13 +624,13 @@ export default function CollegeProfile() {
 
           {activeTab === 'majors' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Majors ({stats.majors})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.majors')} ({stats.majors})</h3>
                 <button
                   onClick={() => navigate(`/academic/majors/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Major
+                  {t('colleges.profile.addMajor')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -642,13 +646,13 @@ export default function CollegeProfile() {
 
           {activeTab === 'subjects' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Subjects ({stats.subjects})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.subjects')} ({stats.subjects})</h3>
                 <button
                   onClick={() => navigate(`/academic/subjects/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Subject
+                  {t('colleges.profile.addSubject')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -664,13 +668,13 @@ export default function CollegeProfile() {
 
           {activeTab === 'classes' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Classes ({stats.classes})</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.classes')} ({stats.classes})</h3>
                 <button
                   onClick={() => navigate(`/academic/classes/create?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  Add Class
+                  {t('colleges.profile.addClass')}
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -686,22 +690,22 @@ export default function CollegeProfile() {
 
           {activeTab === 'attendance' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Attendance Management</h3>
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.attendance')}</h3>
                 <button
                   onClick={() => navigate(`/attendance?collegeId=${id}`)}
                   className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                 >
-                  View Full Dashboard
+                  {t('colleges.profile.viewFullDashboard')}
                 </button>
               </div>
 
               {/* Sessions */}
               <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-4">Recent Sessions ({attendanceSessions.length})</h4>
+                <h4 className="text-md font-semibold text-gray-900 mb-4">{t('colleges.profile.recentSessions')} ({attendanceSessions.length})</h4>
                 <div className="space-y-2">
                   {attendanceSessions.length === 0 ? (
-                    <p className="text-gray-500 text-center py-8">No sessions recorded yet</p>
+                    <p className="text-gray-500 text-center py-8">{t('colleges.profile.noSessions')}</p>
                   ) : (
                     attendanceSessions.map((session) => (
                       <div key={session.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -718,7 +722,7 @@ export default function CollegeProfile() {
                             onClick={() => navigate(`/attendance/take?sessionId=${session.id}&classId=${session.classes?.id}`)}
                             className="px-4 py-2 bg-primary-gradient text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
                           >
-                            View/Edit
+                            {t('colleges.profile.viewEdit')}
                           </button>
                         </div>
                       </div>
@@ -729,22 +733,22 @@ export default function CollegeProfile() {
 
               {/* Attendance Records */}
               <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-4">Recent Attendance Records ({attendanceRecords.length})</h4>
+                <h4 className="text-md font-semibold text-gray-900 mb-4">{t('colleges.profile.recentAttendanceRecords')} ({attendanceRecords.length})</h4>
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Class</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.profile.date')}</th>
+                        <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.profile.student')}</th>
+                        <th className={`px-6 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.profile.class')}</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('colleges.profile.status')}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {attendanceRecords.length === 0 ? (
                         <tr>
                           <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                            No attendance records yet
+                            {t('colleges.profile.noAttendanceRecords')}
                           </td>
                         </tr>
                       ) : (
@@ -781,21 +785,28 @@ export default function CollegeProfile() {
 
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">College Settings</h3>
+              <h3 className="text-lg font-semibold text-gray-900">{t('colleges.profile.settings')}</h3>
               
-              {['academic', 'financial', 'email', 'onboarding', 'system', 'examination'].map((settingType) => (
-                <div key={settingType} className="border border-gray-200 rounded-lg">
+              {[
+                { key: 'academic', label: t('colleges.profile.academicSettings') },
+                { key: 'financial', label: t('colleges.profile.financialSettings') },
+                { key: 'email', label: t('colleges.profile.emailSettings') },
+                { key: 'onboarding', label: t('colleges.profile.onboardingSettings') },
+                { key: 'system', label: t('colleges.profile.systemSettings') },
+                { key: 'examination', label: t('colleges.profile.examinationSettings') }
+              ].map(({ key, label }) => (
+                <div key={key} className="border border-gray-200 rounded-lg">
                   <button
-                    onClick={() => toggleSettings(settingType)}
-                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleSettings(key)}
+                    className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
                   >
-                    <span className="font-semibold text-gray-900 capitalize">{settingType} Settings</span>
-                    {showSettings[settingType] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    <span className="font-semibold text-gray-900">{label}</span>
+                    {showSettings[key] ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
-                  {showSettings[settingType] && (
+                  {showSettings[key] && (
                     <div className="p-4 border-t border-gray-200 bg-gray-50">
                       <pre className="text-xs overflow-auto">
-                        {JSON.stringify(college[`${settingType}_settings`] || {}, null, 2)}
+                        {JSON.stringify(college[`${key}_settings`] || {}, null, 2)}
                       </pre>
                     </div>
                   )}

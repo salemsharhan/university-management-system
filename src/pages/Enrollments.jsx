@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Plus, Search, GraduationCap } from 'lucide-react'
 
 export default function Enrollments() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId, departmentId } = useAuth()
   const [enrollments, setEnrollments] = useState([])
@@ -170,17 +174,17 @@ export default function Enrollments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Enrollment Management</h1>
-          <p className="text-gray-600 mt-1">Manage student course enrollments and registrations</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('enrollments.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('enrollments.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/enrollments/create')}
-          className="flex items-center space-x-2 bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
         >
           <Plus className="w-5 h-5" />
-          <span>Add New Enrollment</span>
+          <span>{t('enrollments.create')}</span>
         </button>
       </div>
 
@@ -188,13 +192,13 @@ export default function Enrollments() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
             <input
               type="text"
-              placeholder="Student name or ID..."
+              placeholder={t('enrollments.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
             />
           </div>
           <div>
@@ -203,7 +207,7 @@ export default function Enrollments() {
               onChange={(e) => setSemesterFilter(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="all">All Semesters</option>
+              <option value="all">{t('enrollments.allSemesters')}</option>
               {semesters.map(semester => (
                 <option key={semester.id} value={semester.id}>
                   {semester.name_en} ({semester.code})
@@ -217,12 +221,12 @@ export default function Enrollments() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="all">All Status</option>
-              <option value="enrolled">Enrolled</option>
-              <option value="dropped">Dropped</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-              <option value="withdrawn">Withdrawn</option>
+              <option value="all">{t('enrollments.allStatus')}</option>
+              <option value="enrolled">{t('enrollments.enrolled')}</option>
+              <option value="dropped">{t('enrollments.dropped')}</option>
+              <option value="completed">{t('enrollments.completed')}</option>
+              <option value="failed">{t('enrollments.failed')}</option>
+              <option value="withdrawn">{t('enrollments.withdrawn')}</option>
             </select>
           </div>
         </div>
@@ -239,26 +243,26 @@ export default function Enrollments() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student
+                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.student')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Class
+                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.class')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Semester
+                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.semester')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Enrollment Date
+                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.enrollmentDate')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.status')}
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Grade
+                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.grade')}
                   </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                  <th className={`px-6 py-4 ${isRTL ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                    {t('enrollments.actions')}
                   </th>
                 </tr>
               </thead>
@@ -266,7 +270,7 @@ export default function Enrollments() {
                 {filteredEnrollments.length === 0 ? (
                   <tr>
                     <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
-                      No enrollments found
+                      {t('enrollments.noEnrollmentsFound')}
                     </td>
                   </tr>
                 ) : (
@@ -288,7 +292,7 @@ export default function Enrollments() {
                             {enrollment.classes?.subjects?.code} - {enrollment.classes?.subjects?.name_en}
                           </div>
                           <div className="text-sm text-gray-500">
-                            Section: {enrollment.classes?.section || 'N/A'}
+                            {t('enrollments.section')}: {enrollment.classes?.section || 'N/A'}
                           </div>
                         </div>
                       </td>
@@ -304,7 +308,7 @@ export default function Enrollments() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(enrollment.status)}`}>
-                          {enrollment.status || 'enrolled'}
+                          {t(`enrollments.${enrollment.status || 'enrolled'}`)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -312,12 +316,12 @@ export default function Enrollments() {
                           {enrollment.grade || '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-left' : 'text-right'}`}>
                         <button
                           onClick={() => navigate(`/enrollments/${enrollment.id}`)}
                           className="text-primary-600 hover:text-primary-800 font-medium text-sm"
                         >
-                          View Details
+                          {t('enrollments.viewDetails')}
                         </button>
                       </td>
                     </tr>

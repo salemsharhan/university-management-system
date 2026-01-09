@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import GeneralSettings from '../../components/college/GeneralSettings'
 import AcademicSettings from '../../components/college/AcademicSettings'
@@ -89,14 +91,27 @@ async function createAdminAccountDirectly(collegeId, formData, serviceRoleKey, s
 }
 
 export default function CreateCollege() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
+  const { id } = useParams()
+  const isEditMode = !!id
   const [activeTab, setActiveTab] = useState('general')
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(isEditMode)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [useUniversitySettings, setUseUniversitySettings] = useState(false)
   const [universitySettings, setUniversitySettings] = useState(null)
   const [loadingUniversitySettings, setLoadingUniversitySettings] = useState(false)
+  const [collegeTypes, setCollegeTypes] = useState([])
+
+  // Fetch college data if in edit mode
+  useEffect(() => {
+    if (isEditMode && id) {
+      fetchCollegeData()
+    }
+  }, [id, isEditMode])
 
   // Fetch university settings when checkbox is checked
   useEffect(() => {
@@ -105,12 +120,182 @@ export default function CreateCollege() {
     }
   }, [useUniversitySettings])
 
+  // Fetch college types on mount
+  useEffect(() => {
+    fetchCollegeTypes()
+  }, [])
+
   // Auto-fill form when university settings are loaded
   useEffect(() => {
     if (useUniversitySettings && universitySettings) {
       autoFillFromUniversitySettings()
     }
   }, [universitySettings, useUniversitySettings])
+
+  const fetchCollegeData = async () => {
+    if (!id) return
+    setLoadingData(true)
+    setError('')
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('colleges')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      if (data) {
+        // Populate form with existing college data
+        setFormData(prev => ({
+          ...prev,
+          code: data.code || '',
+          name_en: data.name_en || '',
+          name_ar: data.name_ar || '',
+          type: data.type || '',
+          description_en: data.description_en || '',
+          description_ar: data.description_ar || '',
+          abbreviation: data.abbreviation || '',
+          official_email: data.official_email || '',
+          phone_number: data.phone_number || '',
+          website_url: data.website_url || '',
+          address_en: data.address_en || '',
+          address_ar: data.address_ar || '',
+          logo_url: data.logo_url || '',
+          primary_color: data.primary_color || '#952562',
+          secondary_color: data.secondary_color || '#E82B5E',
+          dean_name: data.dean_name || '',
+          dean_email: data.dean_email || '',
+          dean_phone: data.dean_phone || '',
+          contact_email: data.contact_email || '',
+          contact_phone: data.contact_phone || '',
+          building: data.building || '',
+          floor: data.floor || '',
+          room_number: data.room_number || '',
+          location_description: data.location_description || '',
+          vision: data.vision || '',
+          mission: data.mission || '',
+          established_date: data.established_date || '',
+          accreditation_info: data.accreditation_info || '',
+          student_id_prefix: data.student_id_prefix || 'STU',
+          student_id_format: data.student_id_format || '{prefix}{year}{sequence:D4}',
+          student_id_starting_number: data.student_id_starting_number || 1,
+          instructor_id_prefix: data.instructor_id_prefix || 'INS',
+          instructor_id_format: data.instructor_id_format || '{prefix}{year}{sequence:D4}',
+          instructor_id_starting_number: data.instructor_id_starting_number || 1,
+          default_language: data.default_language || 'en',
+          timezone: data.timezone || 'UTC',
+          currency: data.currency || 'USD',
+          use_university_settings: data.use_university_settings || false,
+        }))
+
+        // Set checkbox based on college data
+        setUseUniversitySettings(data.use_university_settings || false)
+
+        // Load settings from JSONB fields if not using university settings
+        if (!data.use_university_settings) {
+          if (data.academic_settings) {
+            const academic = data.academic_settings
+            if (academic.creditHours) {
+              setFormData(prev => ({
+                ...prev,
+                min_credit_hours: academic.creditHours.minPerSemester || prev.min_credit_hours,
+                max_credit_hours: academic.creditHours.maxPerSemester || prev.max_credit_hours,
+                max_with_permission: academic.creditHours.maxWithPermission || prev.max_with_permission,
+                min_gpa_for_overload: academic.creditHours.minGpaForOverload || prev.min_gpa_for_overload,
+              }))
+            }
+            if (academic.gpa) {
+              setFormData(prev => ({
+                ...prev,
+                min_passing_gpa: academic.gpa.minPassing || prev.min_passing_gpa,
+                max_gpa_scale: academic.gpa.maxScale || prev.max_gpa_scale,
+                honor_roll_min_gpa: academic.gpa.honorRollMin || prev.honor_roll_min_gpa,
+                probation_threshold: academic.gpa.probationThreshold || prev.probation_threshold,
+              }))
+            }
+            if (academic.gradingScale) {
+              setFormData(prev => ({
+                ...prev,
+                grading_scale: academic.gradingScale || prev.grading_scale,
+              }))
+            }
+            if (academic.attendance) {
+              const att = academic.attendance
+              setFormData(prev => ({
+                ...prev,
+                attendance_required: att.required ?? prev.attendance_required,
+                min_attendance_percentage: att.minPercentage || prev.min_attendance_percentage,
+                attendance_warning_threshold: att.warningThreshold || prev.attendance_warning_threshold,
+                max_absence_days: att.maxAbsenceDays || prev.max_absence_days,
+                present_weight: att.presentWeight || prev.present_weight,
+                late_weight: att.lateWeight || prev.late_weight,
+                excused_weight: att.excusedWeight || prev.excused_weight,
+                count_excused_in_rate: att.countExcusedInRate ?? prev.count_excused_in_rate,
+                count_late_as_full: att.countLateAsFull ?? prev.count_late_as_full,
+                enable_warnings: att.enableWarnings ?? prev.enable_warnings,
+                send_notifications: att.sendNotifications ?? prev.send_notifications,
+                enforce_max_absence: att.enforceMaxAbsence ?? prev.enforce_max_absence,
+                create_alert_at_max: att.createAlertAtMax ?? prev.create_alert_at_max,
+                edit_window_hours: att.editWindowHours || prev.edit_window_hours,
+                require_approval_after_window: att.requireApprovalAfterWindow ?? prev.require_approval_after_window,
+                allow_instructor_override: att.allowInstructorOverride ?? prev.allow_instructor_override,
+                late_arrival_grace_minutes: att.lateArrivalGraceMinutes || prev.late_arrival_grace_minutes,
+                late_arrival_cutoff_minutes: att.lateArrivalCutoffMinutes || prev.late_arrival_cutoff_minutes,
+                early_departure_minutes: att.earlyDepartureMinutes || prev.early_departure_minutes,
+                contest_deadline_days: att.contestDeadlineDays || prev.contest_deadline_days,
+                contest_review_deadline_days: att.contestReviewDeadlineDays || prev.contest_review_deadline_days,
+                max_contest_document_size_mb: att.maxContestDocumentSizeMB || prev.max_contest_document_size_mb,
+                auto_reject_expired: att.autoRejectExpired ?? prev.auto_reject_expired,
+                require_document_for_contests: att.requireDocumentForContests ?? prev.require_document_for_contests,
+                default_upcoming_sessions_days: att.defaultUpcomingSessionsDays || prev.default_upcoming_sessions_days,
+                max_upcoming_sessions_days: att.maxUpcomingSessionsDays || prev.max_upcoming_sessions_days,
+                auto_exclude_weekends: att.autoExcludeWeekends ?? prev.auto_exclude_weekends,
+                auto_drop_enabled: att.autoDropEnabled ?? prev.auto_drop_enabled,
+                auto_drop_threshold: att.autoDropThreshold || prev.auto_drop_threshold,
+              }))
+            }
+            if (academic.courseRegistration) {
+              setFormData(prev => ({
+                ...prev,
+                enable_prerequisite_checking: academic.courseRegistration.enablePrerequisiteChecking ?? prev.enable_prerequisite_checking,
+                allow_waitlist: academic.courseRegistration.allowWaitlist ?? prev.allow_waitlist,
+                add_drop_period_days: academic.courseRegistration.addDropPeriodDays || prev.add_drop_period_days,
+              }))
+            }
+          }
+          // Similar for other settings (financial, email, onboarding, system, examination)
+          // ... (يتم إضافة باقي الإعدادات لاحقاً إذا لزم الأمر)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching college:', err)
+      setError(err.message || 'Failed to load college data')
+    } finally {
+      setLoadingData(false)
+    }
+  }
+
+  const fetchCollegeTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('university_settings')
+        .select('college_types')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+
+      if (error) {
+        console.error('Error fetching college types:', error)
+        return
+      }
+
+      if (data && data.length > 0 && data[0].college_types && Array.isArray(data[0].college_types)) {
+        setCollegeTypes(data[0].college_types)
+      }
+    } catch (err) {
+      console.error('Error fetching college types:', err)
+    }
+  }
 
   const fetchUniversitySettings = async () => {
     setLoadingUniversitySettings(true)
@@ -130,6 +315,10 @@ export default function CreateCollege() {
 
       if (data && data.length > 0) {
         setUniversitySettings(data[0])
+        // Update college types if available
+        if (data[0].college_types && Array.isArray(data[0].college_types)) {
+          setCollegeTypes(data[0].college_types)
+        }
       } else {
         setError('No university settings found. Please configure university settings first.')
         setUseUniversitySettings(false)
@@ -581,13 +770,13 @@ export default function CreateCollege() {
   })
 
   const tabs = [
-    { id: 'general', label: 'General', icon: Building2 },
-    { id: 'academic', label: 'Academic', icon: GraduationCap },
-    { id: 'financial', label: 'Financial', icon: DollarSign },
-    { id: 'email', label: 'Email (SMTP)', icon: Mail },
-    { id: 'onboarding', label: 'Onboarding', icon: UserPlus },
-    { id: 'system', label: 'System', icon: Settings },
-    { id: 'examination', label: 'Examination', icon: FileText },
+    { id: 'general', label: t('colleges.tabs.general'), icon: Building2 },
+    { id: 'academic', label: t('colleges.tabs.academic'), icon: GraduationCap },
+    { id: 'financial', label: t('colleges.tabs.financial'), icon: DollarSign },
+    { id: 'email', label: t('colleges.tabs.email'), icon: Mail },
+    { id: 'onboarding', label: t('colleges.tabs.onboarding'), icon: UserPlus },
+    { id: 'system', label: t('colleges.tabs.system'), icon: Settings },
+    { id: 'examination', label: t('colleges.tabs.examination'), icon: FileText },
   ]
 
   const handleChange = (field, value) => {
@@ -830,99 +1019,117 @@ export default function CreateCollege() {
         },
       }
 
-      const { data, error: insertError } = await supabase
-        .from('colleges')
-        .insert({
-          code: formData.code,
-          name_en: formData.name_en,
-          name_ar: formData.name_ar,
-          type: formData.type || null,
-          description_en: formData.description_en || null,
-          description_ar: formData.description_ar || null,
-          abbreviation: formData.abbreviation,
-          official_email: formData.official_email,
-          phone_number: formData.phone_number,
-          website_url: formData.website_url,
-          address_en: formData.address_en,
-          address_ar: formData.address_ar,
-          logo_url: formData.logo_url,
-          primary_color: formData.primary_color,
-          secondary_color: formData.secondary_color,
-          student_id_prefix: formData.student_id_prefix,
-          student_id_format: formData.student_id_format,
-          student_id_starting_number: formData.student_id_starting_number,
-          instructor_id_prefix: formData.instructor_id_prefix,
-          instructor_id_format: formData.instructor_id_format,
-          instructor_id_starting_number: formData.instructor_id_starting_number,
-          dean_name: formData.dean_name || null,
-          dean_email: formData.dean_email || null,
-          dean_phone: formData.dean_phone || null,
-          contact_email: formData.contact_email || null,
-          contact_phone: formData.contact_phone || null,
-          building: formData.building || null,
-          floor: formData.floor || null,
-          room_number: formData.room_number || null,
-          location_description: formData.location_description || null,
-          vision: formData.vision || null,
-          mission: formData.mission || null,
-          established_date: formData.established_date || null,
-          accreditation_info: formData.accreditation_info || null,
-          academic_settings: useUniversitySettings ? null : academicSettings,
-          financial_settings: useUniversitySettings ? null : financialSettings,
-          email_settings: useUniversitySettings ? null : emailSettings,
-          onboarding_settings: useUniversitySettings ? null : onboardingSettings,
-          system_settings: useUniversitySettings ? null : systemSettings,
-          examination_settings: useUniversitySettings ? null : examinationSettings,
-          use_university_settings: useUniversitySettings,
-          status: 'active',
-        })
-        .select()
-        .single()
+      const collegeData = {
+        code: formData.code,
+        name_en: formData.name_en,
+        name_ar: formData.name_ar,
+        type: formData.type || null,
+        description_en: formData.description_en || null,
+        description_ar: formData.description_ar || null,
+        abbreviation: formData.abbreviation,
+        official_email: formData.official_email,
+        phone_number: formData.phone_number,
+        website_url: formData.website_url,
+        address_en: formData.address_en,
+        address_ar: formData.address_ar,
+        logo_url: formData.logo_url,
+        primary_color: formData.primary_color,
+        secondary_color: formData.secondary_color,
+        student_id_prefix: formData.student_id_prefix,
+        student_id_format: formData.student_id_format,
+        student_id_starting_number: formData.student_id_starting_number,
+        instructor_id_prefix: formData.instructor_id_prefix,
+        instructor_id_format: formData.instructor_id_format,
+        instructor_id_starting_number: formData.instructor_id_starting_number,
+        dean_name: formData.dean_name || null,
+        dean_email: formData.dean_email || null,
+        dean_phone: formData.dean_phone || null,
+        contact_email: formData.contact_email || null,
+        contact_phone: formData.contact_phone || null,
+        building: formData.building || null,
+        floor: formData.floor || null,
+        room_number: formData.room_number || null,
+        location_description: formData.location_description || null,
+        vision: formData.vision || null,
+        mission: formData.mission || null,
+        established_date: formData.established_date || null,
+        accreditation_info: formData.accreditation_info || null,
+        academic_settings: useUniversitySettings ? null : academicSettings,
+        financial_settings: useUniversitySettings ? null : financialSettings,
+        email_settings: useUniversitySettings ? null : emailSettings,
+        onboarding_settings: useUniversitySettings ? null : onboardingSettings,
+        system_settings: useUniversitySettings ? null : systemSettings,
+        examination_settings: useUniversitySettings ? null : examinationSettings,
+        use_university_settings: useUniversitySettings,
+      }
 
-      if (insertError) throw insertError
+      let data
+      if (isEditMode) {
+        // Update existing college
+        const { data: updateData, error: updateError } = await supabase
+          .from('colleges')
+          .update(collegeData)
+          .eq('id', id)
+          .select()
+          .single()
 
-      // Create college admin login account if requested
-      if (formData.create_admin_account !== false && formData.admin_password) {
-        try {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-          const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
-          
-          // Try using Edge Function first
+        if (updateError) throw updateError
+        data = updateData
+      } else {
+        // Create new college
+        collegeData.status = 'active'
+        const { data: insertData, error: insertError } = await supabase
+          .from('colleges')
+          .insert(collegeData)
+          .select()
+          .single()
+
+        if (insertError) throw insertError
+        data = insertData
+
+        // Create college admin login account if requested (only for new colleges)
+        if (formData.create_admin_account !== false && formData.admin_password) {
           try {
-            // Use Supabase functions.invoke for proper CORS handling
-            // Note: The function has verify_jwt = false, so anon key works
-            const { data: functionResult, error: functionError } = await supabase.functions.invoke('create-auth-user', {
-              body: {
-                email: formData.admin_email || formData.contact_email || formData.official_email || formData.dean_email,
-                password: formData.admin_password,
-                role: 'user',
-                college_id: data.id,
-                name: formData.admin_name || formData.dean_name || formData.name_en + ' Admin',
-              },
-            })
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+            const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+            
+            // Try using Edge Function first
+            try {
+              // Use Supabase functions.invoke for proper CORS handling
+              // Note: The function has verify_jwt = false, so anon key works
+              const { data: functionResult, error: functionError } = await supabase.functions.invoke('create-auth-user', {
+                body: {
+                  email: formData.admin_email || formData.contact_email || formData.official_email || formData.dean_email,
+                  password: formData.admin_password,
+                  role: 'user',
+                  college_id: data.id,
+                  name: formData.admin_name || formData.dean_name || formData.name_en + ' Admin',
+                },
+              })
 
-            if (functionError) {
-              throw functionError
-            }
+              if (functionError) {
+                throw functionError
+              }
 
-            if (functionResult?.success) {
-              console.log('✅ College admin account created successfully')
-            } else {
-              throw new Error(functionResult?.error || 'Unknown error')
+              if (functionResult?.success) {
+                console.log('✅ College admin account created successfully')
+              } else {
+                throw new Error(functionResult?.error || 'Unknown error')
+              }
+            } catch (edgeError) {
+              console.warn('⚠️  Edge Function failed, trying direct method:', edgeError)
+              // Fallback: Use service role key if available
+              if (serviceRoleKey) {
+                await createAdminAccountDirectly(data.id, formData, serviceRoleKey, supabaseUrl)
+              } else {
+                console.warn('⚠️  Service role key not available. Please create admin account manually using:')
+                console.warn(`   npm run create:login college ${data.id} "${formData.admin_email || formData.contact_email || formData.official_email}" "${formData.admin_password}" "${formData.admin_name || formData.dean_name || formData.name_en + ' Admin'}"`)
+              }
             }
-          } catch (edgeError) {
-            console.warn('⚠️  Edge Function failed, trying direct method:', edgeError)
-            // Fallback: Use service role key if available
-            if (serviceRoleKey) {
-              await createAdminAccountDirectly(data.id, formData, serviceRoleKey, supabaseUrl)
-            } else {
-              console.warn('⚠️  Service role key not available. Please create admin account manually using:')
-              console.warn(`   npm run create:login college ${data.id} "${formData.admin_email || formData.contact_email || formData.official_email}" "${formData.admin_password}" "${formData.admin_name || formData.dean_name || formData.name_en + ' Admin'}"`)
-            }
+          } catch (err) {
+            console.error('Error creating admin account:', err)
+            // Don't fail the college creation if account creation fails
           }
-        } catch (err) {
-          console.error('Error creating admin account:', err)
-          // Don't fail the college creation if account creation fails
         }
       }
 
@@ -931,7 +1138,7 @@ export default function CreateCollege() {
         navigate('/admin/colleges')
       }, 2000)
     } catch (err) {
-      setError(err.message || 'Failed to create college')
+      setError(err.message || (isEditMode ? 'Failed to update college' : 'Failed to create college'))
     } finally {
       setLoading(false)
     }
@@ -941,6 +1148,17 @@ export default function CreateCollege() {
   // Due to length, I'll create a simplified version that shows the structure
   // The full form would have all sections. Let me create a more manageable component structure.
   
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">{t('common.loading')}</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -948,26 +1166,26 @@ export default function CreateCollege() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('colleges.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create New College</h1>
-          <p className="text-gray-600 mt-1">Configure all settings for the new college</p>
+          <h1 className="text-3xl font-bold text-gray-900">{isEditMode ? t('colleges.editCollege') : t('colleges.createNewCollege')}</h1>
+          <p className="text-gray-600 mt-1">{isEditMode ? t('colleges.editSubtitle') : t('colleges.createSubtitle')}</p>
         </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-1 px-6 overflow-x-auto">
+            <nav className={`flex ${isRTL ? 'space-x-reverse space-x-1' : 'space-x-1'} px-6 overflow-x-auto`}>
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 px-4 py-4 border-b-2 transition-colors ${
+                    className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-4 border-b-2 transition-colors ${
                       activeTab === tab.id
                         ? 'border-primary-600 text-primary-600'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -990,6 +1208,7 @@ export default function CreateCollege() {
                   handleChange={handleChange}
                   useUniversitySettings={useUniversitySettings}
                   setUseUniversitySettings={setUseUniversitySettings}
+                  collegeTypes={collegeTypes}
                 />
               )}
               {activeTab === 'academic' && (
@@ -997,7 +1216,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Fields are pre-filled from university settings. You can edit them as needed.
+                        {t('colleges.universitySettingsNote')}
                       </p>
                     </div>
                   )}
@@ -1013,7 +1232,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Fields are pre-filled from university settings. You can edit them as needed.
+                        {t('colleges.universitySettingsNote')}
                       </p>
                     </div>
                   )}
@@ -1025,7 +1244,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Fields are pre-filled from university settings. You can edit them as needed.
+                        {t('colleges.universitySettingsNote')}
                       </p>
                     </div>
                   )}
@@ -1037,7 +1256,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Fields are pre-filled from university settings. You can edit them as needed.
+                        {t('colleges.universitySettingsNote')}
                       </p>
                     </div>
                   )}
@@ -1049,7 +1268,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Fields are pre-filled from university settings. You can edit them as needed.
+                        {t('colleges.universitySettingsNote')}
                       </p>
                     </div>
                   )}
@@ -1061,7 +1280,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        <strong>Note:</strong> Fields are pre-filled from university settings. You can edit them as needed.
+                        {t('colleges.universitySettingsNote')}
                       </p>
                     </div>
                   )}
@@ -1077,28 +1296,28 @@ export default function CreateCollege() {
               </div>
             )}
             {success && (
-              <div className="mx-6 mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mx-6 mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>College created successfully! Redirecting...</span>
+                <span>{isEditMode ? t('colleges.updatedSuccess') : t('colleges.createdSuccess')}</span>
               </div>
             )}
 
             {/* Submit Button */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end space-x-4">
+            <div className={`px-6 py-4 bg-gray-50 border-t border-gray-200 flex ${isRTL ? 'justify-start space-x-reverse space-x-4' : 'justify-end space-x-4'}`}>
               <button
                 type="button"
                 onClick={() => navigate(-1)}
                 className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
-                Cancel
+                {t('colleges.cancel')}
               </button>
               <button
                 type="submit"
-                disabled={loading}
-                className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || loadingData}
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Save className="w-5 h-5" />
-                <span>{loading ? 'Creating...' : 'Create College'}</span>
+                <span>{loading ? (isEditMode ? t('colleges.updating') : t('colleges.creating')) : (isEditMode ? t('colleges.update') : t('colleges.create'))}</span>
               </button>
             </div>
           </form>

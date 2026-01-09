@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
 import { Shield, Mail, Lock, Eye, EyeOff, ArrowLeft, Sparkles } from 'lucide-react'
 
 export default function LoginAdmin() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -58,10 +62,10 @@ export default function LoginAdmin() {
       {/* Back button */}
       <Link
         to="/"
-        className="absolute top-6 left-6 z-20 flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition-colors"
+        className={`absolute top-6 ${isRTL ? 'right-6' : 'left-6'} z-20 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : ''} space-x-2 text-gray-700 hover:text-primary-600 transition-colors`}
       >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="font-medium">Back to Roles</span>
+        <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
+        <span className="font-medium">{t('login.backToRoles')}</span>
       </Link>
 
       <div className="w-full max-w-md relative z-10">
@@ -75,8 +79,8 @@ export default function LoginAdmin() {
                 className="h-20 w-auto object-contain"
               />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Super Admin</h1>
-            <p className="text-gray-600">Manage universities and colleges</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('login.superAdmin')}</h1>
+            <p className="text-gray-600">{t('login.superAdminDesc')}</p>
           </div>
 
           {/* Error Message */}
@@ -90,10 +94,10 @@ export default function LoginAdmin() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                {t('login.emailAddress')}
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                   <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -102,7 +106,7 @@ export default function LoginAdmin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
+                  className={`block w-full ${isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'} py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white`}
                   placeholder="admin@university.edu"
                 />
               </div>
@@ -110,10 +114,10 @@ export default function LoginAdmin() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {t('login.password')}
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -122,13 +126,13 @@ export default function LoginAdmin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white"
-                  placeholder="Enter your password"
+                  className={`block w-full ${isRTL ? 'pr-10 pl-12' : 'pl-10 pr-12'} py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white`}
+                  placeholder={t('login.password')}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className={`absolute inset-y-0 ${isRTL ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center`}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
@@ -139,13 +143,13 @@ export default function LoginAdmin() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+              <label className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
                 <input type="checkbox" className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
+                <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm text-gray-600`}>{t('login.rememberMe')}</span>
               </label>
               <Link to="/forgot-password" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-                Forgot password?
+                {t('login.forgotPassword')}
               </Link>
             </div>
 
@@ -155,15 +159,15 @@ export default function LoginAdmin() {
               className="w-full bg-primary-gradient text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <span className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-center'}`}>
+                  <svg className={`animate-spin h-5 w-5 text-white ${isRTL ? 'mr-3' : '-ml-1 mr-3'}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Signing in...
+                  {t('login.signingIn')}
                 </span>
               ) : (
-                'Sign In as Admin'
+                t('login.signInAsAdmin')
               )}
             </button>
           </form>
@@ -171,7 +175,7 @@ export default function LoginAdmin() {
 
         {/* Footer */}
         <p className="text-center mt-6 text-gray-600 text-sm">
-          Super Admin Access • Imam Bukhari University (IBU)
+          {t('login.superAdminAccess')}
         </p>
       </div>
 

@@ -14,13 +14,11 @@ export default function EditMajor() {
   const [success, setSuccess] = useState(false)
   const [collegeId, setCollegeId] = useState(authCollegeId)
   const [colleges, setColleges] = useState([])
-  const [departments, setDepartments] = useState([])
   const [instructors, setInstructors] = useState([])
   const [isUniversityWide, setIsUniversityWide] = useState(false)
 
   const [formData, setFormData] = useState({
     code: '',
-    department_id: '',
     name_en: '',
     name_ar: '',
     degree_level: 'bachelor',
@@ -40,7 +38,6 @@ export default function EditMajor() {
 
   useEffect(() => {
     if (collegeId || isUniversityWide) {
-      fetchDepartments()
       fetchInstructors()
     }
   }, [collegeId, isUniversityWide])
@@ -57,26 +54,6 @@ export default function EditMajor() {
       setColleges(data || [])
     } catch (err) {
       console.error('Error fetching colleges:', err)
-    }
-  }
-
-  const fetchDepartments = async () => {
-    try {
-      let query = supabase
-        .from('departments')
-        .select('id, name_en, code')
-        .eq('status', 'active')
-        .order('name_en')
-
-      if (!isUniversityWide && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      }
-
-      const { data, error } = await query
-      if (error) throw error
-      setDepartments(data || [])
-    } catch (err) {
-      console.error('Error fetching departments:', err)
     }
   }
 
@@ -112,7 +89,6 @@ export default function EditMajor() {
 
       setFormData({
         code: data.code || '',
-        department_id: data.department_id || '',
         name_en: data.name_en || '',
         name_ar: data.name_ar || '',
         degree_level: data.degree_level || 'bachelor',
@@ -145,7 +121,6 @@ export default function EditMajor() {
     try {
       const submitData = {
         code: formData.code,
-        department_id: formData.department_id ? parseInt(formData.department_id) : null,
         name_en: formData.name_en,
         name_ar: formData.name_ar || formData.name_en,
         degree_level: formData.degree_level,
@@ -231,20 +206,6 @@ export default function EditMajor() {
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-              <select
-                value={formData.department_id}
-                onChange={(e) => handleChange('department_id', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="">Select Department...</option>
-                {departments.map(dept => (
-                  <option key={dept.id} value={dept.id}>{dept.name_en}</option>
-                ))}
-              </select>
             </div>
 
             <div>

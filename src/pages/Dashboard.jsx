@@ -1,54 +1,59 @@
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { Users, GraduationCap, BookOpen, Calendar, TrendingUp, Award } from 'lucide-react'
 
-const stats = [
-  {
-    name: 'Total Students',
-    value: '2,458',
-    change: '+12.5%',
-    changeType: 'positive',
-    icon: GraduationCap,
-    color: 'bg-blue-500',
-  },
-  {
-    name: 'Active Instructors',
-    value: '142',
-    change: '+3.2%',
-    changeType: 'positive',
-    icon: Users,
-    color: 'bg-green-500',
-  },
-  {
-    name: 'Courses',
-    value: '324',
-    change: '+8.1%',
-    changeType: 'positive',
-    icon: BookOpen,
-    color: 'bg-purple-500',
-  },
-  {
-    name: 'This Semester',
-    value: 'Fall 2025',
-    change: 'Active',
-    changeType: 'neutral',
-    icon: Calendar,
-    color: 'bg-orange-500',
-  },
-]
-
-const recentActivities = [
-  { id: 1, type: 'enrollment', student: 'Ahmed Ali', course: 'Computer Science 101', time: '2 hours ago' },
-  { id: 2, type: 'grade', student: 'Sarah Mohammed', course: 'Mathematics 201', time: '4 hours ago' },
-  { id: 3, type: 'enrollment', student: 'Omar Hassan', course: 'Physics 150', time: '6 hours ago' },
-  { id: 4, type: 'attendance', student: 'Fatima Ibrahim', course: 'Chemistry 120', time: '8 hours ago' },
-]
-
 export default function Dashboard() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+
+  const stats = [
+    {
+      name: t('dashboard.totalStudents'),
+      value: '2,458',
+      change: '+12.5%',
+      changeType: 'positive',
+      icon: GraduationCap,
+      color: 'bg-blue-500',
+    },
+    {
+      name: t('dashboard.activeInstructors'),
+      value: '142',
+      change: '+3.2%',
+      changeType: 'positive',
+      icon: Users,
+      color: 'bg-green-500',
+    },
+    {
+      name: t('dashboard.courses'),
+      value: '324',
+      change: '+8.1%',
+      changeType: 'positive',
+      icon: BookOpen,
+      color: 'bg-purple-500',
+    },
+    {
+      name: t('dashboard.thisSemester'),
+      value: 'Fall 2025',
+      change: t('common.active'),
+      changeType: 'neutral',
+      icon: Calendar,
+      color: 'bg-orange-500',
+    },
+  ]
+
+  const recentActivities = [
+    { id: 1, type: 'enrollment', student: 'Ahmed Ali', course: 'Computer Science 101', time: '2 hours ago' },
+    { id: 2, type: 'grade', student: 'Sarah Mohammed', course: 'Mathematics 201', time: '4 hours ago' },
+    { id: 3, type: 'enrollment', student: 'Omar Hassan', course: 'Physics 150', time: '6 hours ago' },
+    { id: 4, type: 'attendance', student: 'Fatima Ibrahim', course: 'Chemistry 120', time: '8 hours ago' },
+  ]
+
   return (
     <div className="space-y-6 w-full">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Welcome back! Here's what's happening today.</p>
+        <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('dashboard.welcomeBack')}</p>
       </div>
 
       {/* Stats Grid */}
@@ -86,10 +91,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Activities */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-900">Recent Activities</h2>
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} mb-6`}>
+            <h2 className="text-xl font-bold text-gray-900">{t('dashboard.recentActivities')}</h2>
             <button className="text-sm text-primary-600 hover:text-primary-700 font-medium">
-              View all
+              {t('dashboard.viewAll')}
             </button>
           </div>
           <div className="space-y-4">
@@ -114,25 +119,25 @@ export default function Dashboard() {
 
         {/* Quick Stats */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Quick Stats</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('dashboard.quickStats')}</h2>
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-blue-50 rounded-xl`}>
               <div>
-                <p className="text-sm text-gray-600">Enrollment Rate</p>
+                <p className="text-sm text-gray-600">{t('dashboard.enrollmentRate')}</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">94.2%</p>
               </div>
               <TrendingUp className="w-8 h-8 text-blue-600" />
             </div>
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-green-50 rounded-xl`}>
               <div>
-                <p className="text-sm text-gray-600">Average GPA</p>
+                <p className="text-sm text-gray-600">{t('dashboard.averageGPA')}</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">3.65</p>
               </div>
               <Award className="w-8 h-8 text-green-600" />
             </div>
-            <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-purple-50 rounded-xl`}>
               <div>
-                <p className="text-sm text-gray-600">Attendance</p>
+                <p className="text-sm text-gray-600">{t('dashboard.attendance')}</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">87.3%</p>
               </div>
               <Calendar className="w-8 h-8 text-purple-600" />

@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, Plus, X } from 'lucide-react'
 
 export default function CreateClass() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId: authCollegeId } = useAuth()
@@ -12,11 +16,11 @@ export default function CreateClass() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [collegeId, setCollegeId] = useState(authCollegeId)
+  const [selectedCollegeId, setSelectedCollegeId] = useState(authCollegeId)
   const [colleges, setColleges] = useState([])
   const [subjects, setSubjects] = useState([])
   const [semesters, setSemesters] = useState([])
   const [instructors, setInstructors] = useState([])
-  const [isUniversityWide, setIsUniversityWide] = useState(false)
 
   const [formData, setFormData] = useState({
     subject_id: '',
@@ -40,10 +44,11 @@ export default function CreateClass() {
     if (urlCollegeId && userRole === 'admin') {
       const collegeIdInt = parseInt(urlCollegeId)
       setCollegeId(collegeIdInt)
+      setSelectedCollegeId(collegeIdInt)
       setFormData(prev => ({ ...prev, college_id: collegeIdInt, is_university_wide: false }))
-      setIsUniversityWide(false)
     } else if (authCollegeId) {
       setCollegeId(authCollegeId)
+      setSelectedCollegeId(authCollegeId)
       setFormData(prev => ({ ...prev, college_id: authCollegeId }))
     } else if (userRole === 'user') {
       fetchUserCollege()
@@ -58,14 +63,16 @@ export default function CreateClass() {
       fetchSemesters()
     }
     fetchInstructors()
-  }, [userRole, isUniversityWide, searchParams, authCollegeId])
+  }, [userRole, searchParams, authCollegeId, collegeId])
 
   useEffect(() => {
-    // Refetch semesters when collegeId changes (only if we have required data)
+    // Refetch semesters and subjects when collegeId changes (only if we have required data)
     if (userRole === 'admin' || (userRole === 'user' && collegeId) || (userRole === 'instructor' && collegeId)) {
       fetchSemesters()
     }
-  }, [collegeId, isUniversityWide])
+    // Refetch subjects when college changes
+    fetchSubjects()
+  }, [collegeId])
 
   const fetchUserCollege = async () => {
     try {
@@ -80,6 +87,7 @@ export default function CreateClass() {
 
       if (userData?.college_id) {
         setCollegeId(userData.college_id)
+        setSelectedCollegeId(userData.college_id)
         setFormData(prev => ({ ...prev, college_id: userData.college_id }))
       }
     } catch (err) {
@@ -110,10 +118,12 @@ export default function CreateClass() {
         .eq('status', 'active')
         .order('name_en')
 
-      if (!isUniversityWide && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      } else if (isUniversityWide) {
-        query = query.eq('is_university_wide', true)
+      if (collegeId) {
+        // Show ONLY that college's subjects (not university-wide)
+        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+      } else if (userRole === 'user' && authCollegeId) {
+        // For college admins, show only their college's subjects
+        query = query.eq('college_id', authCollegeId).eq('is_university_wide', false)
       }
 
       const { data, error } = await query
@@ -138,21 +148,11 @@ export default function CreateClass() {
       // Use collegeId or authCollegeId
       const effectiveCollegeId = collegeId || authCollegeId
 
-      // Filter by college for college admins - include their college's semesters AND university-wide semesters
-      if (userRole === 'user' && effectiveCollegeId) {
-        query = query.or(`college_id.eq.${effectiveCollegeId},is_university_wide.eq.true`)
+      if (effectiveCollegeId) {
+        // Show ONLY that college's semesters (not university-wide)
+        // For college admins, instructors, or admin with selected college
+        query = query.eq('college_id', effectiveCollegeId).eq('is_university_wide', false)
       }
-      // Filter by college for instructors
-      else if (userRole === 'instructor' && effectiveCollegeId) {
-        query = query.or(`college_id.eq.${effectiveCollegeId},is_university_wide.eq.true`)
-      }
-      else if (!isUniversityWide && collegeId && userRole === 'admin') {
-        // For super admin with selected college: show that college's semesters AND university-wide
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      } else if (isUniversityWide) {
-        query = query.eq('is_university_wide', true)
-      }
-      // If no college selected and not university-wide, show all (for super admin)
 
       const { data, error } = await query
       if (error) throw error
@@ -170,7 +170,7 @@ export default function CreateClass() {
         .eq('status', 'active')
         .order('name_en')
 
-      if (!isUniversityWide && collegeId) {
+      if (collegeId) {
         query = query.eq('college_id', collegeId)
       }
 
@@ -231,8 +231,8 @@ export default function CreateClass() {
         type: formData.type,
         notes: formData.notes || null,
         status: formData.status,
-        is_university_wide: isUniversityWide,
-        college_id: isUniversityWide ? null : (formData.college_id || collegeId),
+        is_university_wide: false,
+        college_id: formData.college_id || collegeId,
       }
 
       const { data: classData, error: insertError } = await supabase
@@ -253,8 +253,8 @@ export default function CreateClass() {
       if (semesterError) throw semesterError
 
       // Get college_id for class_sessions
-      const finalCollegeId = isUniversityWide ? null : (formData.college_id || collegeId)
-      if (!finalCollegeId && !isUniversityWide) {
+      const finalCollegeId = formData.college_id || collegeId
+      if (!finalCollegeId) {
         throw new Error('College ID is required for class sessions')
       }
 
@@ -364,13 +364,13 @@ export default function CreateClass() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('classes.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Add Class</h1>
-          <p className="text-gray-600 mt-1">Create a new class for {formData.semester_id ? 'selected semester' : 'semester'}</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('classes.createTitle')}</h1>
+          <p className="text-gray-600 mt-1">{t('classes.createSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -381,46 +381,50 @@ export default function CreateClass() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Class created successfully! Redirecting...</span>
+                <span>{t('classes.createdSuccess')}</span>
               </div>
             )}
 
             <div className="space-y-6">
               {userRole === 'admin' && (
-                <div className="flex items-center space-x-2 p-4 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    checked={isUniversityWide}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.college')} *</label>
+                  <select
+                    value={selectedCollegeId || ''}
                     onChange={(e) => {
-                      setIsUniversityWide(e.target.checked)
-                      if (e.target.checked) {
-                        setFormData(prev => ({ ...prev, college_id: null }))
-                      } else {
-                        setFormData(prev => ({ ...prev, college_id: collegeId }))
-                      }
+                      const collegeIdValue = e.target.value ? parseInt(e.target.value) : null
+                      setCollegeId(collegeIdValue)
+                      setSelectedCollegeId(collegeIdValue)
+                      setFormData(prev => ({ ...prev, college_id: collegeIdValue }))
+                      // Refetch subjects and semesters when college changes
                       fetchSubjects()
                       fetchSemesters()
                     }}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <label className="text-sm font-medium text-gray-700">
-                    University-wide (available to all colleges)
-                  </label>
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">{t('classes.selectCollege')}</option>
+                    {colleges.map((college) => (
+                      <option key={college.id} value={college.id}>
+                        {college.name_en} ({college.code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.subjectLabel')}</label>
                   <select
                     value={formData.subject_id}
                     onChange={(e) => handleChange('subject_id', e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Subject...</option>
+                    <option value="">{t('classes.selectSubject')}</option>
                     {subjects.map(subject => (
                       <option key={subject.id} value={subject.id}>
                         {subject.code} - {subject.name_en}
@@ -429,14 +433,14 @@ export default function CreateClass() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.semesterLabel')}</label>
                   <select
                     value={formData.semester_id}
                     onChange={(e) => handleChange('semester_id', e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Semester...</option>
+                    <option value="">{t('classes.selectSemester')}</option>
                     {semesters.map(semester => (
                       <option key={semester.id} value={semester.id}>
                         {semester.name_en} ({semester.code})
@@ -448,19 +452,19 @@ export default function CreateClass() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Section Number *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.sectionNumber')}</label>
                   <input
                     type="text"
                     value={formData.section}
                     onChange={(e) => handleChange('section', e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="e.g., 001, A, B"
+                    placeholder={t('classes.sectionPlaceholder')}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Section identifier (will be combined with subject code)</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('classes.sectionHint')}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Capacity *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.capacityLabel')}</label>
                   <input
                     type="number"
                     value={formData.capacity}
@@ -468,42 +472,42 @@ export default function CreateClass() {
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum number of students</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('classes.capacityHint')}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Room</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.room')}</label>
                   <input
                     type="text"
                     value={formData.room}
                     onChange={(e) => handleChange('room', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="e.g., 101"
+                    placeholder={t('classes.roomPlaceholder')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Building</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.building')}</label>
                   <input
                     type="text"
                     value={formData.building}
                     onChange={(e) => handleChange('building', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="e.g., Engineering Building"
+                    placeholder={t('classes.buildingPlaceholder')}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Instructor</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.instructor')}</label>
                   <select
                     value={formData.instructor_id}
                     onChange={(e) => handleChange('instructor_id', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">-- Select Instructor --</option>
+                    <option value="">{t('classes.selectInstructor')}</option>
                     {instructors.map(instructor => (
                       <option key={instructor.id} value={instructor.id}>
                         {instructor.name_en}
@@ -512,52 +516,52 @@ export default function CreateClass() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Class Type</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.classType')}</label>
                   <select
                     value={formData.type}
                     onChange={(e) => handleChange('type', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="on_campus">On Campus</option>
-                    <option value="online">Online</option>
-                    <option value="hybrid">Hybrid</option>
+                    <option value="on_campus">{t('classes.onCampus')}</option>
+                    <option value="online">{t('classes.online')}</option>
+                    <option value="hybrid">{t('classes.hybrid')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="border-t pt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Class Schedule</h3>
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} mb-4`}>
+                  <h3 className="text-lg font-semibold text-gray-900">{t('classes.classSchedule')}</h3>
                   <button
                     type="button"
                     onClick={addSchedule}
-                    className="flex items-center space-x-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+                    className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100`}
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Add Time Slot</span>
+                    <span>{t('classes.addTimeSlot')}</span>
                   </button>
                 </div>
                 {formData.schedules.map((schedule, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Day</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.day')}</label>
                       <select
                         value={schedule.day}
                         onChange={(e) => handleScheduleChange(index, 'day', e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
-                        <option value="">Select Day...</option>
-                        <option value="sunday">Sunday</option>
-                        <option value="monday">Monday</option>
-                        <option value="tuesday">Tuesday</option>
-                        <option value="wednesday">Wednesday</option>
-                        <option value="thursday">Thursday</option>
-                        <option value="friday">Friday</option>
-                        <option value="saturday">Saturday</option>
+                        <option value="">{t('classes.selectDay')}</option>
+                        <option value="sunday">{t('classes.sunday')}</option>
+                        <option value="monday">{t('classes.monday')}</option>
+                        <option value="tuesday">{t('classes.tuesday')}</option>
+                        <option value="wednesday">{t('classes.wednesday')}</option>
+                        <option value="thursday">{t('classes.thursday')}</option>
+                        <option value="friday">{t('classes.friday')}</option>
+                        <option value="saturday">{t('classes.saturday')}</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.startTime')}</label>
                       <input
                         type="time"
                         value={schedule.start_time}
@@ -566,7 +570,7 @@ export default function CreateClass() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.endTime')}</label>
                       <input
                         type="time"
                         value={schedule.end_time}
@@ -575,13 +579,13 @@ export default function CreateClass() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.location')}</label>
                       <input
                         type="text"
                         value={schedule.location}
                         onChange={(e) => handleScheduleChange(index, 'location', e.target.value)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Optional"
+                        placeholder={t('classes.locationPlaceholder')}
                       />
                     </div>
                     <div className="flex items-end">
@@ -597,47 +601,47 @@ export default function CreateClass() {
                     </div>
                   </div>
                 ))}
-                <p className="text-xs text-gray-500 mt-2">Add one or more time slots for this class</p>
+                <p className="text-xs text-gray-500 mt-2">{t('classes.scheduleHint')}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('classes.notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => handleChange('notes', e.target.value)}
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="Additional information..."
+                  placeholder={t('classes.notesPlaceholder')}
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
                   checked={formData.status === 'active'}
                   onChange={(e) => handleChange('status', e.target.checked ? 'active' : 'inactive')}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label className="text-sm font-medium text-gray-700">Active</label>
+                <label className="text-sm font-medium text-gray-700">{t('classes.active')}</label>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse' : 'justify-end space-x-4'}`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('classes.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Creating...' : 'Create Class'}</span>
+              <span>{loading ? t('classes.creating') : t('classes.createButton')}</span>
             </button>
           </div>
         </form>

@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { Search, GraduationCap, FileText, TrendingUp } from 'lucide-react'
 
 export default function StudentGrades() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId, departmentId } = useAuth()
   const { selectedCollegeId } = useCollege()
@@ -146,10 +150,10 @@ export default function StudentGrades() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Student Grades</h1>
-          <p className="text-gray-600 mt-1">Select a student to view their detailed grade report</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('grading.studentGrades.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('grading.studentGrades.subtitle')}</p>
         </div>
       </div>
 
@@ -157,13 +161,13 @@ export default function StudentGrades() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5`} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by ID or name..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder={t('grading.studentGrades.searchPlaceholder')}
+              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
             />
           </div>
           <div>
@@ -172,7 +176,7 @@ export default function StudentGrades() {
               onChange={(e) => setSelectedProgram(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="All Programs">All Programs</option>
+              <option value="All Programs">{t('grading.studentGrades.allPrograms')}</option>
               {getPrograms().map(program => (
                 <option key={program} value={program}>{program}</option>
               ))}
@@ -183,7 +187,7 @@ export default function StudentGrades() {
 
       {/* Students List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Students ({filteredStudents.length})</h2>
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.students')} ({filteredStudents.length})</h2>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -191,20 +195,20 @@ export default function StudentGrades() {
         ) : filteredStudents.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <GraduationCap className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <p>No students found</p>
+            <p>{t('grading.studentGrades.noStudentsFound')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Program</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Semester</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cumulative GPA</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.studentId')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.name')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.program')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.currentSemester')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.cumulativeGpa')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.status')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -229,7 +233,7 @@ export default function StudentGrades() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Active
+                        {t('grading.studentGrades.active')}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -237,7 +241,7 @@ export default function StudentGrades() {
                         onClick={() => navigate(`/grading/students/${student.id}/report`)}
                         className="text-primary-600 hover:text-primary-900"
                       >
-                        View Report
+                        {t('grading.studentGrades.viewReport')}
                       </button>
                     </td>
                   </tr>

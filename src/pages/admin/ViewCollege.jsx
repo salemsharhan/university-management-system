@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Building2, Edit, Mail, Phone, Globe, MapPin, Calendar, Settings } from 'lucide-react'
 
 export default function ViewCollege() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
   const [college, setCollege] = useState(null)
@@ -45,10 +49,10 @@ export default function ViewCollege() {
       <div className="space-y-6">
         <button
           onClick={() => navigate('/admin/colleges')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Colleges</span>
+          <span>{t('colleges.back')}</span>
         </button>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
           {error || 'College not found'}
@@ -63,23 +67,23 @@ export default function ViewCollege() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate('/admin/colleges')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Colleges</span>
+          <span>{t('colleges.back')}</span>
         </button>
         <button
           onClick={() => navigate(`/admin/colleges/${id}/edit`)}
-          className="flex items-center space-x-2 bg-primary-gradient text-white px-6 py-2 rounded-xl font-semibold hover:shadow-lg transition-all"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-2 rounded-xl font-semibold hover:shadow-lg transition-all`}
         >
           <Edit className="w-5 h-5" />
-          <span>Edit College</span>
+          <span>{t('colleges.edit')}</span>
         </button>
       </div>
 
       {/* College Header Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <div className="flex items-start space-x-6">
+        <div className={`flex items-start ${isRTL ? 'space-x-reverse space-x-6' : 'space-x-6'}`}>
           <div
             className="w-20 h-20 rounded-xl flex items-center justify-center shadow-lg"
             style={{ backgroundColor: college.primary_color || '#952562' }}
@@ -91,9 +95,9 @@ export default function ViewCollege() {
             {college.name_ar && (
               <p className="text-xl text-gray-600 mt-1">{college.name_ar}</p>
             )}
-            <div className="flex items-center space-x-4 mt-4">
+            <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'} mt-4`}>
               <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
-                Code: {college.code}
+                {t('colleges.prefix')}: {college.code}
               </span>
               {college.abbreviation && (
                 <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
@@ -116,31 +120,31 @@ export default function ViewCollege() {
 
       {/* Contact Information */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Contact Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('colleges.contactInfo')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {college.official_email && (
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
               <Mail className="w-5 h-5 text-gray-400" />
               <div>
-                <p className="text-sm text-gray-500">Email</p>
+                <p className="text-sm text-gray-500">{t('colleges.email')}</p>
                 <p className="text-gray-900">{college.official_email}</p>
               </div>
             </div>
           )}
           {college.phone_number && (
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
               <Phone className="w-5 h-5 text-gray-400" />
               <div>
-                <p className="text-sm text-gray-500">Phone</p>
+                <p className="text-sm text-gray-500">{t('colleges.phone')}</p>
                 <p className="text-gray-900">{college.phone_number}</p>
               </div>
             </div>
           )}
           {college.website_url && (
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
               <Globe className="w-5 h-5 text-gray-400" />
               <div>
-                <p className="text-sm text-gray-500">Website</p>
+                <p className="text-sm text-gray-500">{t('colleges.website')}</p>
                 <a
                   href={college.website_url}
                   target="_blank"
@@ -153,19 +157,19 @@ export default function ViewCollege() {
             </div>
           )}
           {college.address_en && (
-            <div className="flex items-start space-x-3">
+            <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
               <MapPin className="w-5 h-5 text-gray-400 mt-1" />
               <div>
-                <p className="text-sm text-gray-500">Address (English)</p>
+                <p className="text-sm text-gray-500">{t('colleges.addressEn')}</p>
                 <p className="text-gray-900">{college.address_en}</p>
               </div>
             </div>
           )}
           {college.address_ar && (
-            <div className="flex items-start space-x-3">
+            <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
               <MapPin className="w-5 h-5 text-gray-400 mt-1" />
               <div>
-                <p className="text-sm text-gray-500">Address (Arabic)</p>
+                <p className="text-sm text-gray-500">{t('colleges.addressAr')}</p>
                 <p className="text-gray-900">{college.address_ar}</p>
               </div>
             </div>
@@ -175,38 +179,38 @@ export default function ViewCollege() {
 
       {/* ID Configuration */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">ID Configuration</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('colleges.idConfiguration')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Student ID</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('colleges.studentId')}</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Prefix:</span>
+                <span className="text-sm text-gray-500">{t('colleges.prefix')}:</span>
                 <span className="text-sm font-medium text-gray-900">{college.student_id_prefix || 'STU'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Format:</span>
+                <span className="text-sm text-gray-500">{t('colleges.format')}:</span>
                 <span className="text-sm font-medium text-gray-900">{college.student_id_format || '{prefix}{year}{sequence:D4}'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Starting Number:</span>
+                <span className="text-sm text-gray-500">{t('colleges.startingNumber')}:</span>
                 <span className="text-sm font-medium text-gray-900">{college.student_id_starting_number || 1}</span>
               </div>
             </div>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Instructor ID</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('colleges.instructorId')}</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Prefix:</span>
+                <span className="text-sm text-gray-500">{t('colleges.prefix')}:</span>
                 <span className="text-sm font-medium text-gray-900">{college.instructor_id_prefix || 'INS'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Format:</span>
+                <span className="text-sm text-gray-500">{t('colleges.format')}:</span>
                 <span className="text-sm font-medium text-gray-900">{college.instructor_id_format || '{prefix}{year}{sequence:D4}'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Starting Number:</span>
+                <span className="text-sm text-gray-500">{t('colleges.startingNumber')}:</span>
                 <span className="text-sm font-medium text-gray-900">{college.instructor_id_starting_number || 1}</span>
               </div>
             </div>
@@ -216,45 +220,45 @@ export default function ViewCollege() {
 
       {/* Settings Overview */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 flex items-center ${isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'}`}>
           <Settings className="w-5 h-5" />
-          <span>Settings Overview</span>
+          <span>{t('colleges.settingsOverview')}</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">Academic Settings</p>
+            <p className="text-sm font-semibold text-gray-700">{t('colleges.academicSettings')}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {college.academic_settings ? 'Configured' : 'Not configured'}
+              {college.academic_settings ? t('colleges.configured') : t('colleges.notConfigured')}
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">Financial Settings</p>
+            <p className="text-sm font-semibold text-gray-700">{t('colleges.financialSettings')}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {college.financial_settings ? 'Configured' : 'Not configured'}
+              {college.financial_settings ? t('colleges.configured') : t('colleges.notConfigured')}
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">Email Settings</p>
+            <p className="text-sm font-semibold text-gray-700">{t('colleges.emailSettings')}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {college.email_settings ? 'Configured' : 'Not configured'}
+              {college.email_settings ? t('colleges.configured') : t('colleges.notConfigured')}
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">Onboarding Settings</p>
+            <p className="text-sm font-semibold text-gray-700">{t('colleges.onboardingSettings')}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {college.onboarding_settings ? 'Configured' : 'Not configured'}
+              {college.onboarding_settings ? t('colleges.configured') : t('colleges.notConfigured')}
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">System Settings</p>
+            <p className="text-sm font-semibold text-gray-700">{t('colleges.systemSettings')}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {college.system_settings ? 'Configured' : 'Not configured'}
+              {college.system_settings ? t('colleges.configured') : t('colleges.notConfigured')}
             </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">Examination Settings</p>
+            <p className="text-sm font-semibold text-gray-700">{t('colleges.examinationSettings')}</p>
             <p className="text-xs text-gray-500 mt-1">
-              {college.examination_settings ? 'Configured' : 'Not configured'}
+              {college.examination_settings ? t('colleges.configured') : t('colleges.notConfigured')}
             </p>
           </div>
         </div>
@@ -262,19 +266,19 @@ export default function ViewCollege() {
 
       {/* Metadata */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center space-x-2">
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 flex items-center ${isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'}`}>
           <Calendar className="w-5 h-5" />
-          <span>Metadata</span>
+          <span>{t('colleges.metadata')}</span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-gray-500">Created At</p>
+            <p className="text-sm text-gray-500">{t('colleges.createdAt')}</p>
             <p className="text-gray-900">
               {new Date(college.created_at).toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Last Updated</p>
+            <p className="text-sm text-gray-500">{t('colleges.updatedAt')}</p>
             <p className="text-gray-900">
               {new Date(college.updated_at).toLocaleString()}
             </p>

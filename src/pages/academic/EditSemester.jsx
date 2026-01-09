@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
 
 export default function EditSemester() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
@@ -210,13 +214,13 @@ export default function EditSemester() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('academic.semesters.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Semester</h1>
-          <p className="text-gray-600 mt-1">Update semester information</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('academic.semesters.updateTitle')}</h1>
+          <p className="text-gray-600 mt-1">{t('academic.semesters.updateSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -227,15 +231,15 @@ export default function EditSemester() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Semester updated successfully! Redirecting...</span>
+                <span>{t('academic.semesters.updatedSuccess')}</span>
               </div>
             )}
 
             <div className="space-y-6">
               {userRole === 'admin' && (
-                <div className="flex items-center space-x-2 p-4 bg-gray-50 rounded-lg">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} p-4 bg-gray-50 rounded-lg`}>
                   <input
                     type="checkbox"
                     checked={isUniversityWide}
@@ -251,14 +255,14 @@ export default function EditSemester() {
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   <label className="text-sm font-medium text-gray-700">
-                    University-wide (available to all colleges)
+                    {t('academic.semesters.universityWide')}
                   </label>
                 </div>
               )}
 
               {userRole === 'admin' && !isUniversityWide && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">College</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('navigation.colleges')}</label>
                   <select
                     value={formData.college_id || ''}
                     onChange={(e) => {
@@ -268,7 +272,7 @@ export default function EditSemester() {
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select College...</option>
+                    <option value="">{t('academic.semesters.selectCollege')}</option>
                     {colleges.map(college => (
                       <option key={college.id} value={college.id}>{college.name_en}</option>
                     ))}
@@ -277,14 +281,14 @@ export default function EditSemester() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.academicYear')} *</label>
                 <select
                   value={formData.academic_year_id}
                   onChange={(e) => handleChange('academic_year_id', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="">Select Academic Year...</option>
+                  <option value="">{t('academic.semesters.selectAcademicYear')}</option>
                   {academicYears.map(year => (
                     <option key={year.id} value={year.id}>
                       {year.name_en} ({year.code})
@@ -294,7 +298,7 @@ export default function EditSemester() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.name')} *</label>
                 <input
                   type="text"
                   value={formData.name_en}
@@ -306,7 +310,7 @@ export default function EditSemester() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.nameAr')}</label>
                 <input
                   type="text"
                   value={formData.name_ar}
@@ -318,7 +322,7 @@ export default function EditSemester() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Code *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.code')} *</label>
                   <input
                     type="text"
                     value={formData.code}
@@ -329,7 +333,7 @@ export default function EditSemester() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year (Number) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.numberYear')} *</label>
                   <input
                     type="number"
                     value={formData.academic_year_number}
@@ -342,39 +346,39 @@ export default function EditSemester() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Season *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.season')} *</label>
                 <select
                   value={formData.season}
                   onChange={(e) => handleChange('season', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="">Select Season</option>
-                  <option value="fall">Fall</option>
-                  <option value="spring">Spring</option>
-                  <option value="summer">Summer</option>
-                  <option value="winter">Winter</option>
+                  <option value="">{t('academic.semesters.selectSeason')}</option>
+                  <option value="fall">{t('academic.semesters.fall')}</option>
+                  <option value="spring">{t('academic.semesters.spring')}</option>
+                  <option value="summer">{t('academic.semesters.summer')}</option>
+                  <option value="winter">{t('academic.semesters.winter')}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.status')} *</label>
                 <select
                   value={formData.status}
                   onChange={(e) => handleChange('status', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="planned">Planned</option>
-                  <option value="active">Active</option>
-                  <option value="registration_open">Registration Open</option>
-                  <option value="completed">Completed</option>
+                  <option value="planned">{t('academic.semesters.planned')}</option>
+                  <option value="active">{t('academic.semesters.active')}</option>
+                  <option value="registration_open">{t('academic.semesters.registration_open')}</option>
+                  <option value="completed">{t('academic.semesters.completed')}</option>
                 </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.startDate')} *</label>
                   <input
                     type="date"
                     value={formData.start_date}
@@ -384,7 +388,7 @@ export default function EditSemester() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.endDate')} *</label>
                   <input
                     type="date"
                     value={formData.end_date}
@@ -397,10 +401,10 @@ export default function EditSemester() {
 
               {/* Add other fields similar to CreateSemester */}
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Registration Dates</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.registrationDates')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Registration Start Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.registrationStart')}</label>
                     <input
                       type="date"
                       value={formData.registration_start_date}
@@ -409,7 +413,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Registration End Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.registrationEnd')}</label>
                     <input
                       type="date"
                       value={formData.registration_end_date}
@@ -418,7 +422,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Late Registration End Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.lateRegistrationEnd')}</label>
                     <input
                       type="date"
                       value={formData.late_registration_end_date}
@@ -430,10 +434,10 @@ export default function EditSemester() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Academic Deadlines</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.academicDeadlines')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Add Deadline</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.addDeadline')}</label>
                     <input
                       type="date"
                       value={formData.add_deadline}
@@ -442,7 +446,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Drop Deadline</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.dropDeadline')}</label>
                     <input
                       type="date"
                       value={formData.drop_deadline}
@@ -451,7 +455,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Withdrawal Deadline</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.withdrawalDeadline')}</label>
                     <input
                       type="date"
                       value={formData.withdrawal_deadline}
@@ -463,10 +467,10 @@ export default function EditSemester() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Credit Hours Configuration</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.creditHoursConfig')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Credit Hours</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minCredits')}</label>
                     <input
                       type="number"
                       value={formData.min_credit_hours}
@@ -475,7 +479,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Credit Hours</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxCredits')}</label>
                     <input
                       type="number"
                       value={formData.max_credit_hours}
@@ -484,7 +488,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Credit Hours with Permission</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxWithPermission')}</label>
                     <input
                       type="number"
                       value={formData.max_credit_hours_with_permission}
@@ -493,7 +497,7 @@ export default function EditSemester() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Min GPA for Max Credits</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minGpaForMax')}</label>
                     <input
                       type="number"
                       step="0.1"
@@ -507,7 +511,7 @@ export default function EditSemester() {
 
               <div className="border-t pt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.description')}</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => handleChange('description', e.target.value)}
@@ -517,7 +521,7 @@ export default function EditSemester() {
                   />
                 </div>
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.descriptionAr')}</label>
                   <textarea
                     value={formData.description_ar}
                     onChange={(e) => handleChange('description_ar', e.target.value)}
@@ -530,21 +534,21 @@ export default function EditSemester() {
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse space-x-4' : 'justify-end space-x-4'}`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('academic.semesters.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Updating...' : 'Update Semester'}</span>
+              <span>{loading ? t('academic.semesters.updating') : t('academic.semesters.edit')}</span>
             </button>
           </div>
         </form>

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
@@ -16,6 +18,8 @@ const steps = [
 ]
 
 export default function CreateApplication() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
@@ -273,12 +277,12 @@ export default function CreateApplication() {
   if (requiresCollegeSelection) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
+        <div className={`text-center ${isRTL ? 'text-right' : 'text-left'}`}>
           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Building2 className="w-8 h-8 text-yellow-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">College Selection Required</h2>
-          <p className="text-gray-600">Please select a college from the dropdown above to continue.</p>
+          <h2 className={`text-xl font-bold text-gray-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.collegeSelectionRequired')}</h2>
+          <p className={`text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.collegeSelectionMessage')}</p>
         </div>
       </div>
     )
@@ -287,17 +291,17 @@ export default function CreateApplication() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
           <button
             onClick={() => navigate('/admissions/applications')}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">New Application</h1>
-            <p className="text-gray-600 mt-1">Complete the form below to create a new student application</p>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
+            <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.newApplication')}</h1>
+            <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.newApplicationSubtitle')}</p>
           </div>
         </div>
       </div>
@@ -305,16 +309,16 @@ export default function CreateApplication() {
       {/* College Selector for Admin */}
       {userRole === 'admin' && (
         <div className={`rounded-lg p-6 ${requiresCollegeSelection ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-blue-50 border border-blue-200'}`}>
-          <div className="flex items-center space-x-4">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
             <Building2 className={`w-6 h-6 ${requiresCollegeSelection ? 'text-yellow-600' : 'text-blue-600'}`} />
-            <div className="flex-1">
-              <p className={`text-base font-semibold ${requiresCollegeSelection ? 'text-yellow-900' : 'text-blue-900'}`}>
-                {requiresCollegeSelection ? 'College Selection Required' : 'Selected College'}
+            <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+              <p className={`text-base font-semibold ${requiresCollegeSelection ? 'text-yellow-900' : 'text-blue-900'} ${isRTL ? 'text-right' : 'text-left'}`}>
+                {requiresCollegeSelection ? t('admissions.collegeSelectionRequired') : t('admissions.selectedCollege')}
               </p>
-              <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'}`}>
+              <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'} ${isRTL ? 'text-right' : 'text-left'}`}>
                 {requiresCollegeSelection 
-                  ? 'Please select a college before proceeding with the application' 
-                  : `You are working with: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || 'Unknown'}`}
+                  ? t('admissions.collegeSelectionMessage') 
+                  : `${t('admissions.workingWith')}: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || t('common.unknown')}`}
               </p>
             </div>
             <select
@@ -327,7 +331,7 @@ export default function CreateApplication() {
               }`}
               required
             >
-              <option value="">Select College...</option>
+              <option value="">{t('admissions.selectCollege')}</option>
               {colleges.map(college => (
                 <option key={college.id} value={college.id}>
                   {college.name_en} ({college.code})
@@ -370,7 +374,7 @@ export default function CreateApplication() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+        <div className={`bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 ${isRTL ? 'text-right' : 'text-left'}`}>
           {error}
         </div>
       )}

@@ -1,34 +1,40 @@
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+
 export default function FinancialSettings({ formData, handleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Payment Gateway Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Gateway Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.paymentGatewaySettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">TAP Payment API Key</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.tapPaymentApiKey')}</label>
             <input
               type="text"
               value={formData.tap_api_key}
               onChange={(e) => handleChange('tap_api_key', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Enter your TAP Payment API key"
+              placeholder={t('colleges.financialSettings.tapPaymentApiKeyPlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">TAP Payment Secret Key</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.tapPaymentSecretKey')}</label>
             <input
               type="password"
               value={formData.tap_secret_key}
               onChange={(e) => handleChange('tap_secret_key', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Enter your TAP Payment secret key"
+              placeholder={t('colleges.financialSettings.tapPaymentSecretKeyPlaceholder')}
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Test Mode</label>
-              <p className="text-xs text-gray-500">Enable test mode for payment gateway</p>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.financialSettings.testMode')}</label>
+              <p className="text-xs text-gray-500">{t('colleges.financialSettings.testModeDesc')}</p>
             </div>
             <input
               type="checkbox"
@@ -42,11 +48,11 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Discount Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Discount Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.discountConfiguration')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Early Payment Discount</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.financialSettings.enableEarlyPaymentDiscount')}</label>
             </div>
             <input
               type="checkbox"
@@ -57,7 +63,7 @@ export default function FinancialSettings({ formData, handleChange }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Early Payment Discount %</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.earlyPaymentDiscountPercent')}</label>
               <input
                 type="number"
                 value={formData.early_payment_percent}
@@ -66,7 +72,7 @@ export default function FinancialSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Early Payment Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.earlyPaymentDays')}</label>
               <input
                 type="number"
                 value={formData.early_payment_days}
@@ -75,9 +81,9 @@ export default function FinancialSettings({ formData, handleChange }) {
               />
             </div>
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Sibling Discount</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.financialSettings.enableSiblingDiscount')}</label>
             </div>
             <input
               type="checkbox"
@@ -87,7 +93,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sibling Discount %</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.siblingDiscountPercent')}</label>
             <input
               type="number"
               value={formData.sibling_discount_percent}
@@ -100,11 +106,11 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Late Fee Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Late Fee Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.lateFeeConfiguration')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Late Fees</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.financialSettings.enableLateFees')}</label>
             </div>
             <input
               type="checkbox"
@@ -115,7 +121,7 @@ export default function FinancialSettings({ formData, handleChange }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Late Fee Amount</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.lateFeeAmount')}</label>
               <input
                 type="number"
                 step="0.01"
@@ -123,10 +129,10 @@ export default function FinancialSettings({ formData, handleChange }) {
                 onChange={(e) => handleChange('late_fee_amount', parseFloat(e.target.value))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Fixed late fee amount</p>
+              <p className="text-xs text-gray-500 mt-1">{t('colleges.financialSettings.lateFeeAmountDesc')}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Late Fee Percentage</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.lateFeePercentage')}</label>
               <input
                 type="number"
                 step="0.1"
@@ -134,17 +140,17 @@ export default function FinancialSettings({ formData, handleChange }) {
                 onChange={(e) => handleChange('late_fee_percentage', parseFloat(e.target.value))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Percentage-based late fee</p>
+              <p className="text-xs text-gray-500 mt-1">{t('colleges.financialSettings.lateFeePercentageDesc')}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Grace Period (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.gracePeriodDays')}</label>
               <input
                 type="number"
                 value={formData.grace_period_days}
                 onChange={(e) => handleChange('grace_period_days', parseInt(e.target.value))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Days before late fees apply</p>
+              <p className="text-xs text-gray-500 mt-1">{t('colleges.financialSettings.gracePeriodDaysDesc')}</p>
             </div>
           </div>
         </div>
@@ -152,10 +158,10 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Installment Plan Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Installment Plan Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.installmentPlanConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Installments</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.minInstallments')}</label>
             <input
               type="number"
               value={formData.min_installments}
@@ -164,7 +170,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Installments</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.maxInstallments')}</label>
             <input
               type="number"
               value={formData.max_installments}
@@ -177,10 +183,10 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Payment Reminder Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Reminder Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.paymentReminderConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Reminder Days Before Due</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.reminderDaysBeforeDue')}</label>
             <input
               type="number"
               value={formData.reminder_days_before_due}
@@ -189,7 +195,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Days Between Reminders</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.minDaysBetweenReminders')}</label>
             <input
               type="number"
               value={formData.min_days_between_reminders}
@@ -198,7 +204,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Upcoming Due Date Window</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.upcomingDueDateWindow')}</label>
             <input
               type="number"
               value={formData.upcoming_due_window}
@@ -211,10 +217,10 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Invoice Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Invoice Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.invoiceSettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Prefix</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.invoicePrefix')}</label>
             <input
               type="text"
               value={formData.invoice_prefix}
@@ -223,7 +229,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Number Format</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.invoiceNumberFormat')}</label>
             <input
               type="text"
               value={formData.invoice_format}
@@ -233,7 +239,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Due Days</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.invoiceDueDays')}</label>
             <input
               type="number"
               value={formData.invoice_due_days}
@@ -246,10 +252,10 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Currency Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Currency Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.currencySettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Currency Code</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.currencyCode')}</label>
             <input
               type="text"
               value={formData.currency_code}
@@ -259,7 +265,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Currency Symbol</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.currencySymbol')}</label>
             <input
               type="text"
               value={formData.currency_symbol}
@@ -269,7 +275,7 @@ export default function FinancialSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Decimal Places</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.decimalPlaces')}</label>
             <input
               type="number"
               value={formData.decimal_places}
@@ -282,11 +288,11 @@ export default function FinancialSettings({ formData, handleChange }) {
 
       {/* Refund Policy */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Refund Policy</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.refundPolicy')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Allow Refunds</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.financialSettings.allowRefunds')}</label>
             </div>
             <input
               type="checkbox"
@@ -297,7 +303,7 @@ export default function FinancialSettings({ formData, handleChange }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Full Refund Period (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.fullRefundPeriodDays')}</label>
               <input
                 type="number"
                 value={formData.full_refund_period_days}
@@ -306,7 +312,7 @@ export default function FinancialSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Partial Refund Period (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.partialRefundPeriodDays')}</label>
               <input
                 type="number"
                 value={formData.partial_refund_period_days}
@@ -315,7 +321,7 @@ export default function FinancialSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Partial Refund Percentage</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.financialSettings.partialRefundPercentage')}</label>
               <input
                 type="number"
                 step="0.1"

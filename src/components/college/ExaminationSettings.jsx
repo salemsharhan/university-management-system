@@ -1,12 +1,18 @@
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+
 export default function ExaminationSettings({ formData, handleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Grading Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Grading Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.gradingConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Passing Percentage</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.minPassingPercentage')}</label>
             <input
               type="number"
               value={formData.min_passing_percentage}
@@ -15,7 +21,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Passing Grade Points</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.minPassingGradePoints')}</label>
             <input
               type="number"
               step="0.1"
@@ -25,7 +31,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Excellence Percentage</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.minExcellencePercentage')}</label>
             <input
               type="number"
               value={formData.min_excellence_percentage}
@@ -34,7 +40,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Good Percentage</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.minGoodPercentage')}</label>
             <input
               type="number"
               value={formData.min_good_percentage}
@@ -47,10 +53,10 @@ export default function ExaminationSettings({ formData, handleChange }) {
 
       {/* Exam Type Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Exam Type Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.examTypeConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Midterm Weight (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.defaultMidtermWeight')}</label>
             <input
               type="number"
               value={formData.default_midterm_weight}
@@ -59,7 +65,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Final Weight (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.defaultFinalWeight')}</label>
             <input
               type="number"
               value={formData.default_final_weight}
@@ -68,7 +74,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Quiz Weight (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.defaultQuizWeight')}</label>
             <input
               type="number"
               value={formData.default_quiz_weight}
@@ -77,7 +83,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Assignment Weight (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.defaultAssignmentWeight')}</label>
             <input
               type="number"
               value={formData.default_assignment_weight}
@@ -85,9 +91,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enforce Weight Sum 100%</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.enforceWeightSum100')}</label>
             </div>
             <input
               type="checkbox"
@@ -96,9 +102,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Allow Custom Exam Types</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.allowCustomExamTypes')}</label>
             </div>
             <input
               type="checkbox"
@@ -112,10 +118,10 @@ export default function ExaminationSettings({ formData, handleChange }) {
 
       {/* Scheduling Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Scheduling Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.schedulingConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Exam Schedule Generation Window (Days)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.examScheduleGenerationWindowDays')}</label>
             <input
               type="number"
               value={formData.exam_schedule_generation_window_days}
@@ -124,7 +130,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Upcoming Exams Window (Days)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.defaultUpcomingExamsWindowDays')}</label>
             <input
               type="number"
               value={formData.default_upcoming_exams_window_days}
@@ -133,7 +139,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Preparation Days</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.minPreparationDays')}</label>
             <input
               type="number"
               value={formData.min_preparation_days}
@@ -142,7 +148,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Exams Per Day</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.maxExamsPerDay')}</label>
             <input
               type="number"
               value={formData.max_exams_per_day}
@@ -150,9 +156,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Allow Weekend Exams</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.allowWeekendExams')}</label>
             </div>
             <input
               type="checkbox"
@@ -161,9 +167,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Allow Overlapping Exams</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.allowOverlappingExams')}</label>
             </div>
             <input
               type="checkbox"
@@ -177,11 +183,11 @@ export default function ExaminationSettings({ formData, handleChange }) {
 
       {/* Makeup Exam Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Makeup Exam Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.makeupExamConfiguration')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Allow Makeup Exams</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.allowMakeupExams')}</label>
             </div>
             <input
               type="checkbox"
@@ -192,7 +198,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Makeup Request Deadline (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.makeupRequestDeadlineDays')}</label>
               <input
                 type="number"
                 value={formData.makeup_request_deadline_days}
@@ -201,7 +207,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Makeup Attempts</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.maxMakeupAttempts')}</label>
               <input
                 type="number"
                 value={formData.max_makeup_attempts}
@@ -210,7 +216,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Makeup Exam Penalty Percentage</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.makeupExamPenaltyPercentage')}</label>
               <input
                 type="number"
                 step="0.1"
@@ -225,11 +231,11 @@ export default function ExaminationSettings({ formData, handleChange }) {
 
       {/* Room Allocation Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Room Allocation Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.roomAllocationConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Require Room Allocation</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.requireRoomAllocation')}</label>
             </div>
             <input
               type="checkbox"
@@ -239,7 +245,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Students Per Room</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.studentsPerRoom')}</label>
             <input
               type="number"
               value={formData.students_per_room}
@@ -248,7 +254,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Social Distancing Capacity (%)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.socialDistancingCapacity')}</label>
             <input
               type="number"
               value={formData.social_distancing_capacity_percent}
@@ -256,9 +262,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enforce Social Distancing</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.enforceSocialDistancing')}</label>
             </div>
             <input
               type="checkbox"
@@ -272,11 +278,11 @@ export default function ExaminationSettings({ formData, handleChange }) {
 
       {/* Invigilator Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Invigilator Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.invigilatorConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Require Invigilators</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.requireInvigilators')}</label>
             </div>
             <input
               type="checkbox"
@@ -286,7 +292,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Invigilators Per Room</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.minInvigilatorsPerRoom')}</label>
             <input
               type="number"
               value={formData.min_invigilators_per_room}
@@ -295,7 +301,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Max Invigilator Assignments Per Day</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.maxInvigilatorAssignmentsPerDay')}</label>
             <input
               type="number"
               value={formData.max_invigilator_assignments_per_day}
@@ -304,7 +310,7 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Students Per Invigilator</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.examinationSettings.studentsPerInvigilator')}</label>
             <input
               type="number"
               value={formData.students_per_invigilator}
@@ -317,11 +323,11 @@ export default function ExaminationSettings({ formData, handleChange }) {
 
       {/* Conflict Detection Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Conflict Detection Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.examinationSettings.conflictDetectionConfiguration')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Conflict Detection</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.enableConflictDetection')}</label>
             </div>
             <input
               type="checkbox"
@@ -331,9 +337,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Check Student Conflicts</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.checkStudentConflicts')}</label>
               </div>
               <input
                 type="checkbox"
@@ -342,9 +348,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Check Invigilator Conflicts</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.checkInvigilatorConflicts')}</label>
               </div>
               <input
                 type="checkbox"
@@ -353,9 +359,9 @@ export default function ExaminationSettings({ formData, handleChange }) {
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Check Room Conflicts</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.examinationSettings.checkRoomConflicts')}</label>
               </div>
               <input
                 type="checkbox"

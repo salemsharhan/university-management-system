@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { createAuthUser } from '../lib/createAuthUser'
 import { ArrowLeft, ArrowRight, Check, User, Phone, FileText, GraduationCap, Heart, Upload, Eye } from 'lucide-react'
 
-const steps = [
-  { id: 1, name: 'Essential Info', icon: User },
-  { id: 2, name: 'Emergency Contact', icon: Phone },
-  { id: 3, name: 'Identity Documents', icon: FileText },
-  { id: 4, name: 'Academic & Medical', icon: GraduationCap },
-  { id: 5, name: 'Review & Submit', icon: Check },
-]
-
 export default function CreateStudent() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const [searchParams] = useSearchParams()
+
+  const steps = [
+    { id: 1, name: t('createStudent.essentialInfo'), icon: User },
+    { id: 2, name: t('createStudent.emergencyContact'), icon: Phone },
+    { id: 3, name: t('createStudent.identityDocuments'), icon: FileText },
+    { id: 4, name: t('createStudent.academicMedical'), icon: GraduationCap },
+    { id: 5, name: t('createStudent.reviewSubmit'), icon: Check },
+  ]
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -596,18 +600,18 @@ export default function CreateStudent() {
         <div className="mb-6">
           <button
             onClick={() => navigate('/students')}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Students</span>
+            <span>{t('students.backToStudents')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create New Student</h1>
-          <p className="text-gray-600 mt-1">Step {currentStep} of {steps.length} • {steps[currentStep - 1].name}</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('createStudent.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('students.step')} {currentStep} {t('students.of')} {steps.length} • {steps[currentStep - 1].name}</p>
         </div>
 
         {/* Progress Steps */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'}`}>
             {steps.map((step, index) => {
               const StepIcon = step.icon
               const isActive = currentStep === step.id
@@ -656,34 +660,34 @@ export default function CreateStudent() {
           </div>
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between">
+          <div className={`flex ${isRTL ? 'flex-row-reverse' : 'justify-between'}`}>
             <button
               type="button"
               onClick={prevStep}
               disabled={currentStep === 1}
-              className="flex items-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <ArrowLeft className="w-5 h-5" />
-              <span>Previous</span>
+              <span>{t('createStudent.previous') || t('common.previous')}</span>
             </button>
             
             {currentStep < steps.length ? (
               <button
                 type="button"
                 onClick={nextStep}
-                className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all`}
               >
-                <span>Next</span>
+                <span>{t('createStudent.next') || t('common.next')}</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Check className="w-5 h-5" />
-                <span>{loading ? 'Creating...' : 'Create Student'}</span>
+                <span>{loading ? t('createStudent.creating') : t('createStudent.createStudent')}</span>
               </button>
             )}
           </div>
@@ -706,14 +710,17 @@ function EssentialInfoStep({
   fetchMajorsForCollege,
   collegeId 
 }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Personal Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Personal Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.personalInformation')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.firstName')} *</label>
             <input
               type="text"
               value={formData.first_name}
@@ -723,7 +730,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.middleName')}</label>
             <input
               type="text"
               value={formData.middle_name}
@@ -732,7 +739,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.lastName')} *</label>
             <input
               type="text"
               value={formData.last_name}
@@ -742,7 +749,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">First Name (Arabic)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.firstNameAr')}</label>
             <input
               type="text"
               value={formData.first_name_ar}
@@ -751,7 +758,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name (Arabic)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.middleNameAr')}</label>
             <input
               type="text"
               value={formData.middle_name_ar}
@@ -760,7 +767,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Last Name (Arabic)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.lastNameAr')}</label>
             <input
               type="text"
               value={formData.last_name_ar}
@@ -769,7 +776,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.dateOfBirth')} *</label>
             <input
               type="date"
               value={formData.date_of_birth}
@@ -779,19 +786,19 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.gender')}</label>
             <select
               value={formData.gender}
               onChange={(e) => handleChange('gender', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
+              <option value="">{t('createStudent.selectGender')}</option>
+              <option value="male">{t('createStudent.male')}</option>
+              <option value="female">{t('createStudent.female')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nationality</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.nationality')}</label>
             <input
               type="text"
               value={formData.nationality}
@@ -800,7 +807,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Religion</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.religion')}</label>
             <input
               type="text"
               value={formData.religion}
@@ -809,27 +816,27 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Marital Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.maritalStatus')}</label>
             <select
               value={formData.marital_status}
               onChange={(e) => handleChange('marital_status', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Status</option>
-              <option value="single">Single</option>
-              <option value="married">Married</option>
-              <option value="divorced">Divorced</option>
-              <option value="widowed">Widowed</option>
+              <option value="">{t('createStudent.selectStatus')}</option>
+              <option value="single">{t('createStudent.single')}</option>
+              <option value="married">{t('createStudent.married')}</option>
+              <option value="divorced">{t('createStudent.divorced')}</option>
+              <option value="widowed">{t('createStudent.widowed')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Blood Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.bloodType')}</label>
             <select
               value={formData.blood_type}
               onChange={(e) => handleChange('blood_type', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Blood Type</option>
+              <option value="">{t('createStudent.selectBloodType')}</option>
               <option value="A+">A+</option>
               <option value="A-">A-</option>
               <option value="B+">B+</option>
@@ -840,24 +847,24 @@ function EssentialInfoStep({
               <option value="O-">O-</option>
             </select>
           </div>
-          <div className="flex items-center pt-6">
+          <div className={`flex items-center pt-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
             <input
               type="checkbox"
               checked={formData.is_international}
               onChange={(e) => handleChange('is_international', e.target.checked)}
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
-            <label className="ml-2 text-sm text-gray-700">International Student</label>
+            <label className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>{t('createStudent.internationalStudent')}</label>
           </div>
         </div>
       </div>
 
       {/* Contact Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Contact Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.contactInformation')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.email')} *</label>
             <input
               type="email"
               value={formData.email}
@@ -867,7 +874,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.phone')}</label>
             <input
               type="tel"
               value={formData.phone}
@@ -876,7 +883,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.mobilePhone')}</label>
             <input
               type="tel"
               value={formData.mobile_phone}
@@ -885,7 +892,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.address')}</label>
             <input
               type="text"
               value={formData.address}
@@ -894,7 +901,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.city')}</label>
             <input
               type="text"
               value={formData.city}
@@ -903,7 +910,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.state')}</label>
             <input
               type="text"
               value={formData.state}
@@ -912,7 +919,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.country')}</label>
             <input
               type="text"
               value={formData.country}
@@ -921,7 +928,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.postalCode')}</label>
             <input
               type="text"
               value={formData.postal_code}
@@ -934,11 +941,11 @@ function EssentialInfoStep({
 
       {/* Academic Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Academic Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.academicInformation')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {userRole === 'admin' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">College *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.college')} *</label>
               <select
                 value={selectedCollegeId || ''}
                 onChange={(e) => {
@@ -955,7 +962,7 @@ function EssentialInfoStep({
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
-                <option value="">Select College...</option>
+                <option value="">{t('createStudent.selectCollege')}</option>
                 {colleges.map((college) => (
                   <option key={college.id} value={college.id}>
                     {college.name_en} ({college.code})
@@ -965,14 +972,14 @@ function EssentialInfoStep({
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Major *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.major')} *</label>
             <select
               value={formData.major_id}
               onChange={(e) => handleChange('major_id', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Major...</option>
+              <option value="">{t('createStudent.selectMajor')}</option>
               {majors
                 .filter(major => {
                   if (userRole === 'admin') {
@@ -986,48 +993,48 @@ function EssentialInfoStep({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Study Type *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.studyType')} *</label>
             <select
               value={formData.study_type}
               onChange={(e) => handleChange('study_type', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Study Type</option>
-              <option value="full_time">Full Time</option>
-              <option value="part_time">Part Time</option>
+              <option value="">{t('createStudent.selectStudyType')}</option>
+              <option value="full_time">{t('createStudent.fullTime')}</option>
+              <option value="part_time">{t('createStudent.partTime')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Study Load *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.studyLoad')} *</label>
             <select
               value={formData.study_load}
               onChange={(e) => handleChange('study_load', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Study Load</option>
-              <option value="light">Light</option>
-              <option value="normal">Normal</option>
-              <option value="heavy">Heavy</option>
+              <option value="">{t('createStudent.selectStudyLoad')}</option>
+              <option value="light">{t('createStudent.light')}</option>
+              <option value="normal">{t('createStudent.normal')}</option>
+              <option value="heavy">{t('createStudent.heavy')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Study Approach *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.studyApproach')} *</label>
             <select
               value={formData.study_approach}
               onChange={(e) => handleChange('study_approach', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Study Approach</option>
-              <option value="on_campus">On Campus</option>
-              <option value="online">Online</option>
-              <option value="hybrid">Hybrid</option>
+              <option value="">{t('createStudent.selectStudyApproach')}</option>
+              <option value="on_campus">{t('createStudent.onCampus')}</option>
+              <option value="online">{t('createStudent.online')}</option>
+              <option value="hybrid">{t('createStudent.hybrid')}</option>
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Credit Hours</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.creditHours')}</label>
             <input
               type="number"
               value={formData.credit_hours}
@@ -1036,7 +1043,7 @@ function EssentialInfoStep({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Enrollment Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.enrollmentDate')}</label>
             <input
               type="date"
               value={formData.enrollment_date}
@@ -1053,12 +1060,15 @@ function EssentialInfoStep({
 
 // Step 2: Emergency Contact
 function EmergencyContactStep({ formData, handleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Emergency Contact</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.emergencyContact')}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.contactName')}</label>
           <input
             type="text"
             value={formData.emergency_contact_name}
@@ -1067,7 +1077,7 @@ function EmergencyContactStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.relation')}</label>
           <input
             type="text"
             value={formData.emergency_contact_relation}
@@ -1076,7 +1086,7 @@ function EmergencyContactStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.phone')}</label>
           <input
             type="tel"
             value={formData.emergency_phone}
@@ -1085,7 +1095,7 @@ function EmergencyContactStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.email')}</label>
           <input
             type="email"
             value={formData.emergency_contact_email}
@@ -1100,12 +1110,15 @@ function EmergencyContactStep({ formData, handleChange }) {
 
 // Step 3: Identity Documents
 function IdentityDocumentsStep({ formData, handleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Identity Documents</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.identityDocuments')}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">National ID</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.nationalId')}</label>
           <input
             type="text"
             value={formData.national_id}
@@ -1114,7 +1127,7 @@ function IdentityDocumentsStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.passportNumber')}</label>
           <input
             type="text"
             value={formData.passport_number}
@@ -1123,7 +1136,7 @@ function IdentityDocumentsStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Passport Expiry</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.passportExpiry')}</label>
           <input
             type="date"
             value={formData.passport_expiry}
@@ -1132,7 +1145,7 @@ function IdentityDocumentsStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Visa Number</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.visaNumber')}</label>
           <input
             type="text"
             value={formData.visa_number}
@@ -1141,7 +1154,7 @@ function IdentityDocumentsStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Visa Expiry</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.visaExpiry')}</label>
           <input
             type="date"
             value={formData.visa_expiry}
@@ -1150,7 +1163,7 @@ function IdentityDocumentsStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Residence Permit Number</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.residencePermitNumber')}</label>
           <input
             type="text"
             value={formData.residence_permit_number}
@@ -1159,7 +1172,7 @@ function IdentityDocumentsStep({ formData, handleChange }) {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Residence Permit Expiry</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.residencePermitExpiry')}</label>
           <input
             type="date"
             value={formData.residence_permit_expiry}
@@ -1174,14 +1187,17 @@ function IdentityDocumentsStep({ formData, handleChange }) {
 
 // Step 4: Academic & Medical
 function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeDocument, majors }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Previous Education */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Previous Education</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.previousEducation')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">High School Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.highSchoolName')}</label>
             <input
               type="text"
               value={formData.high_school_name}
@@ -1190,7 +1206,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">High School Country</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.highSchoolCountry')}</label>
             <input
               type="text"
               value={formData.high_school_country}
@@ -1199,7 +1215,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Graduation Year</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.graduationYear')}</label>
             <input
               type="number"
               value={formData.graduation_year}
@@ -1208,7 +1224,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">High School GPA</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.highSchoolGPA')}</label>
             <input
               type="number"
               step="0.01"
@@ -1222,21 +1238,21 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
 
       {/* Scholarship Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Scholarship Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.scholarshipInformation')}</h2>
         <div className="space-y-4">
-          <div className="flex items-center">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
             <input
               type="checkbox"
               checked={formData.has_scholarship}
               onChange={(e) => handleChange('has_scholarship', e.target.checked)}
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
-            <label className="ml-2 text-sm text-gray-700">Has Scholarship</label>
+            <label className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm text-gray-700`}>{t('createStudent.hasScholarship')}</label>
           </div>
           {formData.has_scholarship && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.scholarshipType')}</label>
                 <input
                   type="text"
                   value={formData.scholarship_type}
@@ -1245,7 +1261,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Percentage</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.scholarshipPercentage')}</label>
                 <input
                   type="number"
                   step="0.01"
@@ -1261,10 +1277,10 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
 
       {/* Medical Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Medical Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.medicalInformation')}</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Medical Conditions</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.medicalConditions')}</label>
             <textarea
               value={formData.medical_conditions}
               onChange={(e) => handleChange('medical_conditions', e.target.value)}
@@ -1273,7 +1289,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.allergies')}</label>
             <textarea
               value={formData.allergies}
               onChange={(e) => handleChange('allergies', e.target.value)}
@@ -1282,7 +1298,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Medications</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.medications')}</label>
             <textarea
               value={formData.medications}
               onChange={(e) => handleChange('medications', e.target.value)}
@@ -1295,9 +1311,9 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
 
       {/* Documents Upload */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Documents Upload</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.documentsUpload')}</h2>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Upload Documents</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.uploadDocuments')}</label>
           <input
             type="file"
             multiple
@@ -1306,22 +1322,22 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Accepted formats: PDF, DOC, DOCX, JPG, PNG. Max size per file: 10MB
+            {t('createStudent.acceptedFormats')}
           </p>
         </div>
         {formData.documents.length > 0 && (
           <div className="mt-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Selected Documents</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">{t('createStudent.selectedDocuments')}</p>
             <div className="space-y-2">
               {formData.documents.map((doc, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={index} className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-3 bg-gray-50 rounded-lg`}>
                   <span className="text-sm text-gray-700">{doc.name}</span>
                   <button
                     type="button"
                     onClick={() => removeDocument(index)}
                     className="text-red-600 hover:text-red-800 text-sm"
                   >
-                    Remove
+                    {t('createStudent.remove')}
                   </button>
                 </div>
               ))}
@@ -1332,10 +1348,10 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
 
       {/* Additional Information */}
       <div>
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Additional Information</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.additionalInformation')}</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.notes')}</label>
             <textarea
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
@@ -1346,7 +1362,7 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
           
           {/* Login Account Creation */}
           <div className="border-t pt-4">
-            <div className="flex items-center space-x-2 mb-4">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
               <input
                 type="checkbox"
                 checked={formData.create_login_account}
@@ -1354,24 +1370,24 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               <label className="text-sm font-medium text-gray-700">
-                Create login account for this student
+                {t('createStudent.createLoginAccount')}
               </label>
             </div>
             {formData.create_login_account && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Initial Password *
+                  {t('createStudent.initialPassword')}
                 </label>
                 <input
                   type="password"
                   value={formData.login_password}
                   onChange={(e) => handleChange('login_password', e.target.value)}
                   required={formData.create_login_account}
-                  placeholder="Set a password for the student to log in"
+                  placeholder={t('createStudent.passwordPlaceholder')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  The student will be able to log in at /login/student using their email and this password.
+                  {t('createStudent.passwordHint')}
                 </p>
               </div>
             )}
@@ -1384,95 +1400,98 @@ function AcademicMedicalStep({ formData, handleChange, handleFileUpload, removeD
 
 // Step 5: Review
 function ReviewStep({ formData, majors }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   const getMajorName = (id) => {
     const major = majors.find(m => m.id === parseInt(id))
-    return major ? major.name_en : 'Not selected'
+    return major ? major.name_en : t('createInstructor.notSelected')
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Review Your Information</h2>
-      <p className="text-gray-600 mb-6">Please review all information carefully before submitting. You can click Previous to go back to any section.</p>
+      <h2 className="text-xl font-bold text-gray-900 mb-4">{t('createStudent.reviewYourInformation')}</h2>
+      <p className="text-gray-600 mb-6">{t('createStudent.reviewDescription')}</p>
       
       {/* Personal Information */}
       <div className="border-b pb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Personal Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('createStudent.personalInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-500">First Name:</span>
-            <span className="ml-2 text-gray-900">{formData.first_name || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.firstName')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.first_name || 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Last Name:</span>
-            <span className="ml-2 text-gray-900">{formData.last_name || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.lastName')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.last_name || 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">First Name (Arabic):</span>
-            <span className="ml-2 text-gray-900">{formData.first_name_ar || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.firstNameAr')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.first_name_ar || 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Last Name (Arabic):</span>
-            <span className="ml-2 text-gray-900">{formData.last_name_ar || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.lastNameAr')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.last_name_ar || 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Date of Birth:</span>
-            <span className="ml-2 text-gray-900">
+            <span className="text-gray-500">{t('createStudent.dateOfBirth')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>
               {formData.date_of_birth ? new Date(formData.date_of_birth).toLocaleDateString() : 'N/A'}
             </span>
           </div>
           <div>
-            <span className="text-gray-500">Gender:</span>
-            <span className="ml-2 text-gray-900">{formData.gender || 'Not selected'}</span>
+            <span className="text-gray-500">{t('createStudent.gender')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.gender ? t(`createStudent.${formData.gender}`) : t('createInstructor.notSelected')}</span>
           </div>
           <div>
-            <span className="text-gray-500">Marital Status:</span>
-            <span className="ml-2 text-gray-900">{formData.marital_status || 'Not selected'}</span>
+            <span className="text-gray-500">{t('createStudent.maritalStatus')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.marital_status ? t(`createStudent.${formData.marital_status}`) : t('createInstructor.notSelected')}</span>
           </div>
           <div>
-            <span className="text-gray-500">Blood Type:</span>
-            <span className="ml-2 text-gray-900">{formData.blood_type || 'Not selected'}</span>
+            <span className="text-gray-500">{t('createStudent.bloodType')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.blood_type || t('createInstructor.notSelected')}</span>
           </div>
         </div>
       </div>
 
       {/* Contact Information */}
       <div className="border-b pb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Contact Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('createStudent.contactInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-500">Email:</span>
-            <span className="ml-2 text-gray-900">{formData.email || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.email')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.email || 'N/A'}</span>
           </div>
         </div>
       </div>
 
       {/* Academic Information */}
       <div className="border-b pb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Academic Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('createStudent.academicInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-500">Major:</span>
-            <span className="ml-2 text-gray-900">{getMajorName(formData.major_id)}</span>
+            <span className="text-gray-500">{t('createStudent.major')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{getMajorName(formData.major_id)}</span>
           </div>
           <div>
-            <span className="text-gray-500">Study Type:</span>
-            <span className="ml-2 text-gray-900">{formData.study_type || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.studyType')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.study_type ? t(`createStudent.${formData.study_type}`) : 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Study Load:</span>
-            <span className="ml-2 text-gray-900">{formData.study_load || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.studyLoad')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.study_load ? t(`createStudent.${formData.study_load}`) : 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Study Approach:</span>
-            <span className="ml-2 text-gray-900">{formData.study_approach || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.studyApproach')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.study_approach ? t(`createStudent.${formData.study_approach}`) : 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Credit Hours:</span>
-            <span className="ml-2 text-gray-900">{formData.credit_hours || 'N/A'}</span>
+            <span className="text-gray-500">{t('createStudent.creditHours')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.credit_hours || 'N/A'}</span>
           </div>
           <div>
-            <span className="text-gray-500">Enrollment Date:</span>
-            <span className="ml-2 text-gray-900">
+            <span className="text-gray-500">{t('createStudent.enrollmentDate')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>
               {formData.enrollment_date ? new Date(formData.enrollment_date).toLocaleDateString() : 'N/A'}
             </span>
           </div>
@@ -1481,11 +1500,11 @@ function ReviewStep({ formData, majors }) {
 
       {/* Scholarship Information */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Scholarship Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-3">{t('createStudent.scholarshipInformation')}</h3>
         <div className="text-sm">
           <div>
-            <span className="text-gray-500">Has Scholarship:</span>
-            <span className="ml-2 text-gray-900">{formData.has_scholarship ? 'Yes' : 'No'}</span>
+            <span className="text-gray-500">{t('createStudent.hasScholarship')}:</span>
+            <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-gray-900`}>{formData.has_scholarship ? t('common.yes') : t('common.no')}</span>
           </div>
         </div>
       </div>

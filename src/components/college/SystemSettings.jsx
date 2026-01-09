@@ -1,22 +1,28 @@
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+
 export default function SystemSettings({ formData, handleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Security Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.systemSettings.securitySettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Session Timeout (Minutes)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.sessionTimeoutMinutes')}</label>
             <input
               type="number"
               value={formData.session_timeout_minutes}
               onChange={(e) => handleChange('session_timeout_minutes', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">User session will expire after this period of inactivity</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.systemSettings.sessionTimeoutMinutesHint')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password Expiry (Days)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.passwordExpiryDays')}</label>
             <input
               type="number"
               value={formData.password_expiry_days}
@@ -25,7 +31,7 @@ export default function SystemSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Login Attempts</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.maxLoginAttempts')}</label>
             <input
               type="number"
               value={formData.max_login_attempts}
@@ -34,7 +40,7 @@ export default function SystemSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Account Lockout Duration (Minutes)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.accountLockoutDurationMinutes')}</label>
             <input
               type="number"
               value={formData.account_lockout_minutes}
@@ -42,9 +48,9 @@ export default function SystemSettings({ formData, handleChange }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Two-Factor Authentication</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.systemSettings.enableTwoFactorAuthentication')}</label>
             </div>
             <input
               type="checkbox"
@@ -58,26 +64,26 @@ export default function SystemSettings({ formData, handleChange }) {
 
       {/* File Upload Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">File Upload Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.systemSettings.fileUploadSettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum File Upload Size (MB)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.maxFileUploadSize')}</label>
             <input
               type="number"
               value={formData.max_file_upload_size_mb}
               onChange={(e) => handleChange('max_file_upload_size_mb', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Maximum size for file uploads in megabytes</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.systemSettings.maxFileUploadSizeHint')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">File Storage Provider</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.fileStorageProvider')}</label>
             <select
               value={formData.storage_provider}
               onChange={(e) => handleChange('storage_provider', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="local">Local Storage</option>
+              <option value="local">{t('colleges.systemSettings.localStorage')}</option>
               <option value="s3">AWS S3</option>
               <option value="cloudinary">Cloudinary</option>
             </select>
@@ -87,11 +93,11 @@ export default function SystemSettings({ formData, handleChange }) {
 
       {/* Maintenance Mode */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Maintenance Mode</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.systemSettings.maintenanceMode')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Maintenance Mode</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.systemSettings.enableMaintenanceMode')}</label>
             </div>
             <input
               type="checkbox"
@@ -101,13 +107,13 @@ export default function SystemSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maintenance Message</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.maintenanceMessage')}</label>
             <textarea
               value={formData.maintenance_message}
               onChange={(e) => handleChange('maintenance_message', e.target.value)}
               rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="System is under maintenance..."
+              placeholder={t('colleges.systemSettings.maintenanceMessagePlaceholder')}
             />
           </div>
         </div>
@@ -115,11 +121,11 @@ export default function SystemSettings({ formData, handleChange }) {
 
       {/* Backup Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Backup Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.systemSettings.backupSettings')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Automatic Backups</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.systemSettings.enableAutomaticBackups')}</label>
             </div>
             <input
               type="checkbox"
@@ -130,7 +136,7 @@ export default function SystemSettings({ formData, handleChange }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Backup Retention (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.backupRetentionDays')}</label>
               <input
                 type="number"
                 value={formData.backup_retention_days}
@@ -139,15 +145,15 @@ export default function SystemSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Backup Schedule (Cron)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.backupSchedule')}</label>
               <input
                 type="text"
                 value={formData.backup_schedule}
                 onChange={(e) => handleChange('backup_schedule', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="0 2 * * *"
+                placeholder={t('colleges.systemSettings.backupSchedulePlaceholder')}
               />
-              <p className="text-xs text-gray-500 mt-1">Use cron format: 0 2 * * * (Daily at 2 AM)</p>
+              <p className="text-xs text-gray-500 mt-1">{t('colleges.systemSettings.backupScheduleHint')}</p>
             </div>
           </div>
         </div>
@@ -155,10 +161,10 @@ export default function SystemSettings({ formData, handleChange }) {
 
       {/* Localization Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Localization Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.systemSettings.localizationSettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.systemSettings.defaultLanguage')}</label>
             <select
               value={formData.default_language}
               onChange={(e) => handleChange('default_language', e.target.value)}
@@ -168,9 +174,9 @@ export default function SystemSettings({ formData, handleChange }) {
               <option value="ar">Arabic</option>
             </select>
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Auto-Detect User Language</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.systemSettings.autoDetectUserLanguage')}</label>
             </div>
             <input
               type="checkbox"
@@ -179,9 +185,9 @@ export default function SystemSettings({ formData, handleChange }) {
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Right-to-Left Support</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.systemSettings.enableRightToLeftSupport')}</label>
             </div>
             <input
               type="checkbox"

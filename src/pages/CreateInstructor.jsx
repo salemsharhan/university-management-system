@@ -1,23 +1,27 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { createAuthUser } from '../lib/createAuthUser'
 import { ArrowLeft, ArrowRight, Save, User, GraduationCap, Briefcase, Award, Globe, Plus, X, Lock } from 'lucide-react'
 
-const steps = [
-  { id: 1, name: 'Personal Info', icon: User },
-  { id: 2, name: 'Contact & Location', icon: Globe },
-  { id: 3, name: 'Education', icon: GraduationCap },
-  { id: 4, name: 'Experience & Skills', icon: Briefcase },
-  { id: 5, name: 'Academic Assignment', icon: Award },
-  { id: 6, name: 'Review & Submit', icon: Save },
-]
-
 export default function CreateInstructor() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId: authCollegeId } = useAuth()
+
+  const steps = [
+    { id: 1, name: t('createInstructor.personalInfo'), icon: User },
+    { id: 2, name: t('createInstructor.contactLocation'), icon: Globe },
+    { id: 3, name: t('createInstructor.education'), icon: GraduationCap },
+    { id: 4, name: t('createInstructor.experienceSkills'), icon: Briefcase },
+    { id: 5, name: t('createInstructor.academicAssignment'), icon: Award },
+    { id: 6, name: t('createInstructor.reviewSubmit'), icon: Save },
+  ]
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -109,11 +113,16 @@ export default function CreateInstructor() {
     }
     
     fetchDepartments()
-    if (userRole === 'admin') {
-      fetchColleges()
-    }
+    fetchColleges() // Always fetch colleges - needed for display even for college admins
     fetchAcademicYears()
   }, [userRole, authCollegeId, searchParams])
+
+  useEffect(() => {
+    // Refetch departments when college changes
+    if (formData.college_id || collegeId) {
+      fetchDepartments()
+    }
+  }, [formData.college_id, collegeId])
 
   const fetchUserCollege = async () => {
     try {
@@ -137,12 +146,18 @@ export default function CreateInstructor() {
 
   const fetchColleges = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('colleges')
-        .select('id, name_en, code')
+        .select('id, name_en, name_ar, code')
         .eq('status', 'active')
         .order('name_en')
 
+      // For college admins, only fetch their college
+      if (userRole === 'user' && authCollegeId) {
+        query = query.eq('id', authCollegeId)
+      }
+
+      const { data, error } = await query
       if (error) throw error
       setColleges(data || [])
     } catch (err) {
@@ -377,7 +392,7 @@ export default function CreateInstructor() {
         navigate('/instructors')
       }, 2000)
     } catch (err) {
-      setError(err.message || 'Failed to create instructor')
+      setError(err.message || t('createInstructor.createdSuccess'))
       console.error('Error creating instructor:', err)
     } finally {
       setLoading(false)
@@ -389,22 +404,58 @@ export default function CreateInstructor() {
       case 1:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Personal Information</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{t('createInstructor.personalInformation')}</h2>
+            
+            {userRole === 'admin' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.college')} *</label>
+                <select
+                  value={formData.college_id || ''}
+                  onChange={(e) => {
+                    const collegeIdValue = e.target.value ? parseInt(e.target.value) : null
+                    setCollegeId(collegeIdValue)
+                    handleChange('college_id', collegeIdValue)
+                    // Clear department selection when college changes
+                    handleChange('department_id', '')
+                  }}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">{t('createInstructor.selectCollege')}</option>
+                  {colleges.map(college => (
+                    <option key={college.id} value={college.id}>
+                      {college.name_en} ({college.code})
+                    </option>
+                  ))}
+                </select>
+                {colleges.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">{t('createInstructor.loadingColleges')}</p>
+                )}
+              </div>
+            )}
+
+            {userRole === 'user' && authCollegeId && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>{t('createInstructor.college')}:</strong> {colleges.find(c => c.id === authCollegeId)?.name_en || t('createInstructor.yourCollege')}
+                </p>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.employeeId')} *</label>
                 <input
                   type="text"
                   value={formData.employee_id}
                   onChange={(e) => handleChange('employee_id', e.target.value)}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="INS2024001"
+                  placeholder={t('createInstructor.employeeIdPlaceholder')}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.dateOfBirth')}</label>
                 <input
                   type="date"
                   value={formData.date_of_birth}
@@ -416,7 +467,7 @@ export default function CreateInstructor() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">First Name (English) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.firstNameEn')} *</label>
                 <input
                   type="text"
                   value={formData.first_name}
@@ -426,7 +477,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.middleName')}</label>
                 <input
                   type="text"
                   value={formData.middle_name}
@@ -435,7 +486,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name (English) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.lastNameEn')} *</label>
                 <input
                   type="text"
                   value={formData.last_name}
@@ -448,7 +499,7 @@ export default function CreateInstructor() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">First Name (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.firstNameAr')}</label>
                 <input
                   type="text"
                   value={formData.first_name_ar}
@@ -457,7 +508,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.middleNameAr')}</label>
                 <input
                   type="text"
                   value={formData.middle_name_ar}
@@ -466,7 +517,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Last Name (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.lastNameAr')}</label>
                 <input
                   type="text"
                   value={formData.last_name_ar}
@@ -478,19 +529,19 @@ export default function CreateInstructor() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.gender')}</label>
                 <select
                   value={formData.gender}
                   onChange={(e) => handleChange('gender', e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
+                  <option value="">{t('createInstructor.selectGender')}</option>
+                  <option value="male">{t('createInstructor.male')}</option>
+                  <option value="female">{t('createInstructor.female')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nationality</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.nationality')}</label>
                 <input
                   type="text"
                   value={formData.nationality}
@@ -499,7 +550,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">National ID</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.nationalId')}</label>
                 <input
                   type="text"
                   value={formData.national_id}
@@ -510,7 +561,7 @@ export default function CreateInstructor() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.passportNumber')}</label>
               <input
                 type="text"
                 value={formData.passport_number}
@@ -524,11 +575,11 @@ export default function CreateInstructor() {
       case 2:
         return (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900">Contact & Location</h2>
+            <h2 className="text-2xl font-bold text-gray-900">{t('createInstructor.contactLocation')}</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.email')} *</label>
                 <input
                   type="email"
                   value={formData.email}
@@ -538,7 +589,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.phone')} *</label>
                 <input
                   type="tel"
                   value={formData.phone}
@@ -550,7 +601,7 @@ export default function CreateInstructor() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.address')}</label>
               <input
                 type="text"
                 value={formData.address}
@@ -561,7 +612,7 @@ export default function CreateInstructor() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.city')}</label>
                 <input
                   type="text"
                   value={formData.city}
@@ -570,7 +621,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.country')}</label>
                 <input
                   type="text"
                   value={formData.country}
@@ -579,7 +630,7 @@ export default function CreateInstructor() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.postalCode')}</label>
                 <input
                   type="text"
                   value={formData.postal_code}
@@ -590,10 +641,10 @@ export default function CreateInstructor() {
             </div>
 
             <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contact</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('createInstructor.emergencyContact')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.contactName')}</label>
                   <input
                     type="text"
                     value={formData.emergency_contact_name}
@@ -602,7 +653,7 @@ export default function CreateInstructor() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Relation</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.relation')}</label>
                   <input
                     type="text"
                     value={formData.emergency_contact_relation}
@@ -611,7 +662,7 @@ export default function CreateInstructor() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.emergencyPhone')}</label>
                   <input
                     type="tel"
                     value={formData.emergency_contact_phone}
@@ -620,7 +671,7 @@ export default function CreateInstructor() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.emergencyEmail')}</label>
                   <input
                     type="email"
                     value={formData.emergency_contact_email}
@@ -929,35 +980,61 @@ export default function CreateInstructor() {
             <h2 className="text-2xl font-bold text-gray-900">Academic Assignment</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {userRole === 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.college')} *</label>
+                  <select
+                    value={formData.college_id || ''}
+                    onChange={(e) => {
+                      const collegeIdValue = e.target.value ? parseInt(e.target.value) : null
+                      setCollegeId(collegeIdValue)
+                      handleChange('college_id', collegeIdValue)
+                      // Clear department selection when college changes
+                      handleChange('department_id', '')
+                    }}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">{t('createInstructor.selectCollege')}</option>
+                    {colleges.map(college => (
+                      <option key={college.id} value={college.id}>
+                        {college.name_en} ({college.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {userRole === 'user' && authCollegeId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.college')}</label>
+                  <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                    {colleges.find(c => c.id === authCollegeId)?.name_en || t('createInstructor.yourCollege')}
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">College *</label>
-                <select
-                  value={formData.college_id || ''}
-                  onChange={(e) => handleChange('college_id', e.target.value ? parseInt(e.target.value) : null)}
-                  required
-                  disabled={userRole === 'user'}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100"
-                >
-                  <option value="">Select College...</option>
-                  {colleges.map(college => (
-                    <option key={college.id} value={college.id}>{college.name_en}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.department')}</label>
                 <select
                   value={formData.department_id}
                   onChange={(e) => handleChange('department_id', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  disabled={!formData.college_id && !authCollegeId}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select Department (Optional)...</option>
+                  <option value="">{t('createInstructor.selectDepartment')}</option>
                   {departments
-                    .filter(dept => !formData.college_id || dept.college_id === formData.college_id || dept.is_university_wide)
+                    .filter(dept => {
+                      const targetCollegeId = formData.college_id || authCollegeId
+                      return !targetCollegeId || dept.college_id === targetCollegeId || dept.is_university_wide
+                    })
                     .map(dept => (
                       <option key={dept.id} value={dept.id}>{dept.name_en} ({dept.code})</option>
                     ))}
                 </select>
+                {(!formData.college_id && !authCollegeId) && userRole === 'admin' && (
+                  <p className="text-xs text-gray-500 mt-1">{t('createInstructor.selectCollegeFirst')}</p>
+                )}
               </div>
             </div>
 
@@ -1145,18 +1222,18 @@ export default function CreateInstructor() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('createInstructor.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create Instructor</h1>
-          <p className="text-gray-600 mt-1">Add a new instructor to the system</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('createInstructor.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('createInstructor.subtitle')}</p>
         </div>
 
         {/* Progress Steps */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex items-center justify-between">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'}`}>
             {steps.map((step, index) => {
               const StepIcon = step.icon
               const isActive = currentStep === step.id
@@ -1197,42 +1274,42 @@ export default function CreateInstructor() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
-                Instructor created successfully! Redirecting...
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
+                <span>{t('createInstructor.createdSuccess')}</span>
               </div>
             )}
 
             {renderStepContent()}
           </div>
 
-          <div className="flex justify-between">
+          <div className={`flex ${isRTL ? 'flex-row-reverse' : 'justify-between'}`}>
             <button
               type="button"
               onClick={() => setCurrentStep(prev => Math.max(1, prev - 1))}
               disabled={currentStep === 1}
-              className="flex items-center space-x-2 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <ArrowLeft className="w-5 h-5" />
-              <span>Previous</span>
+              <span>{t('createInstructor.previous')}</span>
             </button>
             
             {currentStep < steps.length ? (
               <button
                 type="button"
                 onClick={() => setCurrentStep(prev => Math.min(steps.length, prev + 1))}
-                className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all`}
               >
-                <span>Next</span>
+                <span>{t('createInstructor.next')}</span>
                 <ArrowRight className="w-5 h-5" />
               </button>
             ) : (
               <button
                 type="submit"
                 disabled={loading}
-                className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Save className="w-5 h-5" />
-                <span>{loading ? 'Creating...' : 'Create Instructor'}</span>
+                <span>{loading ? t('createInstructor.creating') : t('createInstructor.createButton')}</span>
               </button>
             )}
           </div>

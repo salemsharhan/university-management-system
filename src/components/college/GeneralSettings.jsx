@@ -1,9 +1,15 @@
-export default function GeneralSettings({ formData, handleChange, useUniversitySettings, setUseUniversitySettings }) {
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+
+export default function GeneralSettings({ formData, handleChange, useUniversitySettings, setUseUniversitySettings, collegeTypes = [] }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-6">
       {setUseUniversitySettings && (
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center space-x-2">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
             <input
               type="checkbox"
               checked={useUniversitySettings}
@@ -11,17 +17,17 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             <div>
-              <label className="text-sm font-medium text-gray-900">Use University Settings</label>
-              <p className="text-xs text-gray-600">If checked, this college will use the university-wide settings instead of custom settings</p>
+              <label className="text-sm font-medium text-gray-900">{t('colleges.generalSettings.useUniversitySettings')}</label>
+              <p className="text-xs text-gray-600">{t('colleges.generalSettings.useUniversitySettingsDesc')}</p>
             </div>
           </div>
         </div>
       )}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.basicInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Name (English) *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.nameEn')}</label>
             <input
               type="text"
               value={formData.name_en}
@@ -31,7 +37,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Name (Arabic)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.nameAr')}</label>
             <input
               type="text"
               value={formData.name_ar}
@@ -40,35 +46,48 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Code *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.code')}</label>
             <input
               type="text"
               value={formData.code}
               onChange={(e) => handleChange('code', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="UNIV001"
+              placeholder={t('colleges.generalSettings.codePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Type *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.type')}</label>
             <select
               value={formData.type || ''}
               onChange={(e) => handleChange('type', e.target.value)}
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="">Select Type</option>
-              <option value="sciences">Sciences</option>
-              <option value="engineering">Engineering</option>
-              <option value="business">Business</option>
-              <option value="arts">Arts</option>
-              <option value="medicine">Medicine</option>
-              <option value="other">Other</option>
+              <option value="">{t('colleges.generalSettings.selectType')}</option>
+              {collegeTypes.length > 0 ? (
+                collegeTypes.map((type) => (
+                  <option key={type.code || type.id} value={type.code}>
+                    {isRTL && type.name_ar ? type.name_ar : type.name_en}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="sciences">Sciences</option>
+                  <option value="engineering">Engineering</option>
+                  <option value="business">Business</option>
+                  <option value="arts">Arts</option>
+                  <option value="medicine">Medicine</option>
+                  <option value="other">Other</option>
+                </>
+              )}
             </select>
+            {collegeTypes.length === 0 && (
+              <p className="text-xs text-gray-500 mt-1">{t('colleges.generalSettings.noCollegeTypes')}</p>
+            )}
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description (English)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.descriptionEn')}</label>
             <textarea
               value={formData.description_en || ''}
               onChange={(e) => handleChange('description_en', e.target.value)}
@@ -77,7 +96,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.descriptionAr')}</label>
             <textarea
               value={formData.description_ar || ''}
               onChange={(e) => handleChange('description_ar', e.target.value)}
@@ -89,10 +108,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.contactInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Dean Name</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.deanName')}</label>
             <input
               type="text"
               value={formData.dean_name || ''}
@@ -101,7 +120,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Dean Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.deanEmail')}</label>
             <input
               type="email"
               value={formData.dean_email || ''}
@@ -110,7 +129,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Dean Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.deanPhone')}</label>
             <input
               type="tel"
               value={formData.dean_phone || ''}
@@ -119,7 +138,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Contact Email</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.contactEmail')}</label>
             <input
               type="email"
               value={formData.contact_email || formData.official_email || ''}
@@ -128,7 +147,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Contact Phone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.contactPhone')}</label>
             <input
               type="tel"
               value={formData.contact_phone || formData.phone_number || ''}
@@ -137,7 +156,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Official Email *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.officialEmail')}</label>
             <input
               type="email"
               value={formData.official_email}
@@ -147,7 +166,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.phoneNumber')}</label>
             <input
               type="tel"
               value={formData.phone_number}
@@ -156,17 +175,17 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Website</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.website')}</label>
             <input
               type="url"
               value={formData.website_url}
               onChange={(e) => handleChange('website_url', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="https://"
+              placeholder={t('colleges.generalSettings.websitePlaceholder')}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Address (English)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.addressEn')}</label>
             <textarea
               value={formData.address_en}
               onChange={(e) => handleChange('address_en', e.target.value)}
@@ -175,7 +194,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Address (Arabic)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.addressAr')}</label>
             <textarea
               value={formData.address_ar}
               onChange={(e) => handleChange('address_ar', e.target.value)}
@@ -187,10 +206,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Location</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.location')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Building</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.building')}</label>
             <input
               type="text"
               value={formData.building || ''}
@@ -199,7 +218,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Floor</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.floor')}</label>
             <input
               type="text"
               value={formData.floor || ''}
@@ -208,7 +227,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Room Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.roomNumber')}</label>
             <input
               type="text"
               value={formData.room_number || ''}
@@ -217,7 +236,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Location Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.locationDescription')}</label>
             <textarea
               value={formData.location_description || ''}
               onChange={(e) => handleChange('location_description', e.target.value)}
@@ -229,10 +248,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Vision & Mission</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.visionMission')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Vision</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.vision')}</label>
             <textarea
               value={formData.vision || ''}
               onChange={(e) => handleChange('vision', e.target.value)}
@@ -241,7 +260,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mission</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.mission')}</label>
             <textarea
               value={formData.mission || ''}
               onChange={(e) => handleChange('mission', e.target.value)}
@@ -253,10 +272,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.additionalInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Established Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.establishedDate')}</label>
             <input
               type="date"
               value={formData.established_date || ''}
@@ -265,22 +284,22 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Accreditation Info</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.accreditationInfo')}</label>
             <textarea
               value={formData.accreditation_info || ''}
               onChange={(e) => handleChange('accreditation_info', e.target.value)}
               rows={3}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Accreditation details, accrediting bodies, dates, etc."
+              placeholder={t('colleges.generalSettings.accreditationInfoPlaceholder')}
             />
           </div>
         </div>
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">College Admin Account</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.collegeAdminAccount')}</h3>
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
-          <div className="flex items-center space-x-2 mb-4">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
             <input
               type="checkbox"
               checked={formData.create_admin_account !== false}
@@ -288,49 +307,49 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
             <label className="text-sm font-medium text-gray-900">
-              Create login account for college admin
+              {t('colleges.generalSettings.createLoginAccount')}
             </label>
           </div>
           <p className="text-xs text-gray-600 mb-4">
-            This will automatically create a login account so the college admin can access their portal at /login/college
+            {t('colleges.generalSettings.createLoginAccountDesc')}
           </p>
           
           {formData.create_admin_account !== false && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Admin Name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.adminName')}</label>
                 <input
                   type="text"
                   value={formData.admin_name || ''}
                   onChange={(e) => handleChange('admin_name', e.target.value)}
-                  placeholder={formData.dean_name || 'College Admin'}
+                  placeholder={formData.dean_name || t('colleges.generalSettings.adminNamePlaceholder')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 mt-1">Leave empty to use Dean Name or College Name + "Admin"</p>
+                <p className="text-xs text-gray-500 mt-1">{t('colleges.generalSettings.adminNameHint')}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Admin Email *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.adminEmail')}</label>
                 <input
                   type="email"
                   value={formData.admin_email || ''}
                   onChange={(e) => handleChange('admin_email', e.target.value)}
-                  placeholder={formData.contact_email || formData.official_email || 'admin@college.edu'}
+                  placeholder={formData.contact_email || formData.official_email || t('colleges.generalSettings.adminEmailPlaceholder')}
                   required={formData.create_admin_account !== false}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 mt-1">Will use Contact Email or Official Email if left empty</p>
+                <p className="text-xs text-gray-500 mt-1">{t('colleges.generalSettings.adminEmailHint')}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Admin Password *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.adminPassword')}</label>
                 <input
                   type="password"
                   value={formData.admin_password || ''}
                   onChange={(e) => handleChange('admin_password', e.target.value)}
                   required={formData.create_admin_account !== false}
-                  placeholder="Set a secure password"
+                  placeholder={t('colleges.generalSettings.adminPasswordPlaceholder')}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 mt-1">The admin will use this password to log in</p>
+                <p className="text-xs text-gray-500 mt-1">{t('colleges.generalSettings.adminPasswordHint')}</p>
               </div>
             </div>
           )}
@@ -338,21 +357,21 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Branding & Theme</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.brandingTheme')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.logoUrl')}</label>
             <input
               type="url"
               value={formData.logo_url}
               onChange={(e) => handleChange('logo_url', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Max 5MB. Allowed: JPG, PNG, SVG</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.generalSettings.logoUrlHint')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Primary Color</label>
-            <div className="flex items-center space-x-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.primaryColor')}</label>
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
               <input
                 type="color"
                 value={formData.primary_color}
@@ -368,8 +387,8 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Color</label>
-            <div className="flex items-center space-x-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.secondaryColor')}</label>
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
               <input
                 type="color"
                 value={formData.secondary_color}
@@ -388,10 +407,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Student ID Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.studentIdConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Student ID Prefix</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdPrefix')}</label>
             <input
               type="text"
               value={formData.student_id_prefix}
@@ -400,7 +419,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Student ID Format</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdFormat')}</label>
             <input
               type="text"
               value={formData.student_id_format}
@@ -410,7 +429,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Starting Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdStartingNumber')}</label>
             <input
               type="number"
               value={formData.student_id_starting_number}
@@ -422,10 +441,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Instructor ID Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.instructorIdConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Instructor ID Prefix</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdPrefix')}</label>
             <input
               type="text"
               value={formData.instructor_id_prefix}
@@ -434,7 +453,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Instructor ID Format</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdFormat')}</label>
             <input
               type="text"
               value={formData.instructor_id_format}
@@ -444,7 +463,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Starting Number</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdStartingNumber')}</label>
             <input
               type="number"
               value={formData.instructor_id_starting_number}
@@ -456,10 +475,10 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
       </div>
 
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Localization Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.localizationSettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.defaultLanguage')}</label>
             <select
               value={formData.default_language}
               onChange={(e) => handleChange('default_language', e.target.value)}
@@ -470,7 +489,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Time Zone</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.timeZone')}</label>
             <input
               type="text"
               value={formData.timezone}
@@ -480,7 +499,7 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.currency')}</label>
             <input
               type="text"
               value={formData.currency}

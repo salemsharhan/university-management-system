@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Search, Plus, MoreVertical, Edit, Trash2, Eye, Mail, Phone } from 'lucide-react'
 
 export default function Instructors() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
   const [instructors, setInstructors] = useState([])
@@ -62,17 +66,17 @@ export default function Instructors() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Instructors</h1>
-          <p className="text-gray-600 mt-1">Manage instructor records and information</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('instructors.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('instructors.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/instructors/create')}
-          className="flex items-center space-x-2 bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
         >
           <Plus className="w-5 h-5" />
-          <span>Add Instructor</span>
+          <span>{t('instructors.addInstructor')}</span>
         </button>
       </div>
 
@@ -80,13 +84,13 @@ export default function Instructors() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
             <input
               type="text"
-              placeholder="Search by name, ID, or email..."
+              placeholder={t('instructors.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
             />
           </div>
         </div>
@@ -101,7 +105,7 @@ export default function Instructors() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredInstructors.length === 0 ? (
             <div className="col-span-full text-center py-12 text-gray-500">
-              No instructors found
+              {t('instructors.noInstructorsFound')}
             </div>
           ) : (
             filteredInstructors.map((instructor) => (
@@ -114,7 +118,7 @@ export default function Instructors() {
                     <h3 className="text-lg font-bold text-gray-900">
                       {instructor.name_en}
                     </h3>
-                    <p className="text-sm text-gray-600 mt-1">{instructor.title || 'Instructor'}</p>
+                    <p className="text-sm text-gray-600 mt-1">{instructor.title || t('instructors.title')}</p>
                   </div>
                   <div className="relative">
                     <button
@@ -129,30 +133,30 @@ export default function Instructors() {
                           className="fixed inset-0 z-10"
                           onClick={() => setShowActions(null)}
                         />
-                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-20">
+                        <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-20`}>
                           <button 
                             onClick={() => {
                               navigate(`/instructors/${instructor.id}`)
                               setShowActions(null)
                             }}
-                            className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
                           >
                             <Eye className="w-4 h-4" />
-                            <span>View</span>
+                            <span>{t('common.view')}</span>
                           </button>
                           <button 
                             onClick={() => {
                               navigate(`/instructors/${instructor.id}/edit`)
                               setShowActions(null)
                             }}
-                            className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
                           >
                             <Edit className="w-4 h-4" />
-                            <span>Edit</span>
+                            <span>{t('common.edit')}</span>
                           </button>
-                          <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                          <button className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-red-600 hover:bg-red-50`}>
                             <Trash2 className="w-4 h-4" />
-                            <span>Delete</span>
+                            <span>{t('common.delete')}</span>
                           </button>
                         </div>
                       </>
@@ -161,22 +165,22 @@ export default function Instructors() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <span className="font-medium">ID:</span>
+                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
+                    <span className="font-medium">{t('instructors.id')}:</span>
                     <span>{instructor.employee_id || 'N/A'}</span>
                   </div>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
                     <Mail className="w-4 h-4" />
                     <span className="truncate">{instructor.email || 'N/A'}</span>
                   </div>
                   {instructor.phone && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
                       <Phone className="w-4 h-4" />
                       <span>{instructor.phone}</span>
                     </div>
                   )}
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <span className="font-medium">Department:</span>
+                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
+                    <span className="font-medium">{t('instructors.department')}:</span>
                     <span>{instructor.departments?.name_en || 'N/A'}</span>
                   </div>
                   <div className="pt-3 border-t border-gray-200">

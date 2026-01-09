@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, FileText, Users } from 'lucide-react'
 
 export default function ClassGrades() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const { classId } = useParams()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
@@ -16,6 +20,7 @@ export default function ClassGrades() {
   const [enrollments, setEnrollments] = useState([])
   const [grades, setGrades] = useState({}) // enrollment_id -> grade data
   const [gradingScale, setGradingScale] = useState([])
+  const [gradeConfiguration, setGradeConfiguration] = useState([])
 
   useEffect(() => {
     fetchClassData()
@@ -28,7 +33,7 @@ export default function ClassGrades() {
         .from('classes')
         .select(`
           *,
-          subjects(id, name_en, code),
+          subjects(id, name_en, code, grade_configuration),
           semesters(id, name_en, code),
           instructors(id, name_en),
           colleges(id, name_en, academic_settings)
@@ -39,11 +44,18 @@ export default function ClassGrades() {
       if (error) throw error
       setClassData(data)
 
+      // Extract grade configuration from subject
+      if (data?.subjects?.grade_configuration && Array.isArray(data.subjects.grade_configuration)) {
+        setGradeConfiguration(data.subjects.grade_configuration)
+      } else {
+        setGradeConfiguration([])
+      }
+
       // Extract grading scale from college settings
       if (data?.colleges?.academic_settings?.gradingScale) {
         setGradingScale(data.colleges.academic_settings.gradingScale)
       } else {
-        // Default grading scale
+        // Default grading scale (will be translated in display)
         setGradingScale([
           { letter: 'A+', minPercent: 95, maxPercent: 100, points: 4.0, passing: true },
           { letter: 'A', minPercent: 90, maxPercent: 94, points: 3.7, passing: true },
@@ -57,7 +69,7 @@ export default function ClassGrades() {
       }
     } catch (err) {
       console.error('Error fetching class data:', err)
-      setError(err.message || 'Failed to load class data')
+      setError(err.message || t('grading.classGrades.failedToLoad'))
     } finally {
       setFetching(false)
     }
@@ -96,32 +108,68 @@ export default function ClassGrades() {
       }
     } catch (err) {
       console.error('Error fetching enrollments:', err)
-      setError(err.message || 'Failed to load enrollments')
+      setError(err.message || t('grading.classGrades.failedToLoadEnrollments'))
     }
   }
 
   const calculateNumericGrade = (gradeData) => {
-    // Simple calculation: sum of all components (assuming equal weight)
-    // In a real system, you'd use weights from class/subject settings
-    const components = [
-      gradeData.midterm || 0,
-      gradeData.final || 0,
-      gradeData.assignments || 0,
-      gradeData.quizzes || 0,
-      gradeData.class_participation || 0,
-      gradeData.project || 0,
-      gradeData.lab || 0,
-      gradeData.other || 0,
-    ]
+    if (gradeConfiguration.length === 0) {
+      // Fallback to old calculation if no grade configuration
+      const components = [
+        gradeData.midterm || 0,
+        gradeData.final || 0,
+        gradeData.assignments || 0,
+        gradeData.quizzes || 0,
+        gradeData.class_participation || 0,
+        gradeData.project || 0,
+        gradeData.lab || 0,
+        gradeData.other || 0,
+      ]
+      const nonZero = components.filter(c => c > 0)
+      if (nonZero.length === 0) return null
+      const sum = components.reduce((a, b) => a + b, 0)
+      return Math.min(100, Math.max(0, sum))
+    }
+
+    // Calculate based on grade configuration with weights
+    let totalWeightedScore = 0
+    let totalWeight = 0
+
+    gradeConfiguration.forEach(config => {
+      const fieldName = `grade_${config.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
+      const score = gradeData[fieldName] || 0
+      const weight = config.weight || 0
+
+      if (score > 0 && weight > 0) {
+        // Normalize score to percentage if needed (assuming max is the maximum score)
+        const maxScore = config.maximum || 100
+        const normalizedScore = (score / maxScore) * 100
+        totalWeightedScore += normalizedScore * (weight / 100)
+        totalWeight += weight / 100
+      }
+    })
+
+    if (totalWeight === 0) return null
+    return Math.min(100, Math.max(0, (totalWeightedScore / totalWeight) * 100))
+  }
+
+  const validateGradeValue = (value, config) => {
+    if (value === null || value === undefined || value === '') return null
     
-    // For now, use simple average if all components are provided
-    // Or sum if they represent percentages
-    const nonZero = components.filter(c => c > 0)
-    if (nonZero.length === 0) return null
+    const parsedValue = parseFloat(value)
+    if (isNaN(parsedValue)) return null
     
-    // Simple sum approach (components should add up to 100)
-    const sum = components.reduce((a, b) => a + b, 0)
-    return Math.min(100, Math.max(0, sum)) // Clamp between 0-100
+    // Validate minimum
+    if (config.minimum !== null && config.minimum !== undefined && parsedValue < config.minimum) {
+      return `${t('grading.classGrades.valueTooLow')}: ${config.grade_type_name_en} ${t('grading.classGrades.minimum')} ${config.minimum}`
+    }
+    
+    // Validate maximum
+    if (config.maximum !== null && config.maximum !== undefined && parsedValue > config.maximum) {
+      return `${t('grading.classGrades.valueTooHigh')}: ${config.grade_type_name_en} ${t('grading.classGrades.maximum')} ${config.maximum}`
+    }
+    
+    return null // No error
   }
 
   const handleGradeChange = (enrollmentId, field, value) => {
@@ -135,13 +183,49 @@ export default function ClassGrades() {
         status: 'draft',
       }
       
+      let parsedValue = value ? parseFloat(value) : null
+      
+      // Validate against grade configuration if it exists
+      if (gradeConfiguration.length > 0 && parsedValue !== null && !isNaN(parsedValue)) {
+        const gradeConfigFields = gradeConfiguration.map(gc => 
+          `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
+        )
+        
+        if (gradeConfigFields.includes(field)) {
+          // Find the matching grade configuration
+          const config = gradeConfiguration.find(gc => 
+            `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}` === field
+          )
+          
+          if (config) {
+            const validationError = validateGradeValue(value, config)
+            if (validationError) {
+              setError(validationError)
+              // Still allow the value to be entered, but show error
+              // User can correct it
+            } else {
+              // Clear error if validation passes
+              if (error) setError('')
+            }
+          }
+        }
+      } else if (error && gradeConfiguration.length === 0) {
+        // Clear error if no grade configuration
+        setError('')
+      }
+      
       const updated = {
         ...current,
-        [field]: value ? parseFloat(value) : null,
+        [field]: parsedValue,
       }
       
       // Recalculate numeric grade if components changed
-      if (['midterm', 'final', 'assignments', 'quizzes', 'class_participation', 'project', 'lab', 'other'].includes(field)) {
+      const gradeConfigFields = gradeConfiguration.map(gc => 
+        `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
+      )
+      const allGradeFields = ['midterm', 'final', 'assignments', 'quizzes', 'class_participation', 'project', 'lab', 'other', ...gradeConfigFields]
+      
+      if (allGradeFields.includes(field)) {
         const numericGrade = calculateNumericGrade(updated)
         if (numericGrade !== null) {
           updated.numeric_grade = numericGrade
@@ -154,6 +238,30 @@ export default function ClassGrades() {
         [enrollmentId]: updated,
       }
     })
+  }
+
+  const handleGradeBlur = (enrollmentId, field, value) => {
+    // Validate on blur for better UX
+    if (gradeConfiguration.length > 0 && value) {
+      const gradeConfigFields = gradeConfiguration.map(gc => 
+        `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
+      )
+      
+      if (gradeConfigFields.includes(field)) {
+        const config = gradeConfiguration.find(gc => 
+          `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}` === field
+        )
+        
+        if (config) {
+          const validationError = validateGradeValue(value, config)
+          if (validationError) {
+            setError(validationError)
+          } else {
+            setError('')
+          }
+        }
+      }
+    }
   }
 
   const handleStatusChange = (enrollmentId, status) => {
@@ -196,7 +304,7 @@ export default function ClassGrades() {
         setSuccess(false)
       }, 3000)
     } catch (err) {
-      setError(err.message || 'Failed to save grades')
+      setError(err.message || t('grading.classGrades.failedToSave'))
       console.error('Error saving grades:', err)
     } finally {
       setLoading(false)
@@ -213,15 +321,15 @@ export default function ClassGrades() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <button
           onClick={() => navigate('/grading')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back</span>
+          <span>{t('grading.classGrades.back')}</span>
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">Class Grades</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{t('grading.classGrades.title')}</h1>
         <div></div>
       </div>
 
@@ -230,19 +338,19 @@ export default function ClassGrades() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Class Code</h3>
-              <p className="text-lg font-semibold text-gray-900">{classData.code}</p>
+              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classCode')}</h3>
+              <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{classData.code}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Subject</h3>
-              <p className="text-lg font-semibold text-gray-900">
+              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.subject')}</h3>
+              <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
                 {classData.subjects?.name_en || 'N/A'}
               </p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-1">Instructor</h3>
-              <p className="text-lg font-semibold text-gray-900">
-                {classData.instructors?.name_en || 'TBA'}
+              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.instructorLabel')}</h3>
+              <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                {classData.instructors?.name_en || t('grading.classGrades.tba')}
               </p>
             </div>
           </div>
@@ -251,8 +359,8 @@ export default function ClassGrades() {
 
       {/* Grading Scale Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">Grading Scale</h3>
-        <div className="flex flex-wrap gap-2">
+        <h3 className={`text-sm font-medium text-blue-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradingScale')}</h3>
+        <div className={`flex flex-wrap gap-2 ${isRTL ? 'justify-end' : 'justify-start'}`}>
           {gradingScale.map((scale, idx) => (
             <span
               key={idx}
@@ -271,40 +379,50 @@ export default function ClassGrades() {
         </div>
       )}
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center space-x-2">
+        <div className={`bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Check className="w-5 h-5" />
-          <span>Grades saved successfully!</span>
+          <span>{t('grading.classGrades.savedSuccess')}</span>
         </div>
       )}
 
       {/* Grade Entry Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Grade Entry</h2>
-          <p className="text-sm text-gray-600 mt-1">Enter or update grades for students in this class</p>
+          <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradeEntry')}</h2>
+          <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradeEntryDesc')}</p>
         </div>
 
         {enrollments.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <p>No enrolled students in this class</p>
+            <p>{t('grading.classGrades.noEnrolledStudents')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Numeric Grade</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Letter Grade</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GPA Points</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Midterm</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignments</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quizzes</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class Participation</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.student')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.numericGrade')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.letterGrade')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gpaPoints')}</th>
+                  {gradeConfiguration.length > 0 ? (
+                    gradeConfiguration.map((config) => (
+                      <th key={config.grade_type_id} className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                        {config.grade_type_name_en} {config.weight ? `(${config.weight}%)` : ''}
+                      </th>
+                    ))
+                  ) : (
+                    <>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.midterm')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.final')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.assignments')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.quizzes')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classParticipation')}</th>
+                    </>
+                  )}
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.notes')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.status')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -343,73 +461,99 @@ export default function ClassGrades() {
                           {grade.gpa_points || '-'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={grade.midterm || ''}
-                          onChange={(e) => handleGradeChange(enrollment.id, 'midterm', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                          placeholder="-"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={grade.final || ''}
-                          onChange={(e) => handleGradeChange(enrollment.id, 'final', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                          placeholder="-"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={grade.assignments || ''}
-                          onChange={(e) => handleGradeChange(enrollment.id, 'assignments', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                          placeholder="-"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={grade.quizzes || ''}
-                          onChange={(e) => handleGradeChange(enrollment.id, 'quizzes', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                          placeholder="-"
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={grade.class_participation || ''}
-                          onChange={(e) => handleGradeChange(enrollment.id, 'class_participation', e.target.value)}
-                          className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                          placeholder="-"
-                        />
-                      </td>
+                      {gradeConfiguration.length > 0 ? (
+                        gradeConfiguration.map((config) => {
+                          const fieldName = `grade_${config.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
+                          const maxValue = config.maximum || 100
+                          const minValue = config.minimum || 0
+                          return (
+                            <td key={config.grade_type_id} className="px-6 py-4 whitespace-nowrap">
+                              <input
+                                type="number"
+                                step="0.01"
+                                min={minValue}
+                                max={maxValue}
+                                value={grade[fieldName] || ''}
+                                onChange={(e) => handleGradeChange(enrollment.id, fieldName, e.target.value)}
+                                onBlur={(e) => handleGradeBlur(enrollment.id, fieldName, e.target.value)}
+                                className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                                placeholder="-"
+                                title={`${t('grading.classGrades.maximum')}: ${maxValue}, ${t('grading.classGrades.pass')}: ${config.pass_score || 'N/A'}, ${t('grading.classGrades.fail')}: ${config.fail_score || 'N/A'}, ${t('grading.classGrades.minimum')}: ${minValue}`}
+                              />
+                            </td>
+                          )
+                        })
+                      ) : (
+                        <>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={grade.midterm || ''}
+                              onChange={(e) => handleGradeChange(enrollment.id, 'midterm', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                              placeholder="-"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={grade.final || ''}
+                              onChange={(e) => handleGradeChange(enrollment.id, 'final', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                              placeholder="-"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={grade.assignments || ''}
+                              onChange={(e) => handleGradeChange(enrollment.id, 'assignments', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                              placeholder="-"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={grade.quizzes || ''}
+                              onChange={(e) => handleGradeChange(enrollment.id, 'quizzes', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                              placeholder="-"
+                            />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              max="100"
+                              value={grade.class_participation || ''}
+                              onChange={(e) => handleGradeChange(enrollment.id, 'class_participation', e.target.value)}
+                              className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                              placeholder="-"
+                            />
+                          </td>
+                        </>
+                      )}
                       <td className="px-6 py-4">
                         <input
                           type="text"
                           value={grade.notes || ''}
                           onChange={(e) => handleGradeChange(enrollment.id, 'notes', e.target.value)}
                           className="w-32 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 text-sm"
-                          placeholder="Notes..."
+                          placeholder={t('grading.classGrades.notesPlaceholder')}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -418,10 +562,10 @@ export default function ClassGrades() {
                           onChange={(e) => handleStatusChange(enrollment.id, e.target.value)}
                           className="px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 text-sm"
                         >
-                          <option value="draft">Draft</option>
-                          <option value="submitted">Submitted</option>
-                          <option value="approved">Approved</option>
-                          <option value="final">Final</option>
+                          <option value="draft">{t('grading.classGrades.draft')}</option>
+                          <option value="submitted">{t('grading.classGrades.submitted')}</option>
+                          <option value="approved">{t('grading.classGrades.approved')}</option>
+                          <option value="final">{t('grading.classGrades.finalStatus')}</option>
                         </select>
                       </td>
                     </tr>
@@ -432,14 +576,14 @@ export default function ClassGrades() {
           </div>
         )}
 
-        <div className="p-6 border-t border-gray-200 flex justify-end">
+        <div className={`p-6 border-t border-gray-200 flex ${isRTL ? 'justify-start' : 'justify-end'}`}>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Save className="w-5 h-5" />
-            <span>{loading ? 'Saving...' : 'Save Grades'}</span>
+            <span>{loading ? t('grading.classGrades.saving') : t('grading.classGrades.saveGrades')}</span>
           </button>
         </div>
       </div>

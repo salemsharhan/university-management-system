@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
 
 export default function CreateSubject() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId: authCollegeId } = useAuth()
@@ -12,11 +16,14 @@ export default function CreateSubject() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [collegeId, setCollegeId] = useState(null)
+  const [selectedCollegeId, setSelectedCollegeId] = useState(null)
   const [colleges, setColleges] = useState([])
   const [majors, setMajors] = useState([])
+  const [semesters, setSemesters] = useState([])
   const [allSubjects, setAllSubjects] = useState([])
   const [instructors, setInstructors] = useState([])
-  const [isUniversityWide, setIsUniversityWide] = useState(false)
+  const [gradeTypes, setGradeTypes] = useState([])
+  const [gradeConfiguration, setGradeConfiguration] = useState([])
 
   const [formData, setFormData] = useState({
     major_id: '',
@@ -24,7 +31,7 @@ export default function CreateSubject() {
     name_en: '',
     name_ar: '',
     type: 'core',
-    semester_number: '',
+    semester_id: '',
     credit_hours: 3,
     theory_hours: 3,
     lab_hours: 0,
@@ -51,13 +58,13 @@ export default function CreateSubject() {
     if (urlCollegeId && userRole === 'admin') {
       const collegeIdInt = parseInt(urlCollegeId)
       setCollegeId(collegeIdInt)
+      setSelectedCollegeId(collegeIdInt)
       setFormData(prev => ({ ...prev, college_id: collegeIdInt, is_university_wide: false }))
-      setIsUniversityWide(false)
     } else if (userRole === 'user' && authCollegeId) {
       // For college admins, use their college ID
       setCollegeId(authCollegeId)
+      setSelectedCollegeId(authCollegeId)
       setFormData(prev => ({ ...prev, college_id: authCollegeId, is_university_wide: false }))
-      setIsUniversityWide(false)
     } else {
       fetchUserCollege()
     }
@@ -67,13 +74,22 @@ export default function CreateSubject() {
     }
     fetchMajors()
     fetchInstructors()
-  }, [userRole, authCollegeId, isUniversityWide, searchParams])
+    fetchGradeTypes()
+  }, [userRole, authCollegeId, collegeId, searchParams])
 
   useEffect(() => {
-    if (formData.major_id && formData.semester_number) {
-      fetchSubjects()
+    if (collegeId || authCollegeId) {
+      fetchSemesters()
     }
-  }, [formData.major_id, formData.semester_number, isUniversityWide])
+  }, [collegeId, authCollegeId, userRole])
+
+  useEffect(() => {
+    if (formData.semester_id && (collegeId || authCollegeId)) {
+      fetchSubjects()
+    } else {
+      setAllSubjects([])
+    }
+  }, [formData.semester_id, collegeId, authCollegeId])
 
   const fetchUserCollege = async () => {
     try {
@@ -88,6 +104,7 @@ export default function CreateSubject() {
 
       if (userData?.college_id) {
         setCollegeId(userData.college_id)
+        setSelectedCollegeId(userData.college_id)
         setFormData(prev => ({ ...prev, college_id: userData.college_id }))
       }
     } catch (err) {
@@ -117,18 +134,13 @@ export default function CreateSubject() {
         .select('id, name_en, code')
         .order('name_en', { ascending: true })
 
-      // For college admins (user role), filter by their college or university-wide
+      // For college admins (user role), filter by their college only
       if (userRole === 'user' && authCollegeId) {
-        query = query.or(`college_id.eq.${authCollegeId},is_university_wide.eq.true`)
+        query = query.eq('college_id', authCollegeId)
       }
-      // For super admins, filter by selected college if not university-wide
-      else if (userRole === 'admin') {
-        if (!isUniversityWide && collegeId) {
-          query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-        } else if (isUniversityWide) {
-          query = query.eq('is_university_wide', true)
-        }
-        // If no college filter, show all (only for super admin)
+      // For super admins, filter by selected college
+      else if (userRole === 'admin' && collegeId) {
+        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
       }
 
       const { data, error } = await query
@@ -139,27 +151,82 @@ export default function CreateSubject() {
     }
   }
 
-  const fetchSubjects = async () => {
+  const fetchSemesters = async () => {
+    const targetCollegeId = collegeId || authCollegeId
+    if (!targetCollegeId) return
+
     try {
       let query = supabase
-        .from('subjects')
-        .select('id, name_en, code, semester_number')
-        .eq('status', 'active')
-        .eq('major_id', formData.major_id)
-        .lt('semester_number', parseInt(formData.semester_number) || 999)
-        .order('semester_number')
+        .from('semesters')
+        .select('id, name_en, code, start_date, end_date, status, academic_year_number')
+        .order('start_date', { ascending: false })
 
-      if (!isUniversityWide && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      } else if (isUniversityWide) {
-        query = query.eq('is_university_wide', true)
+      // Filter by college - only show semesters for the selected college
+      if (userRole === 'user' && authCollegeId) {
+        query = query.eq('college_id', authCollegeId).eq('is_university_wide', false)
+      } else if (userRole === 'admin' && collegeId) {
+        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
       }
+
+      const { data, error } = await query
+      if (error) throw error
+      setSemesters(data || [])
+    } catch (err) {
+      console.error('Error fetching semesters:', err)
+      setSemesters([])
+    }
+  }
+
+  const fetchSubjects = async () => {
+    try {
+      // Need at least semester_id to determine which subjects to show
+      if (!formData.semester_id) return
+
+      // Determine the target college ID
+      const targetCollegeId = collegeId || authCollegeId
+      if (!targetCollegeId) {
+        // No college selected yet, clear subjects
+        setAllSubjects([])
+        return
+      }
+
+      // Get the selected semester to find its academic_year_number
+      const selectedSemester = semesters.find(s => s.id === parseInt(formData.semester_id))
+      if (!selectedSemester) return
+
+      // Fetch academic_year_number from the semester record
+      const { data: semesterData, error: semesterError } = await supabase
+        .from('semesters')
+        .select('academic_year_number')
+        .eq('id', formData.semester_id)
+        .single()
+
+      if (semesterError || !semesterData) {
+        console.error('Error fetching semester data:', semesterError)
+        return
+      }
+
+      const semesterNumber = semesterData.academic_year_number || 1
+
+      // Fetch subjects from the selected college only
+      // Allow subjects from any major within the same college
+      // Show subjects from previous semesters (for prerequisites) and same semester (for corequisites)
+      let query = supabase
+        .from('subjects')
+        .select('id, name_en, code, semester_number, major_id, majors(name_en)')
+        .eq('status', 'active')
+        .eq('college_id', targetCollegeId)
+        .eq('is_university_wide', false)
+        .lte('semester_number', semesterNumber) // Include same semester for corequisites
+        .order('semester_number')
+        .order('code')
 
       const { data, error } = await query
       if (error) throw error
       setAllSubjects(data || [])
     } catch (err) {
       console.error('Error fetching subjects:', err)
+      setAllSubjects([])
     }
   }
 
@@ -174,12 +241,9 @@ export default function CreateSubject() {
       if (userRole === 'user' && authCollegeId) {
         query = query.eq('college_id', authCollegeId)
       }
-      // For super admins, filter by selected college if not university-wide
-      else if (userRole === 'admin') {
-        if (!isUniversityWide && collegeId) {
-          query = query.eq('college_id', collegeId)
-        }
-        // If university-wide, show all instructors (no filter)
+      // For super admins, filter by selected college
+      else if (userRole === 'admin' && collegeId) {
+        query = query.eq('college_id', collegeId)
       }
 
       const { data, error } = await query
@@ -188,6 +252,66 @@ export default function CreateSubject() {
     } catch (err) {
       console.error('Error fetching instructors:', err)
     }
+  }
+
+  const fetchGradeTypes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('university_settings')
+        .select('grade_types')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (error && error.code !== 'PGRST116') throw error
+      
+      if (data?.grade_types && Array.isArray(data.grade_types)) {
+        setGradeTypes(data.grade_types)
+      }
+    } catch (err) {
+      console.error('Error fetching grade types:', err)
+    }
+  }
+
+  const handleAddGradeType = () => {
+    const selectedTypeCode = document.getElementById('grade-type-select')?.value
+    if (!selectedTypeCode) return
+
+    const selectedType = gradeTypes.find(gt => gt.code === selectedTypeCode)
+    if (!selectedType) return
+
+    // Check if this type is already added
+    if (gradeConfiguration.some(gc => gc.grade_type_code === selectedTypeCode)) {
+      return
+    }
+
+    const newConfig = {
+      grade_type_id: selectedType.id || selectedTypeCode,
+      grade_type_code: selectedType.code,
+      grade_type_name_en: selectedType.name_en,
+      grade_type_name_ar: selectedType.name_ar,
+      maximum: '',
+      minimum: '',
+      pass_score: '',
+      fail_score: '',
+      weight: ''
+    }
+
+    setGradeConfiguration([...gradeConfiguration, newConfig])
+    // Reset select
+    if (document.getElementById('grade-type-select')) {
+      document.getElementById('grade-type-select').value = ''
+    }
+  }
+
+  const handleRemoveGradeType = (index) => {
+    setGradeConfiguration(gradeConfiguration.filter((_, i) => i !== index))
+  }
+
+  const handleGradeConfigChange = (index, field, value) => {
+    const updated = [...gradeConfiguration]
+    updated[index] = { ...updated[index], [field]: value }
+    setGradeConfiguration(updated)
   }
 
   const handleChange = (field, value) => {
@@ -229,13 +353,37 @@ export default function CreateSubject() {
     setSuccess(false)
 
     try {
+      // Get semester_number from the selected semester
+      const selectedSemester = semesters.find(s => s.id === parseInt(formData.semester_id))
+      if (!selectedSemester) {
+        setError('Please select a valid semester')
+        setLoading(false)
+        return
+      }
+
+      // Fetch semester to get academic_year_number which represents the semester number (1, 2, 3, etc.)
+      const { data: semesterData, error: semesterError } = await supabase
+        .from('semesters')
+        .select('academic_year_number')
+        .eq('id', formData.semester_id)
+        .single()
+
+      if (semesterError || !semesterData) {
+        setError('Failed to fetch semester information')
+        setLoading(false)
+        return
+      }
+
+      // Use academic_year_number as semester_number, or default to 1 if not set
+      const semesterNumber = semesterData.academic_year_number || 1
+
       const submitData = {
         major_id: parseInt(formData.major_id),
         code: formData.code,
         name_en: formData.name_en,
         name_ar: formData.name_ar || formData.name_en,
         type: formData.type,
-        semester_number: parseInt(formData.semester_number),
+        semester_number: semesterNumber,
         credit_hours: parseInt(formData.credit_hours),
         theory_hours: parseInt(formData.theory_hours),
         lab_hours: parseInt(formData.lab_hours) || 0,
@@ -250,8 +398,19 @@ export default function CreateSubject() {
         description: formData.description || null,
         description_ar: formData.description_ar || null,
         status: formData.status,
-        is_university_wide: isUniversityWide,
-        college_id: isUniversityWide ? null : (formData.college_id || collegeId),
+        is_university_wide: false,
+        college_id: formData.college_id || collegeId,
+        grade_configuration: gradeConfiguration.map(gc => ({
+          grade_type_id: gc.grade_type_id,
+          grade_type_code: gc.grade_type_code,
+          grade_type_name_en: gc.grade_type_name_en,
+          grade_type_name_ar: gc.grade_type_name_ar,
+          maximum: gc.maximum ? parseFloat(gc.maximum) : null,
+          minimum: gc.minimum ? parseFloat(gc.minimum) : null,
+          pass_score: gc.pass_score ? parseFloat(gc.pass_score) : null,
+          fail_score: gc.fail_score ? parseFloat(gc.fail_score) : null,
+          weight: gc.weight ? parseFloat(gc.weight) : null,
+        })),
       }
 
       const { data: subject, error: insertError } = await supabase
@@ -298,13 +457,13 @@ export default function CreateSubject() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('universitySettings.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create Subject</h1>
-          <p className="text-gray-600 mt-1">Add a new subject to the system</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('subjectsForm.createTitle')}</h1>
+          <p className="text-gray-600 mt-1">{t('subjectsForm.createSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -315,52 +474,59 @@ export default function CreateSubject() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Subject created successfully! Redirecting...</span>
+                <span>{t('subjectsForm.created')}</span>
               </div>
             )}
 
             <div className="space-y-6">
               {userRole === 'admin' && (
-                <div className="flex items-center space-x-2 p-4 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    checked={isUniversityWide}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.college')} *</label>
+                  <select
+                    value={selectedCollegeId || ''}
                     onChange={(e) => {
-                      setIsUniversityWide(e.target.checked)
-                      if (e.target.checked) {
-                        setFormData(prev => ({ ...prev, college_id: null }))
-                      } else {
-                        setFormData(prev => ({ ...prev, college_id: collegeId }))
-                      }
+                      const collegeIdValue = e.target.value ? parseInt(e.target.value) : null
+                      setCollegeId(collegeIdValue)
+                      setSelectedCollegeId(collegeIdValue)
+                      setFormData(prev => ({ ...prev, college_id: collegeIdValue, semester_id: '' }))
+                      // Clear major and semester selection when college changes
+                      handleChange('major_id', '')
+                      handleChange('semester_id', '')
                       fetchMajors()
+                      fetchSemesters()
                     }}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <label className="text-sm font-medium text-gray-700">
-                    University-wide (available to all colleges)
-                  </label>
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">{t('subjectsForm.selectCollege')}</option>
+                    {colleges.map((college) => (
+                      <option key={college.id} value={college.id}>
+                        {college.name_en} ({college.code})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Major *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.major')} *</label>
                   <select
                     value={formData.major_id}
                     onChange={(e) => handleChange('major_id', e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Major...</option>
+                    <option value="">{t('subjectsForm.selectMajor')}</option>
                     {majors.map(major => (
                       <option key={major.id} value={major.id}>{major.name_en}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject Code *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.code')} *</label>
                   <input
                     type="text"
                     value={formData.code}
@@ -374,7 +540,7 @@ export default function CreateSubject() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.name')} *</label>
                   <input
                     type="text"
                     value={formData.name_en}
@@ -385,7 +551,7 @@ export default function CreateSubject() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name (Arabic)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.nameAr')}</label>
                   <input
                     type="text"
                     value={formData.name_ar}
@@ -398,36 +564,50 @@ export default function CreateSubject() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject Type *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.type')} *</label>
                   <select
                     value={formData.type}
                     onChange={(e) => handleChange('type', e.target.value)}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="core">Core</option>
-                    <option value="elective">Elective</option>
-                    <option value="general">General</option>
+                    <option value="core">{t('subjectsForm.typeCore')}</option>
+                    <option value="elective">{t('subjectsForm.typeElective')}</option>
+                    <option value="general">{t('subjectsForm.typeGeneral')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Semester Number *</label>
-                  <input
-                    type="number"
-                    value={formData.semester_number}
-                    onChange={(e) => handleChange('semester_number', e.target.value)}
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.semester')} *</label>
+                  <select
+                    value={formData.semester_id}
+                    onChange={(e) => {
+                      handleChange('semester_id', e.target.value)
+                      // Clear prerequisites/corequisites when semester changes
+                      handleChange('prerequisites', [])
+                      handleChange('corequisites', [])
+                    }}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">The semester when this subject is typically offered</p>
+                    disabled={!collegeId && !authCollegeId}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">{t('subjectsForm.selectSemester')}</option>
+                    {semesters.map(semester => (
+                      <option key={semester.id} value={semester.id}>
+                        {semester.name_en} ({semester.code}) {semester.status === 'active' ? `- ${t('common.active')}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {(!collegeId && !authCollegeId) && (
+                    <p className="text-xs text-gray-500 mt-1">{t('subjectsForm.selectCollegeFirst')}</p>
+                  )}
                 </div>
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Credit Hours Configuration</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.creditHoursConfig')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Credit Hours *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.creditHours')} *</label>
                     <input
                       type="number"
                       value={formData.credit_hours}
@@ -437,7 +617,7 @@ export default function CreateSubject() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Theory Hours *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.theoryHours')} *</label>
                     <input
                       type="number"
                       value={formData.theory_hours}
@@ -447,7 +627,7 @@ export default function CreateSubject() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Lab Hours</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.labHours')}</label>
                     <input
                       type="number"
                       value={formData.lab_hours}
@@ -456,7 +636,7 @@ export default function CreateSubject() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tutorial Hours</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.tutorialHours')}</label>
                     <input
                       type="number"
                       value={formData.tutorial_hours}
@@ -468,12 +648,13 @@ export default function CreateSubject() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Prerequisites & Corequisites</h3>
-                {formData.semester_number && allSubjects.length > 0 ? (
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.prerequisitesCorequisites')}</h3>
+                {formData.semester_id && (collegeId || authCollegeId) ? (
+                  allSubjects.length > 0 ? (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Prerequisites</label>
-                      <p className="text-xs text-gray-500 mb-2">Hold Ctrl (Cmd on Mac) to select multiple subjects. Only subjects from earlier semesters will be shown.</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.prerequisites')}</label>
+                      <p className="text-xs text-gray-500 mb-2">{t('subjectsForm.selectMultipleHint')}</p>
                       <select
                         multiple
                         size={5}
@@ -484,16 +665,22 @@ export default function CreateSubject() {
                         }}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
-                        {allSubjects.map(subject => (
-                          <option key={subject.id} value={subject.id}>
-                            {subject.code} - {subject.name_en} (Semester {subject.semester_number})
-                          </option>
-                        ))}
+                        {allSubjects.map(subject => {
+                          const majorName = subject.majors?.name_en || ''
+                          return (
+                            <option key={subject.id} value={subject.id}>
+                              {subject.code} - {subject.name_en} {majorName ? `(${majorName})` : ''} - {t('academic.subjects.semester')} {subject.semester_number}
+                            </option>
+                          )
+                        })}
                       </select>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {t('subjectsForm.prerequisitesHint')}
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Corequisites</label>
-                      <p className="text-xs text-gray-500 mb-2">Courses that must be taken together. Hold Ctrl (Cmd on Mac) to select multiple.</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.corequisites')}</label>
+                      <p className="text-xs text-gray-500 mb-2">{t('subjectsForm.selectMultipleHint')}</p>
                       <select
                         multiple
                         size={5}
@@ -504,24 +691,33 @@ export default function CreateSubject() {
                         }}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
-                        {allSubjects.map(subject => (
-                          <option key={subject.id} value={subject.id}>
-                            {subject.code} - {subject.name_en} (Semester {subject.semester_number})
-                          </option>
-                        ))}
+                        {allSubjects.map(subject => {
+                          const majorName = subject.majors?.name_en || ''
+                          return (
+                            <option key={subject.id} value={subject.id}>
+                              {subject.code} - {subject.name_en} {majorName ? `(${majorName})` : ''} - {t('academic.subjects.semester')} {subject.semester_number}
+                            </option>
+                          )
+                        })}
                       </select>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {t('subjectsForm.corequisitesHint')}
+                      </p>
                     </div>
                   </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">{t('subjectsForm.noSubjectsInCollege')}</p>
+                  )
                 ) : (
-                  <p className="text-sm text-gray-500">Select a major and semester number to see available prerequisites/corequisites</p>
+                  <p className="text-sm text-gray-500">{t('subjectsForm.selectSemesterToSee')}</p>
                 )}
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Optional Information</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.optionalInfo')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Instructor</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.instructor')}</label>
                     <select
                       value={formData.instructor_id}
                       onChange={(e) => {
@@ -540,7 +736,7 @@ export default function CreateSubject() {
                       }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     >
-                      <option value="">Select Instructor (Optional)...</option>
+                      <option value="">{t('subjectsForm.selectInstructor')}</option>
                       {instructors.map(instructor => (
                         <option key={instructor.id} value={instructor.id}>
                           {instructor.name_en} {instructor.title ? `(${instructor.title})` : ''}
@@ -549,7 +745,7 @@ export default function CreateSubject() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Lab Fee</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.labFee')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -559,7 +755,7 @@ export default function CreateSubject() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Material Fee</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.materialFee')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -569,7 +765,7 @@ export default function CreateSubject() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Textbook</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.textbook')}</label>
                     <input
                       type="text"
                       value={formData.textbook}
@@ -582,8 +778,126 @@ export default function CreateSubject() {
               </div>
 
               <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.gradeConfiguration')}</h3>
+                <p className="text-sm text-gray-600 mb-4">{t('subjectsForm.gradeConfigurationDesc')}</p>
+                
+                {gradeTypes.length === 0 ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-700">
+                    <p>{t('subjectsForm.noGradeTypes')}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Add Grade Type */}
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.selectGradeType')}</label>
+                      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
+                        <select
+                          id="grade-type-select"
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        >
+                          <option value="">{t('subjectsForm.selectGradeType')}</option>
+                          {gradeTypes
+                            .filter(gt => !gradeConfiguration.some(gc => gc.grade_type_code === gt.code))
+                            .map(gradeType => (
+                              <option key={gradeType.code} value={gradeType.code}>
+                                {gradeType.name_en} ({gradeType.code})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleAddGradeType}
+                          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors`}
+                        >
+                          <span>{t('subjectsForm.addGradeType')}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Configured Grade Types */}
+                    {gradeConfiguration.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-gray-700">{t('subjectsForm.configuredTypes')}</h4>
+                        {gradeConfiguration.map((config, index) => (
+                          <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} mb-4`}>
+                              <h5 className="font-medium text-gray-900">
+                                {config.grade_type_name_en} ({config.grade_type_code})
+                              </h5>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveGradeType(index)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                              >
+                                {t('subjectsForm.remove')}
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.maximum')} *</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={config.maximum}
+                                  onChange={(e) => handleGradeConfigChange(index, 'maximum', e.target.value)}
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.minimum')}</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={config.minimum}
+                                  onChange={(e) => handleGradeConfigChange(index, 'minimum', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.passScore')} *</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={config.pass_score}
+                                  onChange={(e) => handleGradeConfigChange(index, 'pass_score', e.target.value)}
+                                  required
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.failScore')}</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={config.fail_score}
+                                  onChange={(e) => handleGradeConfigChange(index, 'fail_score', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.weight')}</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={config.weight}
+                                  onChange={(e) => handleGradeConfigChange(index, 'weight', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                  placeholder="%"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.description')}</label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => handleChange('description', e.target.value)}
@@ -593,7 +907,7 @@ export default function CreateSubject() {
                   />
                 </div>
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.descriptionAr')}</label>
                   <textarea
                     value={formData.description_ar}
                     onChange={(e) => handleChange('description_ar', e.target.value)}
@@ -604,43 +918,43 @@ export default function CreateSubject() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
                   checked={formData.is_elective}
                   onChange={(e) => handleChange('is_elective', e.target.checked)}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label className="text-sm font-medium text-gray-700">This is an elective subject</label>
+                <label className="text-sm font-medium text-gray-700">{t('subjectsForm.isElective')}</label>
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
                   checked={formData.status === 'active'}
                   onChange={(e) => handleChange('status', e.target.checked ? 'active' : 'inactive')}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label className="text-sm font-medium text-gray-700">Active</label>
+                <label className="text-sm font-medium text-gray-700">{t('subjectsForm.active')}</label>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse space-x-4' : 'justify-end space-x-4'}`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('subjectsForm.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Creating...' : 'Create Subject'}</span>
+              <span>{loading ? t('subjectsForm.creating') : t('subjectsForm.create')}</span>
             </button>
           </div>
         </form>

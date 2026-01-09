@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useCollege } from '../contexts/CollegeContext'
 import { ArrowLeft, ArrowRight, Check, Calendar, User, BookOpen, FileCheck, Building2 } from 'lucide-react'
 
-const steps = [
-  { id: 1, name: 'Select Semester', icon: Calendar },
-  { id: 2, name: 'Select Student', icon: User },
-  { id: 3, name: 'Select Class', icon: BookOpen },
-  { id: 4, name: 'Review', icon: FileCheck },
-]
-
 export default function CreateEnrollment() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId, departmentId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
+
+  const steps = [
+    { id: 1, name: t('enrollments.selectSemester'), icon: Calendar },
+    { id: 2, name: t('enrollments.step2'), icon: User },
+    { id: 3, name: t('enrollments.step3'), icon: BookOpen },
+    { id: 4, name: t('enrollments.step4'), icon: FileCheck },
+  ]
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -214,7 +218,7 @@ export default function CreateEnrollment() {
 
       if (existingEnrollment) {
         if (existingEnrollment.status === 'enrolled') {
-          setError('Student is already enrolled in this class')
+          setError(t('enrollments.alreadyEnrolled'))
           setLoading(false)
           return
         } else {
@@ -264,7 +268,7 @@ export default function CreateEnrollment() {
       }, 2000)
     } catch (err) {
       console.error('Error creating enrollment:', err)
-      setError(err.message || 'Failed to create enrollment')
+      setError(err.message || t('enrollments.createdSuccess'))
     } finally {
       setLoading(false)
     }
@@ -314,33 +318,33 @@ export default function CreateEnrollment() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back</span>
+          <span>{t('enrollments.back')}</span>
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Add New Enrollment</h1>
-          <p className="text-gray-600 mt-1">Enroll a student in a class for the selected semester</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('enrollments.createTitle')}</h1>
+          <p className="text-gray-600 mt-1">{t('enrollments.createSubtitle')}</p>
         </div>
       </div>
 
       {/* College Selector for Admin - Must be selected first */}
       {userRole === 'admin' && (
         <div className={`rounded-lg p-6 ${requiresCollegeSelection ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-blue-50 border border-blue-200'}`}>
-          <div className="flex items-center space-x-4">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
             <Building2 className={`w-6 h-6 ${requiresCollegeSelection ? 'text-yellow-600' : 'text-blue-600'}`} />
             <div className="flex-1">
               <p className={`text-base font-semibold ${requiresCollegeSelection ? 'text-yellow-900' : 'text-blue-900'}`}>
-                {requiresCollegeSelection ? 'College Selection Required' : 'Selected College'}
+                {requiresCollegeSelection ? t('enrollments.collegeSelectionRequired') : t('enrollments.selectedCollege')}
               </p>
               <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'}`}>
                 {requiresCollegeSelection 
-                  ? 'Please select a college before proceeding with enrollment' 
-                  : `You are working with: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || 'Unknown'}`}
+                  ? t('enrollments.collegeSelectionMessage')
+                  : `${t('enrollments.workingWith')}: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || 'Unknown'}`}
               </p>
             </div>
             <select
@@ -353,7 +357,7 @@ export default function CreateEnrollment() {
               }`}
               required
             >
-              <option value="">Select College...</option>
+              <option value="">{t('enrollments.selectCollege')}</option>
               {colleges.map(college => (
                 <option key={college.id} value={college.id}>
                   {college.name_en} ({college.code})
@@ -366,7 +370,7 @@ export default function CreateEnrollment() {
 
       {/* Progress Steps */}
       <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex items-center justify-between">
+        <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'}`}>
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
@@ -383,7 +387,7 @@ export default function CreateEnrollment() {
                   {step.name}
                 </div>
                 <div className="mt-1 text-xs text-gray-500">
-                  Step {step.id} of {steps.length}
+                  {t('common.step')} {step.id} {t('common.of')} {steps.length}
                 </div>
               </div>
               {index < steps.length - 1 && (
@@ -405,9 +409,9 @@ export default function CreateEnrollment() {
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center space-x-2">
+        <div className={`bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Check className="w-5 h-5" />
-          <span>Enrollment created successfully! Redirecting...</span>
+          <span>{t('enrollments.createdSuccess')}</span>
         </div>
       )}
 
@@ -417,7 +421,7 @@ export default function CreateEnrollment() {
         {currentStep === 1 && (
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('enrollments.semesterLabel')}</label>
               <select
                 value={formData.semester_id}
                 onChange={(e) => {
@@ -426,7 +430,7 @@ export default function CreateEnrollment() {
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
-                <option value="">Select the semester for this enrollment</option>
+                <option value="">{t('enrollments.semesterHint')}</option>
                 {semesters.map(semester => (
                   <option key={semester.id} value={semester.id}>
                     {semester.name_en} ({semester.code}) {semester.is_current ? '[Current]' : ''}

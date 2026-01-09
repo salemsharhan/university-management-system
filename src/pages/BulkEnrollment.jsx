@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useCollege } from '../contexts/CollegeContext'
 import { ArrowLeft, ArrowRight, ShoppingCart, Calendar, Search, Plus, X, Eye, Trash2, Check, Save, Loader, Building2 } from 'lucide-react'
 
 export default function BulkEnrollment() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
@@ -227,14 +231,14 @@ export default function BulkEnrollment() {
 
     // Check if already enrolled
     if (currentEnrollments.find(e => e.class_id === classItem.id)) {
-      setError('Student is already enrolled in this class')
+      setError(t('enrollments.alreadyEnrolled'))
       return
     }
 
     // Check capacity
     const available = (classItem.capacity || 0) - (classItem.enrolled || 0)
     if (available <= 0) {
-      setError('Class is full')
+      setError(t('enrollments.bulkClassFull'))
       return
     }
 
@@ -374,11 +378,11 @@ export default function BulkEnrollment() {
 
   const handleNext = () => {
     if (currentStep === 1 && !formData.semester_id) {
-      setError('Please select a semester')
+      setError(t('enrollments.bulkSelectSemester'))
       return
     }
     if (currentStep === 2 && !formData.student_id) {
-      setError('Please select a student')
+      setError(t('enrollments.bulkSelectStudent'))
       return
     }
     setError('')
@@ -392,7 +396,7 @@ export default function BulkEnrollment() {
 
   const handleSubmit = async () => {
     if (selectedClasses.length === 0) {
-      setError('Please select at least one class')
+      setError(t('enrollments.bulkSelectAtLeastOne'))
       return
     }
 
@@ -411,7 +415,7 @@ export default function BulkEnrollment() {
       }
 
       if (conflicts.length > 0) {
-        setError('Time conflicts detected: ' + conflicts.join('; '))
+        setError(t('enrollments.bulkTimeConflicts') + ': ' + conflicts.join('; '))
         setLoading(false)
         return
       }
@@ -468,32 +472,32 @@ export default function BulkEnrollment() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
           <div className="w-12 h-12 bg-primary-gradient rounded-lg flex items-center justify-center">
             <ShoppingCart className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Bulk Enrollment - Add Multiple Classes</h1>
-            <p className="text-gray-600 mt-1">Manage student course enrollments and registrations</p>
+            <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkEnrollmentTitle')}</h1>
+            <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkEnrollmentSubtitle')}</p>
           </div>
         </div>
         <button
           onClick={() => navigate('/enrollments')}
           className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
         >
-          Back to List
+          {t('enrollments.backToList')}
         </button>
       </div>
 
       {/* College Selector for Admin */}
       {requiresCollegeSelection && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
             <Building2 className="w-5 h-5 text-yellow-600" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-yellow-900">College Selection Required</p>
-              <p className="text-xs text-yellow-700">Please select a college to continue</p>
+            <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+              <p className="text-sm font-semibold text-yellow-900">{t('enrollments.collegeSelectionRequired')}</p>
+              <p className="text-xs text-yellow-700">{t('enrollments.collegeSelectionMessage')}</p>
             </div>
             <select
               value={selectedCollegeId || ''}
@@ -501,7 +505,7 @@ export default function BulkEnrollment() {
               className="px-4 py-2 border border-yellow-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent min-w-[250px]"
               required
             >
-              <option value="">Select College...</option>
+              <option value="">{t('enrollments.selectCollege')}</option>
               {colleges.map(college => (
                 <option key={college.id} value={college.id}>
                   {college.name_en} ({college.code})
@@ -519,9 +523,9 @@ export default function BulkEnrollment() {
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center space-x-2">
+        <div className={`bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Check className="w-5 h-5" />
-          <span>Enrollments created successfully! Redirecting...</span>
+          <span>{t('enrollments.bulkCreatedSuccess')}</span>
         </div>
       )}
 
@@ -531,9 +535,9 @@ export default function BulkEnrollment() {
           {/* Step 1: Select Semester */}
           {currentStep === 1 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-4">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
                 <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">1</span>
-                <h2 className="text-xl font-bold text-gray-900">Select Semester</h2>
+                <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectSemester')}</h2>
               </div>
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {semesters.map(semester => (
@@ -560,19 +564,19 @@ export default function BulkEnrollment() {
           {/* Step 2: Select Student */}
           {currentStep === 2 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-4">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
                 <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">2</span>
-                <h2 className="text-xl font-bold text-gray-900">Select Student</h2>
+                <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectStudent')}</h2>
               </div>
               <div className="mb-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
                   <input
                     type="text"
-                    placeholder="Search by name or ID..."
+                    placeholder={t('enrollments.bulkSearchStudent')}
                     value={studentSearch}
                     onChange={(e) => setStudentSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
                   />
                 </div>
               </div>
@@ -605,30 +609,30 @@ export default function BulkEnrollment() {
           {/* Step 3: Select Classes */}
           {currentStep === 3 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-4">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
                 <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">3</span>
-                <h2 className="text-xl font-bold text-gray-900">
-                  Available classes for the selected semester
+                <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t('enrollments.bulkAvailableClasses')}
                 </h2>
-                <span className="text-sm text-gray-500">({availableClasses.length} classes)</span>
+                <span className={`text-sm text-gray-500 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>({availableClasses.length} {t('enrollments.bulkClasses')})</span>
               </div>
 
               {/* Search and Filters */}
               <div className="mb-4 space-y-3">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
                   <input
                     type="text"
-                    placeholder="Search by class code or name..."
+                    placeholder={t('enrollments.bulkSearchClass')}
                     value={classSearch}
                     onChange={(e) => {
                       setClassSearch(e.target.value)
                       fetchAvailableClasses()
                     }}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
                   />
                 </div>
-                <div className="flex items-center space-x-3">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
                   <select
                     value={subjectFilter}
                     onChange={(e) => {
@@ -637,7 +641,7 @@ export default function BulkEnrollment() {
                     }}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="all">All Subjects</option>
+                    <option value="all">{t('enrollments.bulkAllSubjects')}</option>
                     {subjects.map(subject => (
                       <option key={subject.id} value={subject.id}>
                         {subject.code} - {subject.name_en}
@@ -652,7 +656,7 @@ export default function BulkEnrollment() {
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                   >
-                    Reset
+                    {t('enrollments.bulkReset')}
                   </button>
                 </div>
               </div>
@@ -698,24 +702,24 @@ export default function BulkEnrollment() {
                             <button
                               onClick={() => addToCart(classItem)}
                               disabled={available <= 0}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                              className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}
                             >
                               <Plus className="w-4 h-4" />
-                              <span>Add to Cart</span>
+                              <span>{t('enrollments.bulkAddToCart')}</span>
                             </button>
                           )}
                           {isInCart && (
                             <button
                               onClick={() => removeFromCart(classItem.id)}
-                              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all flex items-center space-x-1"
+                              className={`px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}
                             >
                               <X className="w-4 h-4" />
-                              <span>Remove</span>
+                              <span>{t('enrollments.bulkRemove')}</span>
                             </button>
                           )}
                           {isEnrolled && (
                             <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
-                              Enrolled
+                              {t('enrollments.enrolled')}
                             </span>
                           )}
                         </div>
@@ -733,9 +737,9 @@ export default function BulkEnrollment() {
           {/* Weekly Schedule Preview */}
           {(currentStep === 3 || (formData.student_id && formData.semester_id)) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-4">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
                 <Calendar className="w-5 h-5 text-gray-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Weekly Schedule Preview</h3>
+                <h3 className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkWeeklySchedule')}</h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -778,14 +782,14 @@ export default function BulkEnrollment() {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 flex items-center space-x-4 text-xs">
-                <div className="flex items-center space-x-2">
+              <div className={`mt-4 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'} text-xs`}>
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                   <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                  <span className="text-gray-600">Currently Enrolled</span>
+                  <span className="text-gray-600">{t('enrollments.bulkCurrentlyEnrolled')}</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                   <div className="w-4 h-4 bg-green-500 rounded"></div>
-                  <span className="text-gray-600">Selected in Cart</span>
+                  <span className="text-gray-600">{t('enrollments.bulkSelectedInCart')}</span>
                 </div>
               </div>
             </div>
@@ -794,10 +798,10 @@ export default function BulkEnrollment() {
           {/* Selected Classes Summary */}
           {currentStep === 3 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-4">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
                 <ShoppingCart className="w-5 h-5 text-gray-600" />
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Selected Classes
+                <h3 className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t('enrollments.bulkSelectedClasses')}
                 </h3>
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                   {selectedClasses.length}
@@ -805,18 +809,18 @@ export default function BulkEnrollment() {
               </div>
 
               {selectedClasses.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No classes selected yet</p>
-                  <p className="text-sm mt-2">Add classes from the list to get started</p>
+                <div className={`text-center py-8 text-gray-500 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  <p>{t('enrollments.bulkNoClassesSelected')}</p>
+                  <p className="text-sm mt-2">{t('enrollments.bulkNoClassesHint')}</p>
                 </div>
               ) : (
                 <div className="space-y-2 mb-4">
                   {selectedClasses.map(classItem => (
-                    <div key={classItem.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
+                    <div key={classItem.id} className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} p-3 bg-gray-50 rounded-lg`}>
+                      <div className={isRTL ? 'text-right' : 'text-left'}>
                         <div className="font-medium text-gray-900">{classItem.code}</div>
                         <div className="text-sm text-gray-600">
-                          {classItem.subjects?.credit_hours || 0} Credits
+                          {classItem.subjects?.credit_hours || 0} {t('enrollments.bulkCredits')}
                         </div>
                       </div>
                       <button
@@ -832,8 +836,8 @@ export default function BulkEnrollment() {
 
               {/* Credit Hours Progress */}
               <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Credit Hours</span>
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} mb-2`}>
+                  <span className={`text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkCreditHours')}</span>
                   <span className="text-sm text-gray-600">
                     {totals.currentCredits + totals.totalCredits}/{totals.maxCredits}
                   </span>
@@ -844,23 +848,23 @@ export default function BulkEnrollment() {
                     style={{ width: `${Math.min(100, ((totals.currentCredits + totals.totalCredits) / totals.maxCredits) * 100)}%` }}
                   ></div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  Current ({totals.currentCredits}) + Selected ({totals.totalCredits})
+                <div className={`text-xs text-gray-500 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t('enrollments.bulkCurrent')} ({totals.currentCredits}) + {t('enrollments.bulkSelected')} ({totals.totalCredits})
                 </div>
               </div>
 
               {/* Summary */}
-              <div className="space-y-2 pt-4 border-t">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Selected Classes:</span>
+              <div className={`space-y-2 pt-4 border-t ${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`flex ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} text-sm`}>
+                  <span className="text-gray-600">{t('enrollments.bulkSelectedClasses')}:</span>
                   <span className="font-medium text-gray-900">{selectedClasses.length}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Total Tuition:</span>
+                <div className={`flex ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} text-sm`}>
+                  <span className="text-gray-600">{t('enrollments.bulkTotalTuition')}:</span>
                   <span className="font-medium text-gray-900">${totals.totalTuition.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Total Credits:</span>
+                <div className={`flex ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} text-sm`}>
+                  <span className="text-gray-600">{t('enrollments.bulkTotalCredits')}:</span>
                   <span className="font-medium text-gray-900">{totals.totalCredits}</span>
                 </div>
               </div>
@@ -870,10 +874,10 @@ export default function BulkEnrollment() {
                 <button
                   onClick={handleSubmit}
                   disabled={loading || selectedClasses.length === 0}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} justify-center px-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   <Check className="w-5 h-5" />
-                  <span>{loading ? 'Enrolling...' : 'Enroll in Selected Classes'}</span>
+                  <span>{loading ? t('enrollments.bulkEnrolling') : t('enrollments.bulkEnrollSelected')}</span>
                 </button>
               </div>
             </div>
@@ -882,21 +886,21 @@ export default function BulkEnrollment() {
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
+      <div className={`flex ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <button
           onClick={handleBack}
           disabled={currentStep === 1}
-          className="flex items-center space-x-2 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Previous</span>
+          <span>{t('enrollments.previous')}</span>
         </button>
         {currentStep < 3 ? (
           <button
             onClick={handleNext}
-            className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all`}
           >
-            <span>Next</span>
+            <span>{t('enrollments.next')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         ) : null}

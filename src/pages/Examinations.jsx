@@ -96,7 +96,6 @@ export default function Examinations() {
           classes (
             id,
             code,
-            name_en,
             subjects (
               id,
               code,
@@ -104,8 +103,8 @@ export default function Examinations() {
             ),
             instructors (
               id,
-              first_name,
-              last_name
+              name_en,
+              name_ar
             )
           ),
           colleges (
@@ -192,7 +191,7 @@ export default function Examinations() {
           weight: exam.weight_percentage,
           classId: exam.class_id,
           instructorName: instructor 
-            ? `${instructor.first_name || ''} ${instructor.last_name || ''}`.trim()
+            ? (instructor.name_en || instructor.name_ar || 'TBA')
             : 'TBA',
           collegeName: college?.name_en || 'University Wide'
         }

@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { CollegeProvider } from './contexts/CollegeContext'
+import { LanguageProvider } from './contexts/LanguageContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import './i18n'
 import Layout from './components/Layout'
 import RoleSelection from './pages/RoleSelection'
 import LoginAdmin from './pages/LoginAdmin'
@@ -71,6 +73,8 @@ import ClassGrades from './pages/grading/ClassGrades'
 import StudentGrades from './pages/grading/StudentGrades'
 import Transcripts from './pages/grading/Transcripts'
 import GradeAnalytics from './pages/grading/GradeAnalytics'
+import StudentMyGrades from './pages/student/StudentMyGrades'
+import StudentMyAttendance from './pages/student/StudentMyAttendance'
 import InvoiceManagement from './pages/finance/InvoiceManagement'
 import CreateInvoice from './pages/finance/CreateInvoice'
 import CreditWallet from './pages/finance/CreditWallet'
@@ -82,9 +86,10 @@ import CreateFeeStructure from './pages/finance/CreateFeeStructure'
 
 function App() {
   return (
-    <AuthProvider>
-      <CollegeProvider>
-        <BrowserRouter>
+    <LanguageProvider>
+      <AuthProvider>
+        <CollegeProvider>
+          <BrowserRouter>
         <Routes>
           <Route path="/" element={<RoleSelection />} />
           <Route path="/login/admin" element={<LoginAdmin />} />
@@ -348,6 +353,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <UniversitySettings />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/colleges/:id/edit"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CreateCollege />
                 </Layout>
               </ProtectedRoute>
             }
@@ -712,6 +727,27 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Student Pages */}
+          <Route
+            path="/student/grades"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <StudentMyGrades />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/attendance"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <StudentMyAttendance />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
           {/* Finance Routes */}
           <Route
             path="/finance/invoices"
@@ -805,8 +841,9 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
-      </CollegeProvider>
-    </AuthProvider>
+        </CollegeProvider>
+      </AuthProvider>
+    </LanguageProvider>
   )
 }
 

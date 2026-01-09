@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, Plus, Calendar, Clock, Users } from 'lucide-react'
 
 export default function TakeAttendance() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId } = useAuth()
@@ -52,7 +56,7 @@ export default function TakeAttendance() {
         .eq('status', 'active')
 
       if (userRole === 'user' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
       }
 
       const { data, error } = await query
@@ -122,7 +126,7 @@ export default function TakeAttendance() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!selectedClassId || !selectedSessionId) {
-      setError('Please select a class and session')
+      setError(t('attendance.takeAttendance.selectClassSessionError'))
       return
     }
 
@@ -171,7 +175,7 @@ export default function TakeAttendance() {
         navigate('/attendance/sessions')
       }, 2000)
     } catch (err) {
-      setError(err.message || 'Failed to save attendance')
+      setError(err.message || t('common.error'))
       console.error('Error saving attendance:', err)
     } finally {
       setLoading(false)
@@ -183,17 +187,17 @@ export default function TakeAttendance() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
         <button
           onClick={() => navigate('/attendance/sessions')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Sessions</span>
+          <span>{t('attendance.takeAttendance.backToSessions')}</span>
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Take Attendance</h1>
-          <p className="text-gray-600 mt-1">Record attendance for a class session</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('attendance.takeAttendance.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('attendance.takeAttendance.subtitle')}</p>
         </div>
       </div>
 
@@ -205,16 +209,16 @@ export default function TakeAttendance() {
             </div>
           )}
           {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+            <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
               <Check className="w-5 h-5" />
-              <span>Attendance saved successfully! Redirecting...</span>
+              <span>{t('attendance.takeAttendance.savedSuccess')}</span>
             </div>
           )}
 
           <div className="space-y-6">
             {/* Class Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+              <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('attendance.takeAttendance.selectClass')}</label>
               <select
                 value={selectedClassId || ''}
                 onChange={(e) => {
@@ -225,7 +229,7 @@ export default function TakeAttendance() {
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
-                <option value="">Choose class...</option>
+                <option value="">{t('attendance.takeAttendance.chooseClass')}</option>
                 {classes.map(cls => (
                   <option key={cls.id} value={cls.id}>
                     {cls.code}-{cls.section} - {cls.subjects?.name_en || cls.subjects?.code}
@@ -237,18 +241,18 @@ export default function TakeAttendance() {
             {/* Session Selection */}
             {selectedClassId && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Session</label>
+                <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('attendance.takeAttendance.selectSession')}</label>
                 {sessions.length === 0 ? (
                   <div className="p-6 border border-gray-200 rounded-lg text-center">
                     <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                    <p className="text-gray-600 mb-4">No sessions available for this class</p>
+                    <p className="text-gray-600 mb-4">{t('attendance.takeAttendance.noSessionsAvailable')}</p>
                     <button
                       type="button"
                       onClick={() => navigate(`/attendance/sessions/create?classId=${selectedClassId}`)}
-                      className="px-4 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center space-x-2 mx-auto"
+                      className={`px-4 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mx-auto`}
                     >
                       <Plus className="w-4 h-4" />
-                      <span>Create Session</span>
+                      <span>{t('attendance.takeAttendance.createSession')}</span>
                     </button>
                   </div>
                 ) : (
@@ -261,7 +265,7 @@ export default function TakeAttendance() {
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   >
-                    <option value="">Select session...</option>
+                    <option value="">{t('attendance.takeAttendance.selectSessionPlaceholder')}</option>
                     {sessions.map(session => (
                       <option key={session.id} value={session.id}>
                         {new Date(session.session_date).toLocaleDateString()} - {session.start_time} to {session.end_time}
@@ -275,16 +279,16 @@ export default function TakeAttendance() {
             {/* Attendance Table */}
             {selectedSessionId && enrollments.length > 0 && (
               <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Student Attendance</h3>
+                <div className={`mb-4 flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                  <h3 className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('attendance.takeAttendance.studentAttendance')}</h3>
                   <div className="text-sm text-gray-600">
                     {selectedSession && (
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-1">
+                      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
+                        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}>
                           <Calendar className="w-4 h-4" />
                           <span>{new Date(selectedSession.session_date).toLocaleDateString()}</span>
                         </div>
-                        <div className="flex items-center space-x-1">
+                        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}>
                           <Clock className="w-4 h-4" />
                           <span>{selectedSession.start_time} - {selectedSession.end_time}</span>
                         </div>
@@ -296,12 +300,12 @@ export default function TakeAttendance() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Present</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Absent</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Late</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Excused</th>
+                        <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>{t('attendance.takeAttendance.studentId')}</th>
+                        <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>{t('attendance.takeAttendance.name')}</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('attendance.takeAttendance.present')}</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('attendance.takeAttendance.absent')}</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('attendance.takeAttendance.late')}</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('attendance.takeAttendance.excused')}</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -365,27 +369,27 @@ export default function TakeAttendance() {
             {selectedSessionId && enrollments.length === 0 && (
               <div className="text-center py-12 text-gray-500">
                 <Users className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>No students enrolled in this class</p>
+                <p>{t('attendance.takeAttendance.noStudentsEnrolled')}</p>
               </div>
             )}
           </div>
         </div>
 
-        <div className="flex justify-end space-x-4 mt-6">
+        <div className={`flex ${isRTL ? 'justify-start space-x-reverse' : 'justify-end space-x-4'} mt-6`}>
           <button
             type="button"
             onClick={() => navigate('/attendance/sessions')}
             className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
           >
-            Cancel
+            {t('attendance.takeAttendance.cancel')}
           </button>
           <button
             type="submit"
             disabled={loading || !selectedSessionId || enrollments.length === 0}
-            className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Save className="w-5 h-5" />
-            <span>{loading ? 'Saving...' : 'Save Attendance'}</span>
+            <span>{loading ? t('attendance.takeAttendance.saving') : t('attendance.takeAttendance.saveAttendance')}</span>
           </button>
         </div>
       </form>

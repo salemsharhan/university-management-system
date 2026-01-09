@@ -1,13 +1,19 @@
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+
 export default function OnboardingSettings({ formData, handleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Application Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Application Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.onboardingSettings.applicationSettings')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Online Applications</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.onboardingSettings.enableOnlineApplications')}</label>
             </div>
             <input
               type="checkbox"
@@ -18,7 +24,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Application Deadline (Days)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.applicationDeadlineDays')}</label>
               <input
                 type="number"
                 value={formData.application_deadline_days}
@@ -26,9 +32,9 @@ export default function OnboardingSettings({ formData, handleChange }) {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Require Document Upload</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.onboardingSettings.requireDocumentUpload')}</label>
               </div>
               <input
                 type="checkbox"
@@ -38,7 +44,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Application Fee</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.applicationFee')}</label>
               <input
                 type="number"
                 step="0.01"
@@ -48,7 +54,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Offer Acceptance Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.offerAcceptanceDays')}</label>
               <input
                 type="number"
                 value={formData.offer_acceptance_days}
@@ -57,7 +63,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Document Submission Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.documentSubmissionDays')}</label>
               <input
                 type="number"
                 value={formData.document_submission_days}
@@ -66,7 +72,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Auto Archive Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.autoArchiveDays')}</label>
               <input
                 type="number"
                 value={formData.auto_archive_days}
@@ -80,10 +86,10 @@ export default function OnboardingSettings({ formData, handleChange }) {
 
       {/* Applicant Requirements */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Applicant Requirements</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.onboardingSettings.applicantRequirements')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Applicant Age</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.minApplicantAge')}</label>
             <input
               type="number"
               value={formData.min_applicant_age}
@@ -92,7 +98,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Applicant Age</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.maxApplicantAge')}</label>
             <input
               type="number"
               value={formData.max_applicant_age}
@@ -101,7 +107,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Scholarship Percentage</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.minScholarshipPercentage')}</label>
             <input
               type="number"
               value={formData.min_scholarship_percent}
@@ -110,7 +116,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Scholarship Percentage</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.maxScholarshipPercentage')}</label>
             <input
               type="number"
               value={formData.max_scholarship_percent}
@@ -119,47 +125,47 @@ export default function OnboardingSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Personal Statement Min Length</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.personalStatementMinLength')}</label>
             <input
               type="number"
               value={formData.personal_statement_min_length}
               onChange={(e) => handleChange('personal_statement_min_length', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Characters</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.onboardingSettings.personalStatementMinLengthUnit')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Personal Statement Max Length</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.personalStatementMaxLength')}</label>
             <input
               type="number"
               value={formData.personal_statement_max_length}
               onChange={(e) => handleChange('personal_statement_max_length', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Characters</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.onboardingSettings.personalStatementMaxLengthUnit')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Justification Min Length</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.scholarshipJustificationMinLength')}</label>
             <input
               type="number"
               value={formData.scholarship_justification_min_length}
               onChange={(e) => handleChange('scholarship_justification_min_length', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Characters</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.onboardingSettings.scholarshipJustificationMinLengthUnit')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Justification Max Length</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.scholarshipJustificationMaxLength')}</label>
             <input
               type="number"
               value={formData.scholarship_justification_max_length}
               onChange={(e) => handleChange('scholarship_justification_max_length', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Characters</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.onboardingSettings.scholarshipJustificationMaxLengthUnit')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Priority</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.defaultPriority')}</label>
             <select
               value={formData.default_priority}
               onChange={(e) => handleChange('default_priority', e.target.value)}
@@ -171,13 +177,13 @@ export default function OnboardingSettings({ formData, handleChange }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default Interview Type</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.defaultInterviewType')}</label>
             <select
               value={formData.default_interview_type}
               onChange={(e) => handleChange('default_interview_type', e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             >
-              <option value="in_person">In Person</option>
+              <option value="in_person">{t('colleges.onboardingSettings.inPerson')}</option>
               <option value="online">Online</option>
               <option value="phone">Phone</option>
             </select>
@@ -187,23 +193,23 @@ export default function OnboardingSettings({ formData, handleChange }) {
 
       {/* Document Requirements */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Document Requirements</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.onboardingSettings.documentRequirements')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Document Size (MB)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.maxDocumentSize')}</label>
             <input
               type="number"
               value={formData.max_document_size_mb}
               onChange={(e) => handleChange('max_document_size_mb', parseInt(e.target.value))}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Maximum file size in megabytes</p>
+            <p className="text-xs text-gray-500 mt-1">{t('colleges.onboardingSettings.maxDocumentSizeHint')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Allowed File Types</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.allowedFileTypes')}</label>
             <div className="space-y-2">
               {['PDF', 'JPG', 'JPEG', 'PNG', 'DOC', 'DOCX'].map((type) => (
-                <label key={type} className="flex items-center space-x-2">
+                <label key={type} className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                   <input
                     type="checkbox"
                     checked={formData.allowed_file_types.includes(type)}
@@ -226,10 +232,10 @@ export default function OnboardingSettings({ formData, handleChange }) {
 
       {/* Admission Committee Settings */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Admission Committee Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.onboardingSettings.admissionCommitteeSettings')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Committee Members</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.minCommitteeMembers')}</label>
             <input
               type="number"
               value={formData.min_committee_members}
@@ -237,9 +243,9 @@ export default function OnboardingSettings({ formData, handleChange }) {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Require Unanimous Decision</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.onboardingSettings.requireUnanimousDecision')}</label>
             </div>
             <input
               type="checkbox"
@@ -249,7 +255,7 @@ export default function OnboardingSettings({ formData, handleChange }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Decision Timeout (Days)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.onboardingSettings.decisionTimeoutDays')}</label>
             <input
               type="number"
               value={formData.decision_timeout_days}

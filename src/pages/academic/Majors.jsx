@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Plus, BookMarked, Search, Eye, Edit } from 'lucide-react'
 
 export default function Majors() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
   const [majors, setMajors] = useState([])
@@ -45,29 +49,29 @@ export default function Majors() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Majors</h1>
-          <p className="text-gray-600 mt-1">Manage academic majors</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('academic.majors.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('academic.majors.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/academic/majors/create')}
-          className="flex items-center space-x-2 bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
         >
           <Plus className="w-5 h-5" />
-          <span>Create Major</span>
+          <span>{t('academic.majors.create')}</span>
         </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
           <input
             type="text"
-            placeholder="Search majors..."
+            placeholder={t('academic.majors.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
           />
         </div>
       </div>
@@ -83,7 +87,7 @@ export default function Majors() {
               key={major.id}
               className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center space-x-3 mb-4">
+              <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'} mb-4`}>
                 <div className="w-12 h-12 bg-primary-gradient rounded-lg flex items-center justify-center">
                   <BookMarked className="w-6 h-6 text-white" />
                 </div>
@@ -93,29 +97,29 @@ export default function Majors() {
                 </div>
               </div>
               <div className="space-y-2 text-sm text-gray-600">
-                <p><strong>Faculty:</strong> {major.faculties?.name_en}</p>
-                <p><strong>Total Credits:</strong> {major.total_credits}</p>
-                <p><strong>Degree Level:</strong> {major.degree_level}</p>
+                <p><strong>{t('academic.majors.faculty')}:</strong> {major.faculties?.name_en}</p>
+                <p><strong>{t('academic.majors.totalCredits')}:</strong> {major.total_credits}</p>
+                <p><strong>{t('academic.majors.degreeLevel')}:</strong> {major.degree_level}</p>
                 {major.is_university_wide && (
                   <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                    University-wide
+                    {t('academic.majors.universityWide')}
                   </span>
                 )}
               </div>
-              <div className="mt-4 flex items-center space-x-2">
+              <div className={`mt-4 flex items-center ${isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'}`}>
                 <button
                   onClick={() => navigate(`/academic/majors/${major.id}`)}
-                  className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  className={`flex-1 flex items-center justify-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors`}
                 >
                   <Eye className="w-4 h-4" />
-                  <span>View</span>
+                  <span>{t('academic.majors.view')}</span>
                 </button>
                 <button
                   onClick={() => navigate(`/academic/majors/${major.id}/edit`)}
-                  className="flex-1 flex items-center justify-center space-x-2 px-3 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
+                  className={`flex-1 flex items-center justify-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-3 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all`}
                 >
                   <Edit className="w-4 h-4" />
-                  <span>Edit</span>
+                  <span>{t('academic.majors.edit')}</span>
                 </button>
               </div>
             </div>

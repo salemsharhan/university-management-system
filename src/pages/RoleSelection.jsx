@@ -1,47 +1,51 @@
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../contexts/LanguageContext'
 import { GraduationCap, Shield, User, BookOpen, Sparkles } from 'lucide-react'
 
-const roles = [
-  {
-    id: 'admin',
-    name: 'Super Admin',
-    description: 'Manage universities and create colleges',
-    icon: Shield,
-    gradient: 'from-blue-600 to-indigo-700',
-    route: '/login/admin',
-    color: 'blue',
-  },
-  {
-    id: 'user',
-    name: 'College Admin',
-    description: 'Manage your college settings and operations',
-    icon: GraduationCap,
-    gradient: 'from-purple-600 to-pink-700',
-    route: '/login/college',
-    color: 'purple',
-  },
-  {
-    id: 'instructor',
-    name: 'Instructor',
-    description: 'Access your teaching dashboard and classes',
-    icon: User,
-    gradient: 'from-emerald-600 to-teal-700',
-    route: '/login/instructor',
-    color: 'emerald',
-  },
-  {
-    id: 'student',
-    name: 'Student',
-    description: 'View your courses, grades, and schedule',
-    icon: BookOpen,
-    gradient: 'from-orange-600 to-red-700',
-    route: '/login/student',
-    color: 'orange',
-  },
-]
-
 export default function RoleSelection() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
+
+  const roles = [
+    {
+      id: 'admin',
+      name: t('roleSelection.superAdmin'),
+      description: t('roleSelection.superAdminDesc'),
+      icon: Shield,
+      gradient: 'from-blue-600 to-indigo-700',
+      route: '/login/admin',
+      color: 'blue',
+    },
+    {
+      id: 'user',
+      name: t('roleSelection.collegeAdmin'),
+      description: t('roleSelection.collegeAdminDesc'),
+      icon: GraduationCap,
+      gradient: 'from-purple-600 to-pink-700',
+      route: '/login/college',
+      color: 'purple',
+    },
+    {
+      id: 'instructor',
+      name: t('roleSelection.instructor'),
+      description: t('roleSelection.instructorDesc'),
+      icon: User,
+      gradient: 'from-emerald-600 to-teal-700',
+      route: '/login/instructor',
+      color: 'emerald',
+    },
+    {
+      id: 'student',
+      name: t('roleSelection.student'),
+      description: t('roleSelection.studentDesc'),
+      icon: BookOpen,
+      gradient: 'from-orange-600 to-red-700',
+      route: '/login/student',
+      color: 'orange',
+    },
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-900 flex items-center justify-center p-4 relative overflow-hidden">
@@ -63,10 +67,10 @@ export default function RoleSelection() {
             />
           </div>
           <h1 className="text-5xl font-bold text-white mb-4">
-            Imam Bukhari University
+            {t('roleSelection.title')}
           </h1>
-          <p className="text-2xl font-semibold text-accent-300 mb-2">IBU</p>
-          <p className="text-xl text-gray-300">Select your role to continue</p>
+          <p className="text-2xl font-semibold text-accent-300 mb-2">{t('roleSelection.subtitle')}</p>
+          <p className="text-xl text-gray-300">{t('roleSelection.selectRole')}</p>
         </div>
 
         {/* Role Cards Grid */}
@@ -95,10 +99,10 @@ export default function RoleSelection() {
                     {role.description}
                   </p>
                   
-                  <div className="flex items-center text-white/80 group-hover:text-white transition-colors">
-                    <span className="text-sm font-medium">Continue</span>
-                    <svg className="w-5 h-5 ml-2 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  <div className={`flex items-center text-white/80 group-hover:text-white transition-colors ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-sm font-medium">{t('roleSelection.continue')}</span>
+                    <svg className={`w-5 h-5 ${isRTL ? 'mr-2 transform group-hover:-translate-x-1' : 'ml-2 transform group-hover:translate-x-1'} transition-transform`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isRTL ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
                     </svg>
                   </div>
                 </div>
@@ -109,7 +113,7 @@ export default function RoleSelection() {
 
         {/* Footer */}
         <p className="text-center mt-12 text-gray-400 text-sm">
-          © 2025 University Management System. All rights reserved.
+          {t('roleSelection.copyright')}
         </p>
       </div>
 

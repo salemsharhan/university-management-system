@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import GeneralSettings from '../../components/college/GeneralSettings'
 import AcademicSettings from '../../components/college/AcademicSettings'
@@ -8,6 +10,8 @@ import EmailSettings from '../../components/college/EmailSettings'
 import OnboardingSettings from '../../components/college/OnboardingSettings'
 import SystemSettings from '../../components/college/SystemSettings'
 import ExaminationSettings from '../../components/college/ExaminationSettings'
+import CollegeTypesSettings from '../../components/university/CollegeTypesSettings'
+import GradeTypesSettings from '../../components/university/GradeTypesSettings'
 import { 
   Building2, 
   GraduationCap, 
@@ -34,6 +38,8 @@ const defaultGradingScale = [
 ]
 
 export default function UniversitySettings() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole } = useAuth()
   const [activeTab, setActiveTab] = useState('general')
@@ -41,6 +47,9 @@ export default function UniversitySettings() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loadingSettings, setLoadingSettings] = useState(true)
+
+  const [collegeTypes, setCollegeTypes] = useState([])
+  const [gradeTypes, setGradeTypes] = useState([])
 
   const [formData, setFormData] = useState({
     // Academic
@@ -243,6 +252,14 @@ export default function UniversitySettings() {
         if (settings.examination_settings) {
           setFormData(prev => ({ ...prev, ...settings.examination_settings }))
         }
+        // Load college types
+        if (settings.college_types && Array.isArray(settings.college_types)) {
+          setCollegeTypes(settings.college_types)
+        }
+        // Load grade types
+        if (settings.grade_types && Array.isArray(settings.grade_types)) {
+          setGradeTypes(settings.grade_types)
+        }
       }
     } catch (err) {
       console.error('Error fetching university settings:', err)
@@ -433,6 +450,9 @@ export default function UniversitySettings() {
         check_room_conflicts: formData.check_room_conflicts,
       }
 
+      const collegeTypesData = collegeTypes
+      const gradeTypesData = gradeTypes
+
       // Check if settings exist
       const { data: existingData } = await supabase
         .from('university_settings')
@@ -451,6 +471,8 @@ export default function UniversitySettings() {
             onboarding_settings: onboardingSettings,
             system_settings: systemSettings,
             examination_settings: examinationSettings,
+            college_types: collegeTypesData,
+            grade_types: gradeTypesData,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingData[0].id)
@@ -467,6 +489,8 @@ export default function UniversitySettings() {
             onboarding_settings: onboardingSettings,
             system_settings: systemSettings,
             examination_settings: examinationSettings,
+            college_types: collegeTypesData,
+            grade_types: gradeTypesData,
           })
           .select()
           .limit(1)
@@ -490,12 +514,14 @@ export default function UniversitySettings() {
   }
 
   const tabs = [
-    { id: 'academic', name: 'Academic', icon: GraduationCap },
-    { id: 'financial', name: 'Financial', icon: DollarSign },
-    { id: 'email', name: 'Email (SMTP)', icon: Mail },
-    { id: 'onboarding', name: 'Onboarding', icon: UserPlus },
-    { id: 'system', name: 'System', icon: Settings },
-    { id: 'examination', name: 'Examination', icon: FileText },
+    { id: 'general', name: t('universitySettings.tabs.general'), icon: Building2 },
+    { id: 'grade-types', name: t('universitySettings.tabs.gradeTypes'), icon: FileText },
+    { id: 'academic', name: t('universitySettings.tabs.academic'), icon: GraduationCap },
+    { id: 'financial', name: t('universitySettings.tabs.financial'), icon: DollarSign },
+    { id: 'email', name: t('universitySettings.tabs.email'), icon: Mail },
+    { id: 'onboarding', name: t('universitySettings.tabs.onboarding'), icon: UserPlus },
+    { id: 'system', name: t('universitySettings.tabs.system'), icon: Settings },
+    { id: 'examination', name: t('universitySettings.tabs.examination'), icon: FileText },
   ]
 
   if (loadingSettings) {
@@ -510,7 +536,7 @@ export default function UniversitySettings() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'}`}>
           <button
             onClick={() => navigate('/admin/colleges')}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -518,25 +544,25 @@ export default function UniversitySettings() {
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">University Settings</h1>
-            <p className="text-gray-600 mt-1">Configure university-wide settings for all colleges</p>
+            <h1 className="text-3xl font-bold text-gray-900">{t('universitySettings.title')}</h1>
+            <p className="text-gray-600 mt-1">{t('universitySettings.subtitle')}</p>
           </div>
         </div>
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="flex items-center space-x-2 bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           {loading ? (
-            <>
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span>Saving...</span>
-            </>
+              <span>{t('universitySettings.saving')}</span>
+            </div>
           ) : (
-            <>
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
               <Save className="w-5 h-5" />
-              <span>Save Settings</span>
-            </>
+              <span>{t('universitySettings.save')}</span>
+            </div>
           )}
         </button>
       </div>
@@ -548,21 +574,21 @@ export default function UniversitySettings() {
       )}
 
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center space-x-2">
+        <div className={`bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Check className="w-5 h-5" />
-          <span>University settings saved successfully!</span>
+          <span>{t('universitySettings.saved')}</span>
         </div>
       )}
 
       {/* Tabs */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-1 p-2" aria-label="Tabs">
+          <nav className={`flex ${isRTL ? 'space-x-reverse space-x-1' : 'space-x-1'} p-2`} aria-label="Tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 px-4 py-3 rounded-lg font-medium transition-all ${
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-3 rounded-lg font-medium transition-all ${
                   activeTab === tab.id
                     ? 'bg-primary-50 text-primary-700 border border-primary-200'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -577,6 +603,18 @@ export default function UniversitySettings() {
 
         {/* Tab Content */}
         <div className="p-6">
+          {activeTab === 'general' && (
+            <CollegeTypesSettings
+              collegeTypes={collegeTypes}
+              onCollegeTypesChange={setCollegeTypes}
+            />
+          )}
+          {activeTab === 'grade-types' && (
+            <GradeTypesSettings
+              gradeTypes={gradeTypes}
+              onGradeTypesChange={setGradeTypes}
+            />
+          )}
           {activeTab === 'academic' && (
             <AcademicSettings
               formData={formData}

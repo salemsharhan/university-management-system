@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { TrendingUp, BarChart3, Users, Award } from 'lucide-react'
 
 export default function GradeAnalytics() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId } = useCollege()
@@ -141,22 +145,22 @@ export default function GradeAnalytics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Grade Distribution Analytics</h1>
-          <p className="text-gray-600 mt-1">Select a class to view grade distribution and analytics</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('grading.gradeAnalytics.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('grading.gradeAnalytics.subtitle')}</p>
         </div>
       </div>
 
       {/* Class Selection */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+        <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.gradeAnalytics.selectClass')}</label>
         <select
           value={selectedClass}
           onChange={(e) => setSelectedClass(e.target.value)}
           className="w-full md:w-96 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         >
-          <option value="">Select Class...</option>
+          <option value="">{t('grading.gradeAnalytics.selectClassPlaceholder')}</option>
           {classes.map(classItem => (
             <option key={classItem.id} value={classItem.id}>
               {classItem.code} - {classItem.subjects?.name_en || 'N/A'}
@@ -171,34 +175,34 @@ export default function GradeAnalytics() {
           {/* Class Info */}
           {selectedClassData && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
+              <h2 className={`text-xl font-bold text-gray-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
                 {selectedClassData.subjects?.name_en || 'N/A'}
               </h2>
-              <p className="text-sm text-gray-600">Class Code: {selectedClassData.code}</p>
+              <p className={`text-sm text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.gradeAnalytics.classCode')}: {selectedClassData.code}</p>
             </div>
           )}
 
           {/* Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
                 <div>
-                  <p className="text-sm text-gray-600">Total Students</p>
+                  <p className="text-sm text-gray-600">{t('grading.gradeAnalytics.totalStudents')}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">{analytics.totalStudents}</p>
                 </div>
                 <Users className="w-8 h-8 text-primary-600" />
               </div>
               <div className="mt-4">
-                <p className="text-xs text-gray-500">
-                  {analytics.gradedStudents} Graded, {analytics.pendingStudents} Pending
+                <p className={`text-xs text-gray-500 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {analytics.gradedStudents} {t('grading.gradeAnalytics.graded')}, {analytics.pendingStudents} {t('grading.gradeAnalytics.pending')}
                 </p>
               </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
                 <div>
-                  <p className="text-sm text-gray-600">Average Grade</p>
+                  <p className="text-sm text-gray-600">{t('grading.gradeAnalytics.averageGrade')}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
                     {analytics.averageGrade || 'N/A'}
                   </p>
@@ -208,9 +212,9 @@ export default function GradeAnalytics() {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
                 <div>
-                  <p className="text-sm text-gray-600">Median</p>
+                  <p className="text-sm text-gray-600">{t('grading.gradeAnalytics.median')}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
                     {analytics.medianGrade || 'N/A'}
                   </p>
@@ -220,9 +224,9 @@ export default function GradeAnalytics() {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
                 <div>
-                  <p className="text-sm text-gray-600">Highest / Lowest</p>
+                  <p className="text-sm text-gray-600">{t('grading.gradeAnalytics.highestLowest')}</p>
                   <p className="text-lg font-bold text-gray-900 mt-1">
                     {analytics.highestGrade || 'N/A'} / {analytics.lowestGrade || 'N/A'}
                   </p>
@@ -234,42 +238,42 @@ export default function GradeAnalytics() {
 
           {/* Pass/Fail Rate */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Pass Rate / Fail Rate</h3>
+            <h3 className={`text-lg font-bold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.gradeAnalytics.passFailRate')}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Pass Rate</span>
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} mb-2`}>
+                  <span className="text-sm text-gray-600">{t('grading.gradeAnalytics.passRate')}</span>
                   <span className="text-lg font-bold text-green-600">{analytics.passRate}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-4">
+                <div className={`w-full bg-gray-200 rounded-full h-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div
-                    className="bg-green-500 h-4 rounded-full"
+                    className={`bg-green-500 h-4 rounded-full ${isRTL ? 'ml-auto' : ''}`}
                     style={{ width: `${analytics.passRate}%` }}
                   ></div>
                 </div>
               </div>
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Fail Rate</span>
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} mb-2`}>
+                  <span className="text-sm text-gray-600">{t('grading.gradeAnalytics.failRate')}</span>
                   <span className="text-lg font-bold text-red-600">{analytics.failRate}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-4">
+                <div className={`w-full bg-gray-200 rounded-full h-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <div
-                    className="bg-red-500 h-4 rounded-full"
+                    className={`bg-red-500 h-4 rounded-full ${isRTL ? 'ml-auto' : ''}`}
                     style={{ width: `${analytics.failRate}%` }}
                   ></div>
                 </div>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Pass Rate: {analytics.passRate}%</p>
+            <p className={`text-xs text-gray-500 mt-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.gradeAnalytics.passRate')}: {analytics.passRate}%</p>
           </div>
 
           {/* Grade Distribution */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Grade Distribution Chart</h3>
+            <h3 className={`text-lg font-bold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.gradeAnalytics.gradeDistributionChart')}</h3>
             <div className="space-y-4">
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Grade Breakdown</h4>
+                <h4 className={`text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.gradeAnalytics.gradeBreakdown')}</h4>
                 <div className="space-y-2">
                   {Object.entries(analytics.gradeDistribution)
                     .sort((a, b) => {
@@ -279,16 +283,16 @@ export default function GradeAnalytics() {
                     .map(([grade, count]) => {
                       const percentage = (count / analytics.gradedStudents) * 100
                       return (
-                        <div key={grade} className="flex items-center space-x-4">
-                          <div className="w-16 text-sm font-medium text-gray-700">{grade}</div>
+                        <div key={grade} className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
+                          <div className={`w-16 text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{grade}</div>
                           <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-sm text-gray-600">{count} students</span>
+                            <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} mb-1`}>
+                              <span className="text-sm text-gray-600">{count} {t('grading.gradeAnalytics.students')}</span>
                               <span className="text-sm text-gray-600">{percentage.toFixed(1)}%</span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div className={`w-full bg-gray-200 rounded-full h-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                               <div
-                                className="bg-primary-600 h-3 rounded-full"
+                                className={`bg-primary-600 h-3 rounded-full ${isRTL ? 'ml-auto' : ''}`}
                                 style={{ width: `${percentage}%` }}
                               ></div>
                             </div>
@@ -306,7 +310,7 @@ export default function GradeAnalytics() {
       {selectedClass && !analytics && !loading && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-500">
           <BarChart3 className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-          <p>No grade data available for this class</p>
+          <p>{t('grading.gradeAnalytics.noGradeData')}</p>
         </div>
       )}
     </div>

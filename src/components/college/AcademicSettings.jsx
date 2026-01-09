@@ -1,12 +1,18 @@
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+
 export default function AcademicSettings({ formData, handleChange, handleGradingScaleChange }) {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  
   return (
     <div className="space-y-8">
       {/* Credit Hours Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Credit Hours Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.creditHoursConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Credit Hours per Semester</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minCreditHoursPerSemester')}</label>
             <input
               type="number"
               value={formData.min_credit_hours}
@@ -15,7 +21,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Credit Hours per Semester</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxCreditHoursPerSemester')}</label>
             <input
               type="number"
               value={formData.max_credit_hours}
@@ -24,7 +30,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum with Permission</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxWithPermission')}</label>
             <input
               type="number"
               value={formData.max_with_permission}
@@ -33,7 +39,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum GPA for Overload</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minGpaForOverload')}</label>
             <input
               type="number"
               step="0.1"
@@ -47,10 +53,10 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
 
       {/* GPA Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">GPA Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.gpaConfiguration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Passing GPA</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minPassingGpa')}</label>
             <input
               type="number"
               step="0.1"
@@ -60,7 +66,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Maximum GPA Scale</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxGpaScale')}</label>
             <input
               type="number"
               step="0.1"
@@ -70,7 +76,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Honor Roll Minimum GPA</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.honorRollMinGpa')}</label>
             <input
               type="number"
               step="0.1"
@@ -80,7 +86,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Academic Probation GPA Threshold</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.academicProbationGpaThreshold')}</label>
             <input
               type="number"
               step="0.1"
@@ -94,16 +100,16 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
 
       {/* Grading Scale */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Grading Scale</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.gradingScale')}</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade Letter</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Min %</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Max %</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade Points</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Passing</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.gradeLetter')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.minPercent')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.maxPercent')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.gradePoints')}</th>
+                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.passing')}</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -159,12 +165,12 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
 
       {/* Attendance Configuration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Attendance Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.attendanceConfiguration')}</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Attendance Required</label>
-              <p className="text-xs text-gray-500">Require attendance tracking for classes</p>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.attendanceRequired')}</label>
+              <p className="text-xs text-gray-500">{t('colleges.academicSettings.attendanceRequiredDesc')}</p>
             </div>
             <input
               type="checkbox"
@@ -176,7 +182,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Attendance Percentage</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minAttendancePercentage')}</label>
               <input
                 type="number"
                 value={formData.min_attendance_percentage}
@@ -185,7 +191,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Warning Threshold</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.attendanceWarningThreshold')}</label>
               <input
                 type="number"
                 value={formData.attendance_warning_threshold}
@@ -194,7 +200,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Maximum Absence Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxAbsenceDays')}</label>
               <input
                 type="number"
                 value={formData.max_absence_days}
@@ -206,7 +212,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Present Attendance Weight (%)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.presentAttendanceWeight')}</label>
               <input
                 type="number"
                 value={formData.present_weight}
@@ -215,7 +221,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Late Attendance Weight (%)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.lateAttendanceWeight')}</label>
               <input
                 type="number"
                 value={formData.late_weight}
@@ -224,7 +230,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Excused Attendance Weight (%)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.excusedAttendanceWeight')}</label>
               <input
                 type="number"
                 value={formData.excused_weight}
@@ -235,9 +241,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Count Excused in Attendance Rate</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.countExcusedInRate')}</label>
               </div>
               <input
                 type="checkbox"
@@ -246,9 +252,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Count Late as Full Attendance</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.countLateAsFull')}</label>
               </div>
               <input
                 type="checkbox"
@@ -257,9 +263,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Enable Attendance Warnings</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.enableAttendanceWarnings')}</label>
               </div>
               <input
                 type="checkbox"
@@ -268,9 +274,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Send Warning Notifications</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.sendWarningNotifications')}</label>
               </div>
               <input
                 type="checkbox"
@@ -279,9 +285,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Enforce Max Absence Days</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.enforceMaxAbsenceDays')}</label>
               </div>
               <input
                 type="checkbox"
@@ -290,9 +296,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
             </div>
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
               <div>
-                <label className="text-sm font-medium text-gray-700">Create Alert at Max Absences</label>
+                <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.createAlertAtMaxAbsences')}</label>
               </div>
               <input
                 type="checkbox"
@@ -304,10 +310,10 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="text-md font-semibold text-gray-900 mb-3">Attendance Editing Rules</h4>
+            <h4 className="text-md font-semibold text-gray-900 mb-3">{t('colleges.academicSettings.attendanceEditingRules')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Edit Window Hours</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.editWindowHours')}</label>
                 <input
                   type="number"
                   value={formData.edit_window_hours}
@@ -315,9 +321,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Require Approval After Edit Window</label>
+                  <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.requireApprovalAfterEditWindow')}</label>
                 </div>
                 <input
                   type="checkbox"
@@ -326,9 +332,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
               </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Allow Instructor Override Edit Window</label>
+                  <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.allowInstructorOverrideEditWindow')}</label>
                 </div>
                 <input
                   type="checkbox"
@@ -341,10 +347,10 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="text-md font-semibold text-gray-900 mb-3">Late Arrival Configuration</h4>
+            <h4 className="text-md font-semibold text-gray-900 mb-3">{t('colleges.academicSettings.lateArrivalConfiguration')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Late Arrival Grace Minutes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.lateArrivalGraceMinutes')}</label>
                 <input
                   type="number"
                   value={formData.late_arrival_grace_minutes}
@@ -353,7 +359,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Late Arrival Cutoff Minutes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.lateArrivalCutoffMinutes')}</label>
                 <input
                   type="number"
                   value={formData.late_arrival_cutoff_minutes}
@@ -362,7 +368,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Early Departure Minutes</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.earlyDepartureMinutes')}</label>
                 <input
                   type="number"
                   value={formData.early_departure_minutes}
@@ -374,10 +380,10 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="text-md font-semibold text-gray-900 mb-3">Attendance Contest Configuration</h4>
+            <h4 className="text-md font-semibold text-gray-900 mb-3">{t('colleges.academicSettings.attendanceContestConfiguration')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contest Submission Deadline (Days)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.contestSubmissionDeadline')}</label>
                 <input
                   type="number"
                   value={formData.contest_deadline_days}
@@ -386,7 +392,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contest Review Deadline (Days)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.contestReviewDeadline')}</label>
                 <input
                   type="number"
                   value={formData.contest_review_deadline_days}
@@ -395,7 +401,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Max Contest Document Size (MB)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxContestDocumentSize')}</label>
                 <input
                   type="number"
                   value={formData.max_contest_document_size_mb}
@@ -405,9 +411,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Auto Reject Expired Contests</label>
+                  <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.autoRejectExpiredContests')}</label>
                 </div>
                 <input
                   type="checkbox"
@@ -416,9 +422,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
               </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Require Document for Contests</label>
+                  <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.requireDocumentForContests')}</label>
                 </div>
                 <input
                   type="checkbox"
@@ -431,10 +437,10 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="text-md font-semibold text-gray-900 mb-3">Session Calendar Configuration</h4>
+            <h4 className="text-md font-semibold text-gray-900 mb-3">{t('colleges.academicSettings.sessionCalendarConfiguration')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Default Upcoming Sessions Days</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.defaultUpcomingSessionsDays')}</label>
                 <input
                   type="number"
                   value={formData.default_upcoming_sessions_days}
@@ -443,7 +449,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Max Upcoming Sessions Days</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxUpcomingSessionsDays')}</label>
                 <input
                   type="number"
                   value={formData.max_upcoming_sessions_days}
@@ -451,9 +457,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Auto Exclude Weekends</label>
+                  <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.autoExcludeWeekends')}</label>
                 </div>
                 <input
                   type="checkbox"
@@ -466,11 +472,11 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
           </div>
 
           <div className="border-t pt-4">
-            <h4 className="text-md font-semibold text-gray-900 mb-3">Auto Drop Configuration</h4>
+            <h4 className="text-md font-semibold text-gray-900 mb-3">{t('colleges.academicSettings.autoDropConfiguration')}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Auto Drop Enabled</label>
+                  <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.autoDropEnabled')}</label>
                 </div>
                 <input
                   type="checkbox"
@@ -480,7 +486,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Auto Drop Threshold (%)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.autoDropThreshold')}</label>
                 <input
                   type="number"
                   value={formData.auto_drop_threshold}
@@ -495,11 +501,11 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
 
       {/* Course Registration */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Registration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.courseRegistration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Enable Prerequisite Checking</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.enablePrerequisiteChecking')}</label>
             </div>
             <input
               type="checkbox"
@@ -508,9 +514,9 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
             />
           </div>
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-gray-50 rounded-lg`}>
             <div>
-              <label className="text-sm font-medium text-gray-700">Allow Course Waitlist</label>
+              <label className="text-sm font-medium text-gray-700">{t('colleges.academicSettings.allowCourseWaitlist')}</label>
             </div>
             <input
               type="checkbox"
@@ -520,7 +526,7 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Add/Drop Period (Days)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.addDropPeriod')}</label>
             <input
               type="number"
               value={formData.add_drop_period_days}

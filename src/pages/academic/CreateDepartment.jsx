@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
 
 export default function CreateDepartment() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId: authCollegeId } = useAuth()
@@ -172,13 +176,13 @@ export default function CreateDepartment() {
         <div className="mb-6">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 mb-4"
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back</span>
+            <span>{t('universitySettings.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Create Department</h1>
-          <p className="text-gray-600 mt-1">Add a new academic department</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('departmentsForm.createTitle')}</h1>
+          <p className="text-gray-600 mt-1">{t('departmentsForm.createSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -189,15 +193,15 @@ export default function CreateDepartment() {
               </div>
             )}
             {success && (
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center space-x-2">
+              <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Department created successfully! Redirecting...</span>
+                <span>{t('departmentsForm.created')}</span>
               </div>
             )}
 
             <div className="space-y-6">
               {userRole === 'admin' && (
-                <div className="flex items-center space-x-2 p-4 bg-gray-50 rounded-lg">
+                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} p-4 bg-gray-50 rounded-lg`}>
                   <input
                     type="checkbox"
                     checked={isUniversityWide}
@@ -213,14 +217,14 @@ export default function CreateDepartment() {
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
                   <label className="text-sm font-medium text-gray-700">
-                    University-wide (available to all colleges)
+                    {t('departmentsForm.universityWide')}
                   </label>
                 </div>
               )}
 
               {userRole === 'admin' && !isUniversityWide && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">College</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.college')}</label>
                   <select
                     value={formData.college_id || ''}
                     onChange={(e) => {
@@ -229,7 +233,7 @@ export default function CreateDepartment() {
                     }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select College...</option>
+                    <option value="">{t('departmentsForm.selectCollege')}</option>
                     {colleges.map(college => (
                       <option key={college.id} value={college.id}>{college.name_en}</option>
                     ))}
@@ -238,7 +242,7 @@ export default function CreateDepartment() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Code *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.code')} *</label>
                 <input
                   type="text"
                   value={formData.code}
@@ -247,28 +251,28 @@ export default function CreateDepartment() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   placeholder="e.g., CS, EE, ME"
                 />
-                <p className="text-xs text-gray-500 mt-1">Unique department code</p>
+                <p className="text-xs text-gray-500 mt-1"></p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Head of Department (Instructor)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.head')}</label>
                 <select
                   value={formData.head_id}
                   onChange={(e) => handleChange('head_id', e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
-                  <option value="">Select Instructor (Optional)...</option>
+                  <option value="">{t('departmentsForm.selectInstructor')}</option>
                   {instructors.map(instructor => (
                     <option key={instructor.id} value={instructor.id}>
                       {instructor.name_en} {instructor.title ? `(${instructor.title})` : ''}
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">You can assign a head later after creating the department</p>
+                <p className="text-xs text-gray-500 mt-1"></p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name (English) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.nameEn')} *</label>
                 <input
                   type="text"
                   value={formData.name_en}
@@ -279,7 +283,7 @@ export default function CreateDepartment() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Name (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.nameAr')}</label>
                 <input
                   type="text"
                   value={formData.name_ar}
@@ -289,7 +293,7 @@ export default function CreateDepartment() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.description')}</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => handleChange('description', e.target.value)}
@@ -299,7 +303,7 @@ export default function CreateDepartment() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description (Arabic)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('departmentsForm.descriptionAr')}</label>
                 <textarea
                   value={formData.description_ar}
                   onChange={(e) => handleChange('description_ar', e.target.value)}
@@ -308,33 +312,33 @@ export default function CreateDepartment() {
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
                   checked={formData.status === 'active'}
                   onChange={(e) => handleChange('status', e.target.checked ? 'active' : 'inactive')}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label className="text-sm font-medium text-gray-700">Active</label>
+                <label className="text-sm font-medium text-gray-700">{t('departmentsForm.active')}</label>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4">
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse space-x-4' : 'justify-end space-x-4'}`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('departmentsForm.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Creating...' : 'Create Department'}</span>
+              <span>{loading ? t('departmentsForm.creating') : t('departmentsForm.create')}</span>
             </button>
           </div>
         </form>
