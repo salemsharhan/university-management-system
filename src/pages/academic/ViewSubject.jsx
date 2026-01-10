@@ -31,6 +31,24 @@ export default function ViewSubject() {
         .single()
 
       if (error) throw error
+      
+      // Parse JSONB fields if they exist as strings
+      if (data.attendance_rules && typeof data.attendance_rules === 'string') {
+        try {
+          data.attendance_rules = JSON.parse(data.attendance_rules)
+        } catch (e) {
+          console.warn('Failed to parse attendance_rules:', e)
+        }
+      }
+      
+      if (data.grade_configuration && typeof data.grade_configuration === 'string') {
+        try {
+          data.grade_configuration = JSON.parse(data.grade_configuration)
+        } catch (e) {
+          console.warn('Failed to parse grade_configuration:', e)
+        }
+      }
+      
       setSubject(data)
     } catch (err) {
       console.error('Error fetching subject:', err)
@@ -350,6 +368,77 @@ export default function ViewSubject() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Syllabus */}
+          {(subject?.syllabus_content || subject?.syllabus_content_ar) && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.syllabus') || 'Syllabus / Course Plan'}</h3>
+              {subject?.syllabus_content && (
+                <div className="mb-4">
+                  <p className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.name')} (English)</p>
+                  <p className="text-gray-700 whitespace-pre-wrap">{subject.syllabus_content}</p>
+                </div>
+              )}
+              {subject?.syllabus_content_ar && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.nameAr')} (Arabic)</p>
+                  <p className="text-gray-700 whitespace-pre-wrap" dir="rtl">{subject.syllabus_content_ar}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Attendance Rules */}
+          {(subject?.attendance_rules || subject?.attendance_method) && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.attendanceRules') || 'Attendance Rules'}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.attendanceMethod') || 'Attendance Method'}</p>
+                  <p className="text-gray-900">
+                    {subject?.attendance_rules?.method === 'AT_AUTO' 
+                      ? (t('subjectsForm.attendanceAuto') || 'Automatic Attendance (Online)')
+                      : (t('subjectsForm.attendanceManual') || 'Manual Attendance')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.allowExcusedAbsence') || 'Allow Excused Absences'}</p>
+                  <p className="text-gray-900">
+                    {subject?.attendance_rules?.allow_excused !== false ? (t('common.yes') || 'Yes') : (t('common.no') || 'No')}
+                  </p>
+                </div>
+                {subject?.attendance_rules?.max_absences && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.maxAbsences') || 'Maximum Allowed Absences'}</p>
+                    <p className="text-gray-900">{subject.attendance_rules.max_absences}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Grades Visibility */}
+          {subject?.grades_visibility_status && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.gradesVisibility') || 'Grades Visibility'}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.gradesVisibilityStatus') || 'Visibility Status'}</p>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    subject.grades_visibility_status === 'GV_HID' ? 'bg-gray-100 text-gray-800' :
+                    subject.grades_visibility_status === 'GV_REL' ? 'bg-green-100 text-green-800' :
+                    subject.grades_visibility_status === 'GV_FIN' ? 'bg-blue-100 text-blue-800' :
+                    'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {subject.grades_visibility_status === 'GV_HID' ? (t('subjectsForm.gradesHidden') || 'Hidden') :
+                     subject.grades_visibility_status === 'GV_TMP' ? (t('subjectsForm.gradesVisibleTemp') || 'Visible Temporarily') :
+                     subject.grades_visibility_status === 'GV_REL' ? (t('subjectsForm.gradesReleased') || 'Released') :
+                     (t('subjectsForm.gradesFinalLocked') || 'Final Locked')}
+                  </span>
+                </div>
               </div>
             </div>
           )}

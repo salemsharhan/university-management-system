@@ -8,3 +8,5 @@ ADD COLUMN IF NOT EXISTS "college_types" jsonb DEFAULT '[]'::jsonb;
 -- Add comment to explain the structure
 COMMENT ON COLUMN "university_settings"."college_types" IS 'Array of college type objects with structure: [{"id": number, "code": string, "name_en": string, "name_ar": string}]';
 
+
+

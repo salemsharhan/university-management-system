@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowLeft, GraduationCap } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { checkFinancePermission } from '../utils/financePermissions'
+import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowLeft, GraduationCap, AlertCircle } from 'lucide-react'
 
 export default function LoginStudent() {
   const [email, setEmail] = useState('')
@@ -9,7 +11,7 @@ export default function LoginStudent() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn, user, userRole, loading: authLoading } = useAuth()
+  const { signIn, signOut, user, userRole, loading: authLoading } = useAuth()
   const navigate = useNavigate()
 
   // Redirect if already logged in
@@ -39,6 +41,64 @@ export default function LoginStudent() {
     try {
       const { data, error: signInError } = await signIn(email, password, 'student')
       if (signInError) throw signInError
+
+      // Check if student has FA_LGN (Login permission) based on financial milestone
+      // For login, check if student has at least one active semester with PM10+ milestone
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .select('id, financial_hold_reason_code, current_status_code')
+        .eq('email', email)
+        .eq('status', 'active')
+        .single()
+
+      if (studentError) {
+        console.error('Error fetching student data:', studentError)
+        // Allow login even if student data fetch fails (might be new account)
+        navigate('/dashboard')
+        return
+      }
+
+      // Check if student has at least one active semester with PM10+ milestone for login
+      const { data: semesterStatuses, error: statusError } = await supabase
+        .from('student_semester_financial_status')
+        .select('financial_milestone_code')
+        .eq('student_id', studentData.id)
+        .in('financial_milestone_code', ['PM10', 'PM30', 'PM60', 'PM90', 'PM100'])
+        .limit(1)
+
+      // If no semester status found, default to PM00 (no payment)
+      const hasLoginAccess = semesterStatuses && semesterStatuses.length > 0
+      const loginMilestone = hasLoginAccess ? semesterStatuses[0].financial_milestone_code : 'PM00'
+
+      // Check FA_LGN permission (requires PM10)
+      const permission = checkFinancePermission(
+        'SA_LGN',
+        loginMilestone,
+        studentData.financial_hold_reason_code || null
+      )
+
+      if (!permission.allowed) {
+        // Sign out the user since they don't have permission
+        if (signOut) {
+          await signOut()
+        }
+        setError(`Access Denied: ${permission.reason || 'You need to make an initial payment (10%) to access the student portal. Please contact the finance office or make a payment.'}`)
+        setLoading(false)
+        return
+      }
+
+      // Check if student status allows login
+      const allowedStatuses = ['ENAC', 'ACAC', 'ACPR', 'ENCF', 'ENPN']
+      if (!allowedStatuses.includes(studentData.current_status_code || '')) {
+        // Sign out the user since their status doesn't allow login
+        if (signOut) {
+          await signOut()
+        }
+        setError(`Access Denied: Your account status (${studentData.current_status_code || 'Unknown'}) does not allow portal access. Please contact the admissions office.`)
+        setLoading(false)
+        return
+      }
+
       navigate('/dashboard')
     } catch (err) {
       setError(err.message || 'Failed to sign in')

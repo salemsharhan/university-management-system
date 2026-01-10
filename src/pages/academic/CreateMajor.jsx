@@ -51,6 +51,14 @@ export default function CreateMajor() {
     status: 'active',
     college_id: null,
     is_university_wide: false,
+    // Validation Rules
+    validation_toefl_min: '',
+    validation_ielts_min: '',
+    validation_gpa_min: '',
+    validation_graduation_year_min: '',
+    validation_certificate_types: [],
+    validation_requires_interview: false,
+    validation_requires_entrance_exam: false,
   })
 
   useEffect(() => {
@@ -190,6 +198,15 @@ export default function CreateMajor() {
         status: formData.status,
         is_university_wide: isUniversityWide,
         college_id: isUniversityWide ? null : (formData.college_id || collegeId),
+        validation_rules: {
+          toefl_min: formData.validation_toefl_min ? parseInt(formData.validation_toefl_min) : null,
+          ielts_min: formData.validation_ielts_min ? parseFloat(formData.validation_ielts_min) : null,
+          gpa_min: formData.validation_gpa_min ? parseFloat(formData.validation_gpa_min) : null,
+          graduation_year_min: formData.validation_graduation_year_min ? parseInt(formData.validation_graduation_year_min) : null,
+          certificate_types_allowed: formData.validation_certificate_types.length > 0 ? formData.validation_certificate_types : null,
+          requires_interview: formData.validation_requires_interview || false,
+          requires_entrance_exam: formData.validation_requires_entrance_exam || false,
+        },
       }
 
       const { data, error: insertError } = await supabase
@@ -563,6 +580,102 @@ export default function CreateMajor() {
                     rows={3}
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                   />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationRules') || 'Admission Validation Rules'}</h3>
+                <p className={`text-sm text-gray-600 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t('academic.majors.validationRulesDesc') || 'These rules will be used to automatically validate applications submitted for this major.'}
+                </p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationToeflMin') || 'Minimum TOEFL Score (0-120)'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      value={formData.validation_toefl_min}
+                      onChange={(e) => handleChange('validation_toefl_min', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder="e.g., 80"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationIeltsMin') || 'Minimum IELTS Score (0.0-9.0)'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="9"
+                      step="0.1"
+                      value={formData.validation_ielts_min}
+                      onChange={(e) => handleChange('validation_ielts_min', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder="e.g., 6.5"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationGpaMin') || 'Minimum High School GPA (0.0-4.0)'}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="4"
+                      step="0.1"
+                      value={formData.validation_gpa_min}
+                      onChange={(e) => handleChange('validation_gpa_min', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder="e.g., 3.0"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationGraduationYearMin') || 'Minimum Graduation Year'}</label>
+                    <input
+                      type="number"
+                      min="1950"
+                      max="2100"
+                      value={formData.validation_graduation_year_min}
+                      onChange={(e) => handleChange('validation_graduation_year_min', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder="e.g., 2020"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationCertificateTypes') || 'Allowed Certificate Types (comma-separated)'}</label>
+                  <input
+                    type="text"
+                    value={formData.validation_certificate_types.join(', ')}
+                    onChange={(e) => {
+                      const values = e.target.value.split(',').map(v => v.trim()).filter(v => v)
+                      handleChange('validation_certificate_types', values)
+                    }}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
+                    placeholder={t('academic.majors.validationCertificateTypesPlaceholder') || 'e.g., IB, A-Levels, Tawjihi, SAT'}
+                  />
+                  <p className={`text-xs text-gray-500 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationCertificateTypesHint') || 'Enter certificate types separated by commas'}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.validation_requires_interview}
+                      onChange={(e) => handleChange('validation_requires_interview', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label className={`text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationRequiresInterview') || 'Requires Interview'}</label>
+                  </div>
+                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.validation_requires_entrance_exam}
+                      onChange={(e) => handleChange('validation_requires_entrance_exam', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label className={`text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.validationRequiresEntranceExam') || 'Requires Entrance Exam'}</label>
+                  </div>
                 </div>
               </div>
 

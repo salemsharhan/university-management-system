@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import GeneralSettings from '../../components/college/GeneralSettings'
 import AcademicSettings from '../../components/college/AcademicSettings'
 import FinancialSettings from '../../components/college/FinancialSettings'
@@ -192,80 +193,329 @@ export default function CreateCollege() {
         // Set checkbox based on college data
         setUseUniversitySettings(data.use_university_settings || false)
 
-        // Load settings from JSONB fields if not using university settings
-        if (!data.use_university_settings) {
-          if (data.academic_settings) {
-            const academic = data.academic_settings
-            if (academic.creditHours) {
-              setFormData(prev => ({
-                ...prev,
-                min_credit_hours: academic.creditHours.minPerSemester || prev.min_credit_hours,
-                max_credit_hours: academic.creditHours.maxPerSemester || prev.max_credit_hours,
-                max_with_permission: academic.creditHours.maxWithPermission || prev.max_with_permission,
-                min_gpa_for_overload: academic.creditHours.minGpaForOverload || prev.min_gpa_for_overload,
-              }))
-            }
-            if (academic.gpa) {
-              setFormData(prev => ({
-                ...prev,
-                min_passing_gpa: academic.gpa.minPassing || prev.min_passing_gpa,
-                max_gpa_scale: academic.gpa.maxScale || prev.max_gpa_scale,
-                honor_roll_min_gpa: academic.gpa.honorRollMin || prev.honor_roll_min_gpa,
-                probation_threshold: academic.gpa.probationThreshold || prev.probation_threshold,
-              }))
-            }
-            if (academic.gradingScale) {
-              setFormData(prev => ({
-                ...prev,
-                grading_scale: academic.gradingScale || prev.grading_scale,
-              }))
-            }
-            if (academic.attendance) {
-              const att = academic.attendance
-              setFormData(prev => ({
-                ...prev,
-                attendance_required: att.required ?? prev.attendance_required,
-                min_attendance_percentage: att.minPercentage || prev.min_attendance_percentage,
-                attendance_warning_threshold: att.warningThreshold || prev.attendance_warning_threshold,
-                max_absence_days: att.maxAbsenceDays || prev.max_absence_days,
-                present_weight: att.presentWeight || prev.present_weight,
-                late_weight: att.lateWeight || prev.late_weight,
-                excused_weight: att.excusedWeight || prev.excused_weight,
-                count_excused_in_rate: att.countExcusedInRate ?? prev.count_excused_in_rate,
-                count_late_as_full: att.countLateAsFull ?? prev.count_late_as_full,
-                enable_warnings: att.enableWarnings ?? prev.enable_warnings,
-                send_notifications: att.sendNotifications ?? prev.send_notifications,
-                enforce_max_absence: att.enforceMaxAbsence ?? prev.enforce_max_absence,
-                create_alert_at_max: att.createAlertAtMax ?? prev.create_alert_at_max,
-                edit_window_hours: att.editWindowHours || prev.edit_window_hours,
-                require_approval_after_window: att.requireApprovalAfterWindow ?? prev.require_approval_after_window,
-                allow_instructor_override: att.allowInstructorOverride ?? prev.allow_instructor_override,
-                late_arrival_grace_minutes: att.lateArrivalGraceMinutes || prev.late_arrival_grace_minutes,
-                late_arrival_cutoff_minutes: att.lateArrivalCutoffMinutes || prev.late_arrival_cutoff_minutes,
-                early_departure_minutes: att.earlyDepartureMinutes || prev.early_departure_minutes,
-                contest_deadline_days: att.contestDeadlineDays || prev.contest_deadline_days,
-                contest_review_deadline_days: att.contestReviewDeadlineDays || prev.contest_review_deadline_days,
-                max_contest_document_size_mb: att.maxContestDocumentSizeMB || prev.max_contest_document_size_mb,
-                auto_reject_expired: att.autoRejectExpired ?? prev.auto_reject_expired,
-                require_document_for_contests: att.requireDocumentForContests ?? prev.require_document_for_contests,
-                default_upcoming_sessions_days: att.defaultUpcomingSessionsDays || prev.default_upcoming_sessions_days,
-                max_upcoming_sessions_days: att.maxUpcomingSessionsDays || prev.max_upcoming_sessions_days,
-                auto_exclude_weekends: att.autoExcludeWeekends ?? prev.auto_exclude_weekends,
-                auto_drop_enabled: att.autoDropEnabled ?? prev.auto_drop_enabled,
-                auto_drop_threshold: att.autoDropThreshold || prev.auto_drop_threshold,
-              }))
-            }
-            if (academic.courseRegistration) {
-              setFormData(prev => ({
-                ...prev,
-                enable_prerequisite_checking: academic.courseRegistration.enablePrerequisiteChecking ?? prev.enable_prerequisite_checking,
-                allow_waitlist: academic.courseRegistration.allowWaitlist ?? prev.allow_waitlist,
-                add_drop_period_days: academic.courseRegistration.addDropPeriodDays || prev.add_drop_period_days,
-              }))
-            }
+        // Always load settings from JSONB fields (settings are always saved per college)
+        if (data.academic_settings) {
+          const academic = data.academic_settings
+          if (academic.creditHours) {
+            setFormData(prev => ({
+              ...prev,
+              min_credit_hours: academic.creditHours.minPerSemester || prev.min_credit_hours,
+              max_credit_hours: academic.creditHours.maxPerSemester || prev.max_credit_hours,
+              max_with_permission: academic.creditHours.maxWithPermission || prev.max_with_permission,
+              min_gpa_for_overload: academic.creditHours.minGpaForOverload || prev.min_gpa_for_overload,
+            }))
           }
-          // Similar for other settings (financial, email, onboarding, system, examination)
-          // ... (يتم إضافة باقي الإعدادات لاحقاً إذا لزم الأمر)
+          if (academic.gpa) {
+            setFormData(prev => ({
+              ...prev,
+              min_passing_gpa: academic.gpa.minPassing || prev.min_passing_gpa,
+              max_gpa_scale: academic.gpa.maxScale || prev.max_gpa_scale,
+              honor_roll_min_gpa: academic.gpa.honorRollMin || prev.honor_roll_min_gpa,
+              probation_threshold: academic.gpa.probationThreshold || prev.probation_threshold,
+            }))
+          }
+          if (academic.gradingScale) {
+            setFormData(prev => ({
+              ...prev,
+              grading_scale: academic.gradingScale || prev.grading_scale,
+            }))
+          }
+          if (academic.attendance) {
+            const att = academic.attendance
+            setFormData(prev => ({
+              ...prev,
+              attendance_required: att.required ?? prev.attendance_required,
+              min_attendance_percentage: att.minPercentage || prev.min_attendance_percentage,
+              attendance_warning_threshold: att.warningThreshold || prev.attendance_warning_threshold,
+              max_absence_days: att.maxAbsenceDays || prev.max_absence_days,
+              present_weight: att.presentWeight || prev.present_weight,
+              late_weight: att.lateWeight || prev.late_weight,
+              excused_weight: att.excusedWeight || prev.excused_weight,
+              count_excused_in_rate: att.countExcusedInRate ?? prev.count_excused_in_rate,
+              count_late_as_full: att.countLateAsFull ?? prev.count_late_as_full,
+              enable_warnings: att.enableWarnings ?? prev.enable_warnings,
+              send_notifications: att.sendNotifications ?? prev.send_notifications,
+              enforce_max_absence: att.enforceMaxAbsence ?? prev.enforce_max_absence,
+              create_alert_at_max: att.createAlertAtMax ?? prev.create_alert_at_max,
+              edit_window_hours: att.editWindowHours || prev.edit_window_hours,
+              require_approval_after_window: att.requireApprovalAfterWindow ?? prev.require_approval_after_window,
+              allow_instructor_override: att.allowInstructorOverride ?? prev.allow_instructor_override,
+              late_arrival_grace_minutes: att.lateArrivalGraceMinutes || prev.late_arrival_grace_minutes,
+              late_arrival_cutoff_minutes: att.lateArrivalCutoffMinutes || prev.late_arrival_cutoff_minutes,
+              early_departure_minutes: att.earlyDepartureMinutes || prev.early_departure_minutes,
+              contest_deadline_days: att.contestDeadlineDays || prev.contest_deadline_days,
+              contest_review_deadline_days: att.contestReviewDeadlineDays || prev.contest_review_deadline_days,
+              max_contest_document_size_mb: att.maxContestDocumentSizeMB || prev.max_contest_document_size_mb,
+              auto_reject_expired: att.autoRejectExpired ?? prev.auto_reject_expired,
+              require_document_for_contests: att.requireDocumentForContests ?? prev.require_document_for_contests,
+              default_upcoming_sessions_days: att.defaultUpcomingSessionsDays || prev.default_upcoming_sessions_days,
+              max_upcoming_sessions_days: att.maxUpcomingSessionsDays || prev.max_upcoming_sessions_days,
+              auto_exclude_weekends: att.autoExcludeWeekends ?? prev.auto_exclude_weekends,
+              auto_drop_enabled: att.autoDropEnabled ?? prev.auto_drop_enabled,
+              auto_drop_threshold: att.autoDropThreshold || prev.auto_drop_threshold,
+            }))
+          }
+          if (academic.courseRegistration) {
+            setFormData(prev => ({
+              ...prev,
+              enable_prerequisite_checking: academic.courseRegistration.enablePrerequisiteChecking ?? prev.enable_prerequisite_checking,
+              allow_waitlist: academic.courseRegistration.allowWaitlist ?? prev.allow_waitlist,
+              add_drop_period_days: academic.courseRegistration.addDropPeriodDays || prev.add_drop_period_days,
+            }))
+          }
+        }
+
+        // Load Financial settings
+        if (data.financial_settings) {
+          const financial = data.financial_settings
+          if (financial.paymentGateway) {
+            setFormData(prev => ({
+              ...prev,
+              tap_api_key: financial.paymentGateway.tapApiKey || prev.tap_api_key,
+              tap_secret_key: financial.paymentGateway.tapSecretKey || prev.tap_secret_key,
+              test_mode: financial.paymentGateway.testMode ?? prev.test_mode,
+            }))
+          }
+          if (financial.discounts) {
+            setFormData(prev => ({
+              ...prev,
+              enable_early_payment_discount: financial.discounts.enableEarlyPayment ?? prev.enable_early_payment_discount,
+              early_payment_percent: financial.discounts.earlyPaymentPercent || prev.early_payment_percent,
+              early_payment_days: financial.discounts.earlyPaymentDays || prev.early_payment_days,
+              enable_sibling_discount: financial.discounts.enableSibling ?? prev.enable_sibling_discount,
+              sibling_discount_percent: financial.discounts.siblingDiscountPercent || prev.sibling_discount_percent,
+            }))
+          }
+          if (financial.lateFees) {
+            setFormData(prev => ({
+              ...prev,
+              enable_late_fees: financial.lateFees.enabled ?? prev.enable_late_fees,
+              late_fee_amount: financial.lateFees.amount || prev.late_fee_amount,
+              late_fee_percentage: financial.lateFees.percentage || prev.late_fee_percentage,
+              grace_period_days: financial.lateFees.gracePeriodDays || prev.grace_period_days,
+            }))
+          }
+          if (financial.installments) {
+            setFormData(prev => ({
+              ...prev,
+              min_installments: financial.installments.minInstallments || prev.min_installments,
+              max_installments: financial.installments.maxInstallments || prev.max_installments,
+            }))
+          }
+          if (financial.reminders) {
+            setFormData(prev => ({
+              ...prev,
+              reminder_days_before_due: financial.reminders.daysBeforeDue || prev.reminder_days_before_due,
+              min_days_between_reminders: financial.reminders.minDaysBetween || prev.min_days_between_reminders,
+              upcoming_due_window: financial.reminders.upcomingDueWindow || prev.upcoming_due_window,
+            }))
+          }
+          if (financial.invoice) {
+            setFormData(prev => ({
+              ...prev,
+              invoice_prefix: financial.invoice.prefix || prev.invoice_prefix,
+              invoice_format: financial.invoice.format || prev.invoice_format,
+              invoice_due_days: financial.invoice.dueDays || prev.invoice_due_days,
+            }))
+          }
+          if (financial.currency) {
+            setFormData(prev => ({
+              ...prev,
+              currency_code: financial.currency.code || prev.currency_code,
+              currency_symbol: financial.currency.symbol || prev.currency_symbol,
+              decimal_places: financial.currency.decimalPlaces || prev.decimal_places,
+            }))
+          }
+          if (financial.refund) {
+            setFormData(prev => ({
+              ...prev,
+              allow_refunds: financial.refund.allowRefunds ?? prev.allow_refunds,
+              full_refund_period_days: financial.refund.fullRefundPeriodDays || prev.full_refund_period_days,
+              partial_refund_period_days: financial.refund.partialRefundPeriodDays || prev.partial_refund_period_days,
+              partial_refund_percent: financial.refund.partialRefundPercent || prev.partial_refund_percent,
+            }))
+          }
+        }
+
+        // Load Email settings
+        if (data.email_settings) {
+          const email = data.email_settings
+          if (email.smtp) {
+            setFormData(prev => ({
+              ...prev,
+              smtp_host: email.smtp.host || prev.smtp_host,
+              smtp_port: email.smtp.port || prev.smtp_port,
+              enable_ssl: email.smtp.enableSsl ?? prev.enable_ssl,
+              smtp_username: email.smtp.username || prev.smtp_username,
+              smtp_password: email.smtp.password || prev.smtp_password,
+              from_email: email.smtp.fromEmail || prev.from_email,
+              from_name: email.smtp.fromName || prev.from_name,
+            }))
+          }
+          setFormData(prev => ({
+            ...prev,
+            enable_email_notifications: email.notifications?.enableEmailNotifications ?? prev.enable_email_notifications,
+            test_email: email.testEmail || prev.test_email,
+          }))
+        }
+
+        // Load Onboarding settings
+        if (data.onboarding_settings) {
+          const onboarding = data.onboarding_settings
+          if (onboarding.application) {
+            const app = onboarding.application
+            setFormData(prev => ({
+              ...prev,
+              enable_online_applications: app.enableOnlineApplications ?? prev.enable_online_applications,
+              application_deadline_days: app.deadlineDays || prev.application_deadline_days,
+              require_document_upload: app.requireDocumentUpload ?? prev.require_document_upload,
+              application_fee: app.applicationFee || prev.application_fee,
+              offer_acceptance_days: app.offerAcceptanceDays || prev.offer_acceptance_days,
+              document_submission_days: app.documentSubmissionDays || prev.document_submission_days,
+              auto_archive_days: app.autoArchiveDays || prev.auto_archive_days,
+              min_applicant_age: app.minApplicantAge || prev.min_applicant_age,
+              max_applicant_age: app.maxApplicantAge || prev.max_applicant_age,
+              min_scholarship_percent: app.minScholarshipPercent || prev.min_scholarship_percent,
+              max_scholarship_percent: app.maxScholarshipPercent || prev.max_scholarship_percent,
+              personal_statement_min_length: app.personalStatementMinLength || prev.personal_statement_min_length,
+              personal_statement_max_length: app.personalStatementMaxLength || prev.personal_statement_max_length,
+              scholarship_justification_min_length: app.scholarshipJustificationMinLength || prev.scholarship_justification_min_length,
+              scholarship_justification_max_length: app.scholarshipJustificationMaxLength || prev.scholarship_justification_max_length,
+              default_priority: app.defaultPriority || prev.default_priority,
+              default_interview_type: app.defaultInterviewType || prev.default_interview_type,
+            }))
+          }
+          if (onboarding.documents) {
+            setFormData(prev => ({
+              ...prev,
+              max_document_size_mb: onboarding.documents.maxSizeMB || prev.max_document_size_mb,
+              allowed_file_types: onboarding.documents.allowedTypes || prev.allowed_file_types,
+            }))
+          }
+          if (onboarding.committee) {
+            setFormData(prev => ({
+              ...prev,
+              min_committee_members: onboarding.committee.minMembers || prev.min_committee_members,
+              require_unanimous: onboarding.committee.requireUnanimous ?? prev.require_unanimous,
+              decision_timeout_days: onboarding.committee.decisionTimeoutDays || prev.decision_timeout_days,
+            }))
+          }
+        }
+
+        // Load System settings
+        if (data.system_settings) {
+          const system = data.system_settings
+          if (system.security) {
+            setFormData(prev => ({
+              ...prev,
+              session_timeout_minutes: system.security.sessionTimeoutMinutes || prev.session_timeout_minutes,
+              password_expiry_days: system.security.passwordExpiryDays || prev.password_expiry_days,
+              max_login_attempts: system.security.maxLoginAttempts || prev.max_login_attempts,
+              account_lockout_minutes: system.security.accountLockoutMinutes || prev.account_lockout_minutes,
+              enable_two_factor: system.security.enableTwoFactor ?? prev.enable_two_factor,
+            }))
+          }
+          if (system.fileUpload) {
+            setFormData(prev => ({
+              ...prev,
+              max_file_upload_size_mb: system.fileUpload.maxSizeMB || prev.max_file_upload_size_mb,
+              storage_provider: system.fileUpload.storageProvider || prev.storage_provider,
+            }))
+          }
+          if (system.maintenance) {
+            setFormData(prev => ({
+              ...prev,
+              maintenance_enabled: system.maintenance.enabled ?? prev.maintenance_enabled,
+              maintenance_message: system.maintenance.message || prev.maintenance_message,
+            }))
+          }
+          if (system.backup) {
+            setFormData(prev => ({
+              ...prev,
+              backup_enabled: system.backup.enabled ?? prev.backup_enabled,
+              backup_retention_days: system.backup.retentionDays || prev.backup_retention_days,
+              backup_schedule: system.backup.schedule || prev.backup_schedule,
+            }))
+          }
+          if (system.localization) {
+            setFormData(prev => ({
+              ...prev,
+              auto_detect_language: system.localization.autoDetectLanguage ?? prev.auto_detect_language,
+              enable_rtl: system.localization.enableRtlSupport ?? prev.enable_rtl,
+            }))
+          }
+        }
+
+        // Load Examination settings
+        if (data.examination_settings) {
+          const exam = data.examination_settings
+          if (exam.grading) {
+            setFormData(prev => ({
+              ...prev,
+              min_passing_percentage: exam.grading.minPassingPercentage || prev.min_passing_percentage,
+              min_passing_grade_points: exam.grading.minPassingGradePoints || prev.min_passing_grade_points,
+              min_excellence_percentage: exam.grading.minExcellencePercentage || prev.min_excellence_percentage,
+              min_good_percentage: exam.grading.minGoodPercentage || prev.min_good_percentage,
+            }))
+          }
+          if (exam.examTypes) {
+            setFormData(prev => ({
+              ...prev,
+              default_midterm_weight: exam.examTypes.defaultMidtermWeight || prev.default_midterm_weight,
+              default_final_weight: exam.examTypes.defaultFinalWeight || prev.default_final_weight,
+              default_quiz_weight: exam.examTypes.defaultQuizWeight || prev.default_quiz_weight,
+              default_assignment_weight: exam.examTypes.defaultAssignmentWeight || prev.default_assignment_weight,
+              enforce_weight_sum_100: exam.examTypes.enforceWeightSum100 ?? prev.enforce_weight_sum_100,
+              allow_custom_exam_types: exam.examTypes.allowCustomTypes ?? prev.allow_custom_exam_types,
+            }))
+          }
+          if (exam.scheduling) {
+            setFormData(prev => ({
+              ...prev,
+              exam_schedule_generation_window_days: exam.scheduling.generationWindowDays || prev.exam_schedule_generation_window_days,
+              default_upcoming_exams_window_days: exam.scheduling.defaultUpcomingExamsWindowDays || prev.default_upcoming_exams_window_days,
+              min_preparation_days: exam.scheduling.minPreparationDays || prev.min_preparation_days,
+              max_exams_per_day: exam.scheduling.maxExamsPerDay || prev.max_exams_per_day,
+              allow_weekend_exams: exam.scheduling.allowWeekendExams ?? prev.allow_weekend_exams,
+              allow_overlapping_exams: exam.scheduling.allowOverlappingExams ?? prev.allow_overlapping_exams,
+            }))
+          }
+          if (exam.makeup) {
+            setFormData(prev => ({
+              ...prev,
+              allow_makeup_exams: exam.makeup.allowMakeupExams ?? prev.allow_makeup_exams,
+              makeup_request_deadline_days: exam.makeup.requestDeadlineDays || prev.makeup_request_deadline_days,
+              max_makeup_attempts: exam.makeup.maxAttempts || prev.max_makeup_attempts,
+              makeup_exam_penalty_percentage: exam.makeup.penaltyPercentage || prev.makeup_exam_penalty_percentage,
+            }))
+          }
+          if (exam.roomAllocation) {
+            setFormData(prev => ({
+              ...prev,
+              require_room_allocation: exam.roomAllocation.requireRoomAllocation ?? prev.require_room_allocation,
+              students_per_room: exam.roomAllocation.studentsPerRoom || prev.students_per_room,
+              social_distancing_capacity_percent: exam.roomAllocation.socialDistancingCapacityPercent || prev.social_distancing_capacity_percent,
+              enforce_social_distancing: exam.roomAllocation.enforceSocialDistancing ?? prev.enforce_social_distancing,
+            }))
+          }
+          if (exam.invigilator) {
+            setFormData(prev => ({
+              ...prev,
+              require_invigilators: exam.invigilator.requireInvigilators ?? prev.require_invigilators,
+              min_invigilators_per_room: exam.invigilator.minInvigilatorsPerRoom || prev.min_invigilators_per_room,
+              max_invigilator_assignments_per_day: exam.invigilator.maxAssignmentsPerDay || prev.max_invigilator_assignments_per_day,
+              students_per_invigilator: exam.invigilator.studentsPerInvigilator || prev.students_per_invigilator,
+            }))
+          }
+          if (exam.conflictDetection) {
+            setFormData(prev => ({
+              ...prev,
+              enable_conflict_detection: exam.conflictDetection.enabled ?? prev.enable_conflict_detection,
+              check_student_conflicts: exam.conflictDetection.checkStudentConflicts ?? prev.check_student_conflicts,
+              check_invigilator_conflicts: exam.conflictDetection.checkInvigilatorConflicts ?? prev.check_invigilator_conflicts,
+              check_room_conflicts: exam.conflictDetection.checkRoomConflicts ?? prev.check_room_conflicts,
+            }))
+          }
         }
       }
     } catch (err) {
@@ -1054,13 +1304,14 @@ export default function CreateCollege() {
         mission: formData.mission || null,
         established_date: formData.established_date || null,
         accreditation_info: formData.accreditation_info || null,
-        academic_settings: useUniversitySettings ? null : academicSettings,
-        financial_settings: useUniversitySettings ? null : financialSettings,
-        email_settings: useUniversitySettings ? null : emailSettings,
-        onboarding_settings: useUniversitySettings ? null : onboardingSettings,
-        system_settings: useUniversitySettings ? null : systemSettings,
-        examination_settings: useUniversitySettings ? null : examinationSettings,
-        use_university_settings: useUniversitySettings,
+        // Always save settings per college, even if university settings are used as defaults
+        academic_settings: academicSettings,
+        financial_settings: financialSettings,
+        email_settings: emailSettings,
+        onboarding_settings: onboardingSettings,
+        system_settings: systemSettings,
+        examination_settings: examinationSettings,
+        use_university_settings: useUniversitySettings, // This flag indicates if university settings were used as defaults
       }
 
       let data
@@ -1216,7 +1467,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        {t('colleges.universitySettingsNote')}
+                        {t('colleges.universitySettingsNote') || 'University settings were used as defaults. All settings are saved per college and can be customized below.'}
                       </p>
                     </div>
                   )}
@@ -1232,7 +1483,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        {t('colleges.universitySettingsNote')}
+                        {t('colleges.universitySettingsNote') || 'University settings were used as defaults. All settings are saved per college and can be customized below.'}
                       </p>
                     </div>
                   )}
@@ -1244,7 +1495,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        {t('colleges.universitySettingsNote')}
+                        {t('colleges.universitySettingsNote') || 'University settings were used as defaults. All settings are saved per college and can be customized below.'}
                       </p>
                     </div>
                   )}
@@ -1256,7 +1507,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        {t('colleges.universitySettingsNote')}
+                        {t('colleges.universitySettingsNote') || 'University settings were used as defaults. All settings are saved per college and can be customized below.'}
                       </p>
                     </div>
                   )}
@@ -1268,7 +1519,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        {t('colleges.universitySettingsNote')}
+                        {t('colleges.universitySettingsNote') || 'University settings were used as defaults. All settings are saved per college and can be customized below.'}
                       </p>
                     </div>
                   )}
@@ -1280,7 +1531,7 @@ export default function CreateCollege() {
                   {useUniversitySettings && (
                     <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
-                        {t('colleges.universitySettingsNote')}
+                        {t('colleges.universitySettingsNote') || 'University settings were used as defaults. All settings are saved per college and can be customized below.'}
                       </p>
                     </div>
                   )}

@@ -12,6 +12,7 @@ import SystemSettings from '../../components/college/SystemSettings'
 import ExaminationSettings from '../../components/college/ExaminationSettings'
 import CollegeTypesSettings from '../../components/university/CollegeTypesSettings'
 import GradeTypesSettings from '../../components/university/GradeTypesSettings'
+import StudentLifecycleSettings from '../../components/university/StudentLifecycleSettings'
 import { 
   Building2, 
   GraduationCap, 
@@ -22,7 +23,8 @@ import {
   FileText,
   Save,
   ArrowLeft,
-  Check
+  Check,
+  Users
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -516,6 +518,7 @@ export default function UniversitySettings() {
   const tabs = [
     { id: 'general', name: t('universitySettings.tabs.general'), icon: Building2 },
     { id: 'grade-types', name: t('universitySettings.tabs.gradeTypes'), icon: FileText },
+    { id: 'student-lifecycle', name: t('universitySettings.tabs.studentLifecycle'), icon: Users },
     { id: 'academic', name: t('universitySettings.tabs.academic'), icon: GraduationCap },
     { id: 'financial', name: t('universitySettings.tabs.financial'), icon: DollarSign },
     { id: 'email', name: t('universitySettings.tabs.email'), icon: Mail },
@@ -614,6 +617,9 @@ export default function UniversitySettings() {
               gradeTypes={gradeTypes}
               onGradeTypesChange={setGradeTypes}
             />
+          )}
+          {activeTab === 'student-lifecycle' && (
+            <StudentLifecycleSettings />
           )}
           {activeTab === 'academic' && (
             <AcademicSettings

@@ -25,14 +25,14 @@ export default function CreateFeeStructure() {
     fee_name_ar: '',
     amount: '',
     currency: 'USD',
+    semester_id: '', // Required - fees are semester-specific
     applies_to_degree_level: [],
     applies_to_major: [],
-    applies_to_semester: [],
     is_university_wide: false,
     is_active: true,
     valid_from: '',
     valid_to: '',
-    description: ''
+    description: '',
   })
 
   useEffect(() => {
@@ -42,6 +42,7 @@ export default function CreateFeeStructure() {
       fetchFeeStructure()
     }
   }, [id, collegeId])
+
 
   const fetchMajors = async () => {
     try {
@@ -108,9 +109,9 @@ export default function CreateFeeStructure() {
         fee_name_ar: data.fee_name_ar || '',
         amount: data.amount || '',
         currency: data.currency || 'USD',
+        semester_id: data.semester_id || '',
         applies_to_degree_level: data.applies_to_degree_level || [],
         applies_to_major: data.applies_to_major || [],
-        applies_to_semester: data.applies_to_semester || [],
         is_university_wide: data.is_university_wide || false,
         is_active: data.is_active !== undefined ? data.is_active : true,
         valid_from: data.valid_from || '',
@@ -141,21 +142,14 @@ export default function CreateFeeStructure() {
     setFormData({ ...formData, applies_to_major: updated })
   }
 
-  const handleSemesterToggle = (semesterId) => {
-    const current = formData.applies_to_semester || []
-    const updated = current.includes(semesterId)
-      ? current.filter(id => id !== semesterId)
-      : [...current, semesterId]
-    setFormData({ ...formData, applies_to_semester: updated })
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess(false)
 
-    if (!formData.fee_type || !formData.fee_name_en || !formData.amount) {
-      setError('Please fill in all required fields')
+    if (!formData.fee_type || !formData.fee_name_en || !formData.amount || !formData.semester_id) {
+      setError('Please fill in all required fields including semester')
       return
     }
 
@@ -173,9 +167,9 @@ export default function CreateFeeStructure() {
         fee_name_ar: formData.fee_name_ar.trim() || null,
         amount: parseFloat(formData.amount),
         currency: formData.currency,
+        semester_id: parseInt(formData.semester_id),
         applies_to_degree_level: formData.applies_to_degree_level.length > 0 ? formData.applies_to_degree_level : null,
         applies_to_major: formData.applies_to_major.length > 0 ? formData.applies_to_major : null,
-        applies_to_semester: formData.applies_to_semester.length > 0 ? formData.applies_to_semester : null,
         is_university_wide: formData.is_university_wide,
         is_active: formData.is_active,
         valid_from: formData.valid_from || null,
@@ -316,6 +310,25 @@ export default function CreateFeeStructure() {
               required
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+            <select
+              value={formData.semester_id}
+              onChange={(e) => setFormData({ ...formData, semester_id: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              required
+            >
+              <option value="">Select Semester...</option>
+              {semesters.map(semester => (
+                <option key={semester.id} value={semester.id}>
+                  {semester.name_en} ({semester.code})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Fees are semester-specific. Financial milestones (30%, 60%, etc.) are calculated per semester.
+            </p>
+          </div>
         </div>
 
         {/* Scope */}
@@ -371,23 +384,6 @@ export default function CreateFeeStructure() {
             </div>
           </div>
 
-          {/* Semesters */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Semesters</label>
-            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
-              {semesters.map(semester => (
-                <label key={semester.id} className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 rounded cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.applies_to_semester?.includes(semester.id)}
-                    onChange={() => handleSemesterToggle(semester.id)}
-                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
-                  />
-                  <span className="text-sm">{semester.name_en} ({semester.code})</span>
-                </label>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Validity Period */}

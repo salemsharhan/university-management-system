@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Building2, Edit, Mail, Phone, Globe, MapPin, Calendar, Settings } from 'lucide-react'
+import { ArrowLeft, Building2, Edit, Mail, Phone, Globe, MapPin, Calendar, Settings, ChevronDown, ChevronUp, GraduationCap, DollarSign, UserPlus, FileText } from 'lucide-react'
 
 export default function ViewCollege() {
   const { t } = useTranslation()
@@ -13,6 +13,7 @@ export default function ViewCollege() {
   const [college, setCollege] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [expandedSettings, setExpandedSettings] = useState({})
 
   useEffect(() => {
     fetchCollege()
@@ -42,6 +43,51 @@ export default function ViewCollege() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
       </div>
     )
+  }
+
+  const toggleSetting = (settingType) => {
+    setExpandedSettings(prev => ({
+      ...prev,
+      [settingType]: !prev[settingType]
+    }))
+  }
+
+  const renderSettingValue = (value) => {
+    if (value === null || value === undefined) return <span className="text-gray-400">-</span>
+    if (typeof value === 'boolean') return <span className={value ? 'text-green-600' : 'text-gray-400'}>{value ? 'Yes' : 'No'}</span>
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return (
+        <div className="ml-4 space-y-1">
+          {Object.entries(value).map(([key, val]) => (
+            <div key={key} className="text-sm">
+              <span className="text-gray-500 font-medium">{key}:</span> {renderSettingValue(val)}
+            </div>
+          ))}
+        </div>
+      )
+    }
+    if (Array.isArray(value)) {
+      return (
+        <div className="ml-4 space-y-1">
+          {value.map((item, idx) => (
+            <div key={idx} className="text-sm">
+              {typeof item === 'object' ? (
+                <div className="ml-4">
+                  {Object.entries(item).map(([k, v]) => (
+                    <div key={k}>
+                      <span className="text-gray-500 font-medium">{k}:</span> {renderSettingValue(v)}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                renderSettingValue(item)
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    }
+    return <span className="text-gray-900">{String(value)}</span>
   }
 
   if (error || !college) {
@@ -224,42 +270,215 @@ export default function ViewCollege() {
           <Settings className="w-5 h-5" />
           <span>{t('colleges.settingsOverview')}</span>
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">{t('colleges.academicSettings')}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {college.academic_settings ? t('colleges.configured') : t('colleges.notConfigured')}
-            </p>
+        <div className="space-y-4">
+          {/* Academic Settings */}
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => toggleSetting('academic')}
+              className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
+            >
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <GraduationCap className="w-5 h-5 text-primary-600" />
+                <div className={`text-left ${isRTL ? 'text-right' : ''}`}>
+                  <p className="font-semibold text-gray-900">{t('colleges.academicSettings')}</p>
+                  <p className="text-xs text-gray-500">
+                    {college.academic_settings ? t('colleges.configured') : t('colleges.notConfigured')}
+                  </p>
+                </div>
+              </div>
+              {expandedSettings.academic ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSettings.academic && college.academic_settings && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-3 text-sm">
+                  {Object.entries(college.academic_settings).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="font-medium text-gray-700 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                      <div className="ml-2">{renderSettingValue(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">{t('colleges.financialSettings')}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {college.financial_settings ? t('colleges.configured') : t('colleges.notConfigured')}
-            </p>
+
+          {/* Financial Settings */}
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => toggleSetting('financial')}
+              className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
+            >
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <DollarSign className="w-5 h-5 text-primary-600" />
+                <div className={`text-left ${isRTL ? 'text-right' : ''}`}>
+                  <p className="font-semibold text-gray-900">{t('colleges.financialSettings')}</p>
+                  <p className="text-xs text-gray-500">
+                    {college.financial_settings ? t('colleges.configured') : t('colleges.notConfigured')}
+                  </p>
+                </div>
+              </div>
+              {expandedSettings.financial ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSettings.financial && college.financial_settings && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-3 text-sm">
+                  {Object.entries(college.financial_settings).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="font-medium text-gray-700 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                      <div className="ml-2">{renderSettingValue(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">{t('colleges.emailSettings')}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {college.email_settings ? t('colleges.configured') : t('colleges.notConfigured')}
-            </p>
+
+          {/* Email Settings */}
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => toggleSetting('email')}
+              className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
+            >
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <Mail className="w-5 h-5 text-primary-600" />
+                <div className={`text-left ${isRTL ? 'text-right' : ''}`}>
+                  <p className="font-semibold text-gray-900">{t('colleges.emailSettings')}</p>
+                  <p className="text-xs text-gray-500">
+                    {college.email_settings ? t('colleges.configured') : t('colleges.notConfigured')}
+                  </p>
+                </div>
+              </div>
+              {expandedSettings.email ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSettings.email && college.email_settings && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-3 text-sm">
+                  {Object.entries(college.email_settings).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="font-medium text-gray-700 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                      <div className="ml-2">{renderSettingValue(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">{t('colleges.onboardingSettings')}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {college.onboarding_settings ? t('colleges.configured') : t('colleges.notConfigured')}
-            </p>
+
+          {/* Onboarding Settings */}
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => toggleSetting('onboarding')}
+              className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
+            >
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <UserPlus className="w-5 h-5 text-primary-600" />
+                <div className={`text-left ${isRTL ? 'text-right' : ''}`}>
+                  <p className="font-semibold text-gray-900">{t('colleges.onboardingSettings')}</p>
+                  <p className="text-xs text-gray-500">
+                    {college.onboarding_settings ? t('colleges.configured') : t('colleges.notConfigured')}
+                  </p>
+                </div>
+              </div>
+              {expandedSettings.onboarding ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSettings.onboarding && college.onboarding_settings && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-3 text-sm">
+                  {Object.entries(college.onboarding_settings).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="font-medium text-gray-700 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                      <div className="ml-2">{renderSettingValue(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">{t('colleges.systemSettings')}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {college.system_settings ? t('colleges.configured') : t('colleges.notConfigured')}
-            </p>
+
+          {/* System Settings */}
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => toggleSetting('system')}
+              className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
+            >
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <Settings className="w-5 h-5 text-primary-600" />
+                <div className={`text-left ${isRTL ? 'text-right' : ''}`}>
+                  <p className="font-semibold text-gray-900">{t('colleges.systemSettings')}</p>
+                  <p className="text-xs text-gray-500">
+                    {college.system_settings ? t('colleges.configured') : t('colleges.notConfigured')}
+                  </p>
+                </div>
+              </div>
+              {expandedSettings.system ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSettings.system && college.system_settings && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-3 text-sm">
+                  {Object.entries(college.system_settings).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="font-medium text-gray-700 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                      <div className="ml-2">{renderSettingValue(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-semibold text-gray-700">{t('colleges.examinationSettings')}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {college.examination_settings ? t('colleges.configured') : t('colleges.notConfigured')}
-            </p>
+
+          {/* Examination Settings */}
+          <div className="border border-gray-200 rounded-lg">
+            <button
+              onClick={() => toggleSetting('examination')}
+              className={`w-full flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 hover:bg-gray-50 transition-colors`}
+            >
+              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
+                <FileText className="w-5 h-5 text-primary-600" />
+                <div className={`text-left ${isRTL ? 'text-right' : ''}`}>
+                  <p className="font-semibold text-gray-900">{t('colleges.examinationSettings')}</p>
+                  <p className="text-xs text-gray-500">
+                    {college.examination_settings ? t('colleges.configured') : t('colleges.notConfigured')}
+                  </p>
+                </div>
+              </div>
+              {expandedSettings.examination ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </button>
+            {expandedSettings.examination && college.examination_settings && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-3 text-sm">
+                  {Object.entries(college.examination_settings).map(([key, value]) => (
+                    <div key={key}>
+                      <p className="font-medium text-gray-700 mb-1 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</p>
+                      <div className="ml-2">{renderSettingValue(value)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

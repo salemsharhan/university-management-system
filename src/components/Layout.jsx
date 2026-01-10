@@ -121,7 +121,18 @@ const navigation = [
   },
   { name: 'Students', translationKey: 'navigation.students', href: '/students', icon: GraduationCap, roles: ['admin', 'user', 'instructor'] },
   { name: 'Instructors', translationKey: 'navigation.instructors', href: '/instructors', icon: Users, roles: ['admin', 'user'] },
-  { name: 'Courses', translationKey: 'navigation.courses', href: '/courses', icon: BookOpen, roles: ['admin', 'user', 'instructor', 'student'] },
+  { 
+    name: 'Courses', 
+    translationKey: 'navigation.courses', 
+    href: '/courses', 
+    icon: BookOpen, 
+    roles: ['admin', 'user'],
+    submenu: [
+      { name: 'All Courses', translationKey: 'navigation.allCourses', href: '/courses' },
+    ]
+  },
+  { name: 'My Subjects', translationKey: 'navigation.mySubjects', href: '/courses', icon: BookOpen, roles: ['student'] },
+  { name: 'My Subjects', translationKey: 'navigation.mySubjects', href: '/courses', icon: BookOpen, roles: ['instructor'] },
   { name: 'Schedule', translationKey: 'navigation.schedule', href: '/schedule', icon: Calendar, roles: ['admin', 'user', 'instructor', 'student'] },
   { 
     name: 'Examinations', 
@@ -153,6 +164,7 @@ const navigation = [
     ]
   },
   { name: 'My Grades', translationKey: 'navigation.myGrades', href: '/student/grades', icon: FileText, roles: ['student'] },
+  { name: 'Payments', translationKey: 'navigation.payments', href: '/student/payments', icon: DollarSign, roles: ['student'] },
   { 
     name: 'Finance Affairs', 
     translationKey: 'navigation.financeAffairs',

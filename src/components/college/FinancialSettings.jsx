@@ -4,6 +4,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 export default function FinancialSettings({ formData, handleChange }) {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
+
   
   return (
     <div className="space-y-8">
@@ -331,6 +332,40 @@ export default function FinancialSettings({ formData, handleChange }) {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Financial Milestones Info */}
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.financialMilestones')}</h3>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800 mb-2">
+            <strong>{t('colleges.financialSettings.financialMilestonesTitle')}</strong>
+          </p>
+          <p className="text-xs text-blue-700 mb-3">
+            {t('colleges.financialSettings.financialMilestonesDesc')}
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-3">
+            <div className="bg-white border border-blue-200 rounded p-2">
+              <div className="text-xs font-semibold text-gray-900">PM10 - {t('finance.milestones.PM10')}</div>
+              <div className="text-xs text-gray-600">10% - Login & Course Access</div>
+            </div>
+            <div className="bg-white border border-blue-200 rounded p-2">
+              <div className="text-xs font-semibold text-gray-900">PM30 - {t('finance.milestones.PM30')}</div>
+              <div className="text-xs text-gray-600">30% - Class Attendance</div>
+            </div>
+            <div className="bg-white border border-blue-200 rounded p-2">
+              <div className="text-xs font-semibold text-gray-900">PM60 - {t('finance.milestones.PM60')}</div>
+              <div className="text-xs text-gray-600">60% - Exams</div>
+            </div>
+            <div className="bg-white border border-blue-200 rounded p-2">
+              <div className="text-xs font-semibold text-gray-900">PM100 - {t('finance.milestones.PM100')}</div>
+              <div className="text-xs text-gray-600">100% - Full Access & Grades</div>
+            </div>
+          </div>
+          <p className="text-xs text-blue-600 mt-3 italic">
+            {t('colleges.financialSettings.milestonesCalculatedPerSemester')}
+          </p>
         </div>
       </div>
     </div>

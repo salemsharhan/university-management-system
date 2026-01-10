@@ -263,6 +263,67 @@ export default function ViewMajor() {
             </div>
           )}
 
+          {/* Validation Rules */}
+          {major?.validation_rules && Object.keys(major.validation_rules).length > 0 && (
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.majors.validationRules') || 'Admission Validation Rules'}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {major.validation_rules.toefl_min && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-blue-900 mb-1">{t('academic.majors.validationToeflMin') || 'Minimum TOEFL Score'}</h4>
+                    <p className="text-lg font-bold text-blue-700">{major.validation_rules.toefl_min}/120</p>
+                  </div>
+                )}
+                {major.validation_rules.ielts_min && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-green-900 mb-1">{t('academic.majors.validationIeltsMin') || 'Minimum IELTS Score'}</h4>
+                    <p className="text-lg font-bold text-green-700">{major.validation_rules.ielts_min}/9.0</p>
+                  </div>
+                )}
+                {major.validation_rules.gpa_min && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-purple-900 mb-1">{t('academic.majors.validationGpaMin') || 'Minimum High School GPA'}</h4>
+                    <p className="text-lg font-bold text-purple-700">{major.validation_rules.gpa_min}/4.0</p>
+                  </div>
+                )}
+                {major.validation_rules.graduation_year_min && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-yellow-900 mb-1">{t('academic.majors.validationGraduationYearMin') || 'Minimum Graduation Year'}</h4>
+                    <p className="text-lg font-bold text-yellow-700">{major.validation_rules.graduation_year_min}</p>
+                  </div>
+                )}
+                {major.validation_rules.certificate_types_allowed && major.validation_rules.certificate_types_allowed.length > 0 && (
+                  <div className="md:col-span-2 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-indigo-900 mb-2">{t('academic.majors.validationCertificateTypes') || 'Allowed Certificate Types'}</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {major.validation_rules.certificate_types_allowed.map((type, index) => (
+                        <span key={index} className="px-3 py-1 bg-white border border-indigo-300 rounded-full text-sm font-medium text-indigo-700">
+                          {type}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(major.validation_rules.requires_interview || major.validation_rules.requires_entrance_exam) && (
+                  <div className="md:col-span-2 space-y-2 mt-2">
+                    {major.validation_rules.requires_interview && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-700">
+                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                        <span className="font-medium">{t('academic.majors.validationRequiresInterview') || 'Requires Interview'}</span>
+                      </div>
+                    )}
+                    {major.validation_rules.requires_entrance_exam && (
+                      <div className="flex items-center space-x-2 text-sm text-gray-700">
+                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                        <span className="font-medium">{t('academic.majors.validationRequiresEntranceExam') || 'Requires Entrance Exam'}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {major?.is_university_wide && (
             <div className="border-t pt-6">
               <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">

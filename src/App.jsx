@@ -75,6 +75,13 @@ import Transcripts from './pages/grading/Transcripts'
 import GradeAnalytics from './pages/grading/GradeAnalytics'
 import StudentMyGrades from './pages/student/StudentMyGrades'
 import StudentMyAttendance from './pages/student/StudentMyAttendance'
+import StudentPayments from './pages/student/StudentPayments'
+import StudentSubjectView from './pages/student/StudentSubjectView'
+import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
+import CreateMaterial from './pages/instructor/CreateMaterial'
+import CreateHomework from './pages/instructor/CreateHomework'
+import EditHomework from './pages/instructor/EditHomework'
+import CreateExam from './pages/instructor/CreateExam'
 import InvoiceManagement from './pages/finance/InvoiceManagement'
 import CreateInvoice from './pages/finance/CreateInvoice'
 import CreditWallet from './pages/finance/CreditWallet'
@@ -83,6 +90,9 @@ import Donations from './pages/finance/Donations'
 import InstallmentPlans from './pages/finance/InstallmentPlans'
 import FinanceConfiguration from './pages/finance/FinanceConfiguration'
 import CreateFeeStructure from './pages/finance/CreateFeeStructure'
+import RegisterApplication from './pages/public/RegisterApplication'
+import TrackApplication from './pages/public/TrackApplication'
+import ApplicationStatus from './pages/public/ApplicationStatus'
 
 function App() {
   return (
@@ -97,6 +107,10 @@ function App() {
           <Route path="/login/instructor" element={<LoginInstructor />} />
           <Route path="/login/student" element={<LoginStudent />} />
           <Route path="/signup" element={<Signup />} />
+          {/* Public Application Routes */}
+          <Route path="/register" element={<RegisterApplication />} />
+          <Route path="/track" element={<TrackApplication />} />
+          <Route path="/track/:id" element={<ApplicationStatus />} />
           <Route
             path="/dashboard"
             element={
@@ -744,6 +758,77 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <StudentMyAttendance />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/subjects/:id"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <StudentSubjectView />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/payments"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <Layout>
+                  <StudentPayments />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          {/* Instructor Routes - More specific routes first */}
+          <Route
+            path="/instructor/subjects/:id/homework/:homeworkId/edit"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <Layout>
+                  <EditHomework />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/subjects/:id/materials/create"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <Layout>
+                  <CreateMaterial />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/subjects/:id/homework/create"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <Layout>
+                  <CreateHomework />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/subjects/:id/exams/create"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <Layout>
+                  <CreateExam />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/subjects/:id"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <Layout>
+                  <InstructorSubjectView />
                 </Layout>
               </ProtectedRoute>
             }

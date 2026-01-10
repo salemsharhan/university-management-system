@@ -18,7 +18,9 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
             />
             <div>
               <label className="text-sm font-medium text-gray-900">{t('colleges.generalSettings.useUniversitySettings')}</label>
-              <p className="text-xs text-gray-600">{t('colleges.generalSettings.useUniversitySettingsDesc')}</p>
+              <p className="text-xs text-gray-600">
+                {t('colleges.generalSettings.useUniversitySettingsDesc') || 'Check this to auto-fill default values from university settings. All settings will still be saved per college and can be customized.'}
+              </p>
             </div>
           </div>
         </div>

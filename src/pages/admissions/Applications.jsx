@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
-import { Search, Plus, Filter, Eye, CheckCircle, XCircle, Clock, Calendar, Mail, Phone, MapPin } from 'lucide-react'
+import { Search, Plus, Filter, Eye, CheckCircle, XCircle, Clock, Calendar, Mail, Phone, MapPin, GraduationCap, FileText } from 'lucide-react'
 
 export default function Applications() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { userRole, collegeId: authCollegeId } = useAuth()
-  const { selectedCollegeId } = useCollege()
+  const { userRole, collegeId: authCollegeId, loading: authLoading } = useAuth()
+  const { selectedCollegeId, loading: collegeLoading } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
   const [loading, setLoading] = useState(true)
   const [applications, setApplications] = useState([])
@@ -23,17 +23,23 @@ export default function Applications() {
     rejected: 0,
   })
 
-  useEffect(() => {
-    if (collegeId || userRole !== 'admin') {
-      fetchApplications()
+  const fetchApplications = useCallback(async () => {
+    // Don't fetch if auth is still loading or userRole is not yet determined
+    if (authLoading || userRole === null || userRole === undefined) {
+      return
     }
-  }, [collegeId, userRole])
 
-  useEffect(() => {
-    filterApplications()
-  }, [applications, searchQuery, statusFilter])
+    // Compute collegeId based on user role
+    const effectiveCollegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
 
-  const fetchApplications = async () => {
+    // For non-admin users, we need collegeId to be available
+    if (userRole !== 'admin' && !authCollegeId) {
+      setLoading(false)
+      return
+    }
+
+    // For admin users, we can fetch all applications if no college is selected
+    // Or we can wait for college selection - let's allow fetching all if no college selected
     setLoading(true)
     try {
       let query = supabase
@@ -45,7 +51,8 @@ export default function Applications() {
           email,
           phone,
           date_of_birth,
-          status,
+          status_code,
+          application_number,
           created_at,
           majors (
             name_en,
@@ -61,10 +68,9 @@ export default function Applications() {
         `)
         .order('created_at', { ascending: false })
 
-      if (userRole === 'admin' && collegeId) {
-        query = query.eq('college_id', collegeId)
-      } else if (userRole === 'user' && collegeId) {
-        query = query.eq('college_id', collegeId)
+      // Apply college filter only if collegeId is available
+      if (effectiveCollegeId) {
+        query = query.eq('college_id', effectiveCollegeId)
       }
 
       const { data, error } = await query
@@ -72,11 +78,11 @@ export default function Applications() {
 
       setApplications(data || [])
       
-      // Calculate stats
+      // Calculate stats based on status_code
       const total = data?.length || 0
-      const pending = data?.filter(a => a.status === 'pending').length || 0
-      const accepted = data?.filter(a => a.status === 'accepted').length || 0
-      const rejected = data?.filter(a => a.status === 'rejected').length || 0
+      const pending = data?.filter(a => ['APSB', 'APPN', 'RVQU', 'RVIN', 'DCPN', 'ENPN'].includes(a.status_code)).length || 0
+      const accepted = data?.filter(a => ['DCFA', 'DCCA', 'ENCF', 'ENAC'].includes(a.status_code)).length || 0
+      const rejected = data?.filter(a => a.status_code === 'DCRJ').length || 0
       
       setStats({ total, pending, accepted, rejected })
     } catch (err) {
@@ -84,14 +90,30 @@ export default function Applications() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedCollegeId, userRole, authCollegeId, authLoading])
+
+  useEffect(() => {
+    fetchApplications()
+  }, [fetchApplications])
+
+  useEffect(() => {
+    filterApplications()
+  }, [applications, searchQuery, statusFilter])
 
   const filterApplications = () => {
     let filtered = [...applications]
 
-    // Filter by status
+    // Filter by status_code
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(app => app.status === statusFilter)
+      if (statusFilter === 'pending') {
+        filtered = filtered.filter(app => ['APSB', 'APPN', 'RVQU', 'RVIN', 'DCPN', 'ENPN'].includes(app.status_code))
+      } else if (statusFilter === 'accepted') {
+        filtered = filtered.filter(app => ['DCFA', 'DCCA', 'ENCF', 'ENAC'].includes(app.status_code))
+      } else if (statusFilter === 'rejected') {
+        filtered = filtered.filter(app => app.status_code === 'DCRJ')
+      } else if (statusFilter === 'waitlisted') {
+        filtered = filtered.filter(app => app.status_code === 'DCWL')
+      }
     }
 
     // Filter by search query
@@ -108,38 +130,76 @@ export default function Applications() {
     setFilteredApplications(filtered)
   }
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'accepted':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'rejected':
-        return 'bg-red-100 text-red-800 border-red-200'
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      case 'waitlisted':
-        return 'bg-blue-100 text-blue-800 border-blue-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
+  const getStatusColor = (statusCode) => {
+    // Map status codes to colors
+    const statusMap = {
+      'APDR': 'bg-gray-100 text-gray-800 border-gray-200',
+      'APSB': 'bg-blue-100 text-blue-800 border-blue-200',
+      'APPN': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'APPC': 'bg-green-100 text-green-800 border-green-200',
+      'RVQU': 'bg-blue-100 text-blue-800 border-blue-200',
+      'RVIN': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'RVHL': 'bg-orange-100 text-orange-800 border-orange-200',
+      'DCPN': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'DCFA': 'bg-green-100 text-green-800 border-green-200',
+      'DCCA': 'bg-green-100 text-green-800 border-green-200',
+      'DCWL': 'bg-blue-100 text-blue-800 border-blue-200',
+      'DCRJ': 'bg-red-100 text-red-800 border-red-200',
+      'ENPN': 'bg-blue-100 text-blue-800 border-blue-200',
+      'ENCF': 'bg-green-100 text-green-800 border-green-200',
+      'ENAC': 'bg-green-100 text-green-800 border-green-200',
     }
+    return statusMap[statusCode] || 'bg-gray-100 text-gray-800 border-gray-200'
   }
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'accepted':
-        return <CheckCircle className="w-4 h-4" />
-      case 'rejected':
-        return <XCircle className="w-4 h-4" />
-      case 'pending':
-        return <Clock className="w-4 h-4" />
-      default:
-        return null
+  const getStatusLabel = (statusCode) => {
+    const statusMap = {
+      'APDR': 'Draft',
+      'APSB': 'Submitted',
+      'APPN': 'Payment Pending',
+      'APPC': 'Payment Confirmed',
+      'RVQU': 'Review Queue',
+      'RVIN': 'Under Review',
+      'RVHL': 'On Hold',
+      'DCPN': 'Decision Pending',
+      'DCFA': 'Accepted (Final)',
+      'DCCA': 'Accepted (Conditional)',
+      'DCWL': 'Waitlisted',
+      'DCRJ': 'Rejected',
+      'ENPN': 'Enrollment Pending',
+      'ENCF': 'Enrollment Confirmed',
+      'ENAC': 'Enrolled (Active)',
     }
+    return statusMap[statusCode] || statusCode
   }
 
-  if (loading) {
+  const getStatusIcon = (statusCode) => {
+    if (['DCFA', 'DCCA', 'ENCF', 'ENAC', 'APPC'].includes(statusCode)) {
+      return <CheckCircle className="w-4 h-4" />
+    }
+    if (statusCode === 'DCRJ') {
+      return <XCircle className="w-4 h-4" />
+    }
+    return <Clock className="w-4 h-4" />
+  }
+
+  // Show loading if auth is still loading or if we're fetching applications
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  // For non-admin users without a college, show message
+  if (userRole !== 'admin' && !authCollegeId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">College Not Assigned</h2>
+          <p className="text-gray-600">Please contact your administrator to assign you to a college.</p>
+        </div>
       </div>
     )
   }
@@ -252,13 +312,19 @@ export default function Applications() {
                   </h3>
                   <p className="text-sm text-gray-600">{application.email}</p>
                 </div>
-                <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(application.status)}`}>
-                  {getStatusIcon(application.status)}
-                  <span className="capitalize">{application.status}</span>
+                <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(application.status_code)}`}>
+                  {getStatusIcon(application.status_code)}
+                  <span>{getStatusLabel(application.status_code)}</span>
                 </span>
               </div>
 
               <div className="space-y-2 mb-4">
+                {application.application_number && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600">
+                    <FileText className="w-4 h-4" />
+                    <span className="font-mono">{application.application_number}</span>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <GraduationCap className="w-4 h-4" />
                   <span>{application.majors?.name_en || 'N/A'}</span>

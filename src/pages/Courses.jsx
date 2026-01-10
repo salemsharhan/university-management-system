@@ -19,10 +19,13 @@ export default function Courses() {
   const [semesters, setSemesters] = useState([])
   const [majors, setMajors] = useState([])
   const [student, setStudent] = useState(null)
+  const [instructor, setInstructor] = useState(null)
 
   useEffect(() => {
     if (userRole === 'student' && user?.email) {
       fetchStudentData()
+    } else if (userRole === 'instructor' && user?.email) {
+      fetchInstructorData()
     } else {
       fetchCourses()
       fetchSemesters()
@@ -33,8 +36,10 @@ export default function Courses() {
   useEffect(() => {
     if (userRole === 'student' && student?.id && selectedSemesterId) {
       fetchStudentCourses()
+    } else if (userRole === 'instructor' && instructor?.id) {
+      fetchInstructorSubjects()
     }
-  }, [student, selectedSemesterId])
+  }, [student, instructor, selectedSemesterId])
 
   const fetchStudentData = async () => {
     try {
@@ -82,6 +87,77 @@ export default function Courses() {
     }
   }
 
+  const fetchInstructorData = async () => {
+    try {
+      setLoading(true)
+      const { data: instructorData, error: instructorError } = await supabase
+        .from('instructors')
+        .select('id, name_en, email, college_id')
+        .eq('email', user.email)
+        .eq('status', 'active')
+        .single()
+
+      if (instructorError) throw instructorError
+      setInstructor(instructorData)
+    } catch (err) {
+      console.error('Error fetching instructor data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchInstructorSubjects = async () => {
+    if (!instructor?.id) return
+
+    try {
+      setLoading(true)
+      const { data: subjects, error: subjectsError } = await supabase
+        .from('subjects')
+        .select(`
+          id,
+          name_en,
+          code,
+          credit_hours,
+          semester_number,
+          type,
+          majors(
+            id,
+            name_en,
+            code
+          ),
+          colleges(
+            id,
+            name_en,
+            code
+          )
+        `)
+        .eq('instructor_id', instructor.id)
+        .eq('status', 'active')
+        .order('code')
+
+      if (subjectsError) throw subjectsError
+
+      // Transform subjects to courses format
+      const coursesData = (subjects || []).map(subject => ({
+        id: subject.id,
+        subjectId: subject.id,
+        code: subject.code || '',
+        name: subject.name_en || '',
+        major: subject.majors?.name_en || '',
+        credits: subject.credit_hours || 0,
+        semester: `Semester ${subject.semester_number || 'N/A'}`,
+        type: subject.type || '',
+        college: subject.colleges?.name_en || '',
+      }))
+
+      setCourses(coursesData)
+    } catch (err) {
+      console.error('Error fetching instructor subjects:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchStudentCourses = async () => {
     if (!student?.id || !selectedSemesterId) return
 
@@ -101,6 +177,7 @@ export default function Courses() {
             enrolled,
             room,
             building,
+            subject_id,
             subjects(
               id,
               name_en,
@@ -143,6 +220,7 @@ export default function Courses() {
         return {
           id: enrollment.id,
           enrollmentId: enrollment.id,
+          subjectId: subject?.id || classData?.subject_id,
           code: subject?.code || '',
           name: subject?.name_en || '',
           classCode: classData?.code || '',
@@ -185,6 +263,7 @@ export default function Courses() {
           enrolled,
           room,
           building,
+          subject_id,
           subjects(
             id,
             name_en,
@@ -218,6 +297,7 @@ export default function Courses() {
       // Transform classes to courses format
       const coursesData = (data || []).map(classItem => ({
         id: classItem.id,
+        subjectId: classItem.subjects?.id || classItem.subject_id || null,
         code: classItem.subjects?.code || '',
         name: classItem.subjects?.name_en || '',
         classCode: classItem.code,
@@ -308,12 +388,19 @@ export default function Courses() {
       {/* Header */}
       <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('courses.title')}</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {userRole === 'student' ? t('navigation.mySubjects') : userRole === 'instructor' ? t('navigation.mySubjects') : t('courses.title')}
+          </h1>
           <p className="text-gray-600 mt-1">
-            {userRole === 'student' ? t('courses.subtitleStudent') : t('courses.subtitle')}
+            {userRole === 'student' 
+              ? t('courses.subtitleStudent') 
+              : userRole === 'instructor'
+              ? 'View and manage your assigned subjects'
+              : t('courses.subtitle')
+            }
           </p>
         </div>
-        {userRole !== 'student' && (
+        {(userRole === 'admin' || userRole === 'user') && (
           <button 
             onClick={() => navigate('/academic/classes/create')}
             className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
@@ -379,6 +466,8 @@ export default function Courses() {
           <p>
             {userRole === 'student' 
               ? t('navigation.coursesNoCoursesEnrolled')
+              : userRole === 'instructor'
+              ? 'No subjects assigned to you yet'
               : t('navigation.coursesNoCoursesFound')
             }
           </p>
@@ -449,7 +538,7 @@ export default function Courses() {
                   </div>
                 </div>
 
-                {userRole !== 'student' && course.capacity > 0 && (
+                {(userRole === 'admin' || userRole === 'user') && course.capacity > 0 && (
                   <div className="pt-4 border-t border-gray-200">
                     <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} mb-2`}>
                       <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
@@ -470,17 +559,34 @@ export default function Courses() {
                   </div>
                 )}
 
-                {userRole === 'student' && course.enrollmentId && (
-                  <div className={`pt-4 border-t border-gray-200 ${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`pt-4 border-t border-gray-200 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {(userRole === 'student' || userRole === 'instructor') ? (
                     <button
-                      onClick={() => navigate(`/enrollments/${course.enrollmentId}`)}
+                      onClick={() => {
+                        const subjectId = course.subjectId || course.id
+                        if (userRole === 'student' && subjectId) {
+                          navigate(`/student/subjects/${subjectId}`)
+                        } else if (userRole === 'instructor' && subjectId) {
+                          navigate(`/instructor/subjects/${subjectId}`)
+                        }
+                      }}
                       className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-primary-600 hover:text-primary-800 text-sm font-medium`}
                     >
                       <Eye className="w-4 h-4" />
-                      <span>{t('navigation.coursesViewDetails')}</span>
+                      <span>View Subject</span>
                     </button>
-                  </div>
-                )}
+                  ) : (
+                    course.subjectId && (
+                      <button
+                        onClick={() => navigate(`/academic/subjects/${course.subjectId}`)}
+                        className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-primary-600 hover:text-primary-800 text-sm font-medium`}
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>{t('navigation.coursesViewDetails')}</span>
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             )
           })}

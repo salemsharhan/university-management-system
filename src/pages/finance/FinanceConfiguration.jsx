@@ -38,14 +38,15 @@ export default function FinanceConfiguration() {
           currency,
           applies_to_degree_level,
           applies_to_major,
-          applies_to_semester,
+          semester_id,
           is_active,
           valid_from,
           valid_to,
           description,
           college_id,
           is_university_wide,
-          colleges (id, name_en)
+          colleges (id, name_en),
+          semesters (id, name_en, code)
         `)
         .order('created_at', { ascending: false })
 
@@ -223,25 +224,28 @@ export default function FinanceConfiguration() {
                     <span className="text-sm text-gray-900">{getFeeTypeLabel(fee.fee_type)}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-semibold text-primary-600">
-                      {fee.currency} {parseFloat(fee.amount || 0).toFixed(2)}
-                    </span>
+                    <div>
+                      <span className="text-sm font-semibold text-primary-600">
+                        {fee.currency} {parseFloat(fee.amount || 0).toFixed(2)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
+                      {fee.semesters ? (
+                        <div className="font-semibold">{fee.semesters.name_en} ({fee.semesters.code})</div>
+                      ) : (
+                        <span className="text-gray-400">No semester assigned</span>
+                      )}
                       {fee.applies_to_degree_level && fee.applies_to_degree_level.length > 0 && (
-                        <div>Degree: {fee.applies_to_degree_level.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Degree: {fee.applies_to_degree_level.map(d => d.charAt(0).toUpperCase() + d.slice(1)).join(', ')}
+                        </div>
                       )}
                       {fee.applies_to_major && fee.applies_to_major.length > 0 && (
-                        <div>Majors: {fee.applies_to_major.length} selected</div>
-                      )}
-                      {fee.applies_to_semester && fee.applies_to_semester.length > 0 && (
-                        <div>Semesters: {fee.applies_to_semester.length} selected</div>
-                      )}
-                      {(!fee.applies_to_degree_level || fee.applies_to_degree_level.length === 0) &&
-                       (!fee.applies_to_major || fee.applies_to_major.length === 0) &&
-                       (!fee.applies_to_semester || fee.applies_to_semester.length === 0) && (
-                        <span className="text-gray-400">All</span>
+                        <div className="text-xs text-gray-500">
+                          Majors: {fee.applies_to_major.length} selected
+                        </div>
                       )}
                     </div>
                   </td>

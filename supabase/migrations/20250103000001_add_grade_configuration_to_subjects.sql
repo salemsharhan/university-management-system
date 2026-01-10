@@ -6,3 +6,5 @@ ADD COLUMN IF NOT EXISTS "grade_configuration" jsonb DEFAULT '[]'::jsonb;
 -- Add comment
 COMMENT ON COLUMN "subjects"."grade_configuration" IS 'Array of grade type configurations. Each item contains: grade_type_id, grade_type_code, maximum, minimum, pass_score, fail_score, weight (optional)';
 
+
+

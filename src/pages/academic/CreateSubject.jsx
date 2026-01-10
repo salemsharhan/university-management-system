@@ -50,6 +50,16 @@ export default function CreateSubject() {
     status: 'active',
     college_id: null,
     is_university_wide: false,
+    // New fields for subject actions system
+    syllabus_content: '',
+    syllabus_content_ar: '',
+    attendance_method: 'AT_MAN',
+    allow_excused_absence: true,
+    max_absences: '',
+    grades_visibility_status: 'GV_HID',
+    requires_payment_completion: false,
+    allowed_student_actions: [],
+    allowed_teacher_actions: [],
   })
 
   useEffect(() => {
@@ -411,6 +421,16 @@ export default function CreateSubject() {
           fail_score: gc.fail_score ? parseFloat(gc.fail_score) : null,
           weight: gc.weight ? parseFloat(gc.weight) : null,
         })),
+        syllabus_content: formData.syllabus_content || null,
+        syllabus_content_ar: formData.syllabus_content_ar || null,
+        attendance_rules: {
+          method: formData.attendance_method || 'AT_MAN',
+          allow_excused: formData.allow_excused_absence !== false,
+          max_absences: formData.max_absences ? parseInt(formData.max_absences) : null,
+        },
+        grades_visibility_status: formData.grades_visibility_status || 'GV_HID',
+        allowed_student_actions: formData.allowed_student_actions || [],
+        allowed_teacher_actions: formData.allowed_teacher_actions || [],
       }
 
       const { data: subject, error: insertError } = await supabase
@@ -895,6 +915,100 @@ export default function CreateSubject() {
                 )}
               </div>
 
+              {/* Syllabus Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.syllabus') || 'Syllabus / Course Plan'}</h3>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.syllabusContent') || 'Syllabus Content (English)'}</label>
+                  <textarea
+                    value={formData.syllabus_content || ''}
+                    onChange={(e) => handleChange('syllabus_content', e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="Course outline, topics, learning objectives..."
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.syllabusContentAr') || 'Syllabus Content (Arabic)'}</label>
+                  <textarea
+                    value={formData.syllabus_content_ar || ''}
+                    onChange={(e) => handleChange('syllabus_content_ar', e.target.value)}
+                    rows={6}
+                    dir="rtl"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="محتويات المقرر، المواضيع، أهداف التعلم..."
+                  />
+                </div>
+              </div>
+
+              {/* Attendance Rules Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.attendanceRules') || 'Attendance Rules'}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.attendanceMethod') || 'Attendance Method'}</label>
+                    <select
+                      value={formData.attendance_method || 'AT_MAN'}
+                      onChange={(e) => handleChange('attendance_method', e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="AT_MAN">{t('subjectsForm.attendanceManual') || 'Manual Attendance'}</option>
+                      <option value="AT_AUTO">{t('subjectsForm.attendanceAuto') || 'Automatic Attendance (Online)'}</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2 mt-6">
+                    <input
+                      type="checkbox"
+                      checked={formData.allow_excused_absence !== false}
+                      onChange={(e) => handleChange('allow_excused_absence', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label className="text-sm font-medium text-gray-700">{t('subjectsForm.allowExcusedAbsence') || 'Allow Excused Absences'}</label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.maxAbsences') || 'Maximum Allowed Absences'}</label>
+                    <input
+                      type="number"
+                      value={formData.max_absences || ''}
+                      onChange={(e) => handleChange('max_absences', e.target.value)}
+                      min="0"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      placeholder="Leave empty for unlimited"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Grades Visibility Section */}
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.gradesVisibility') || 'Grades Visibility Settings'}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.gradesVisibilityStatus') || 'Grades Visibility Status'}</label>
+                    <select
+                      value={formData.grades_visibility_status || 'GV_HID'}
+                      onChange={(e) => handleChange('grades_visibility_status', e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    >
+                      <option value="GV_HID">{t('subjectsForm.gradesHidden') || 'Grades Hidden'}</option>
+                      <option value="GV_TMP">{t('subjectsForm.gradesVisibleTemp') || 'Grades Visible Temporarily'}</option>
+                      <option value="GV_REL">{t('subjectsForm.gradesReleased') || 'Grades Released'}</option>
+                      <option value="GV_FIN">{t('subjectsForm.gradesFinalLocked') || 'Final Grades Locked'}</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2 mt-6">
+                    <input
+                      type="checkbox"
+                      checked={formData.requires_payment_completion || false}
+                      onChange={(e) => handleChange('requires_payment_completion', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label className="text-sm font-medium text-gray-700">{t('subjectsForm.requiresPaymentCompletion') || 'Require Full Payment (PM100) to View Grades'}</label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description Section */}
               <div className="border-t pt-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.description')}</label>

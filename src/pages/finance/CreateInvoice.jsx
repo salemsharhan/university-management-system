@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
+import { calculateFinancialMilestone } from '../../utils/financePermissions'
 import { ArrowLeft, Save, Search, Plus, Trash2, DollarSign, Loader2 } from 'lucide-react'
 
 export default function CreateInvoice() {
@@ -19,6 +20,7 @@ export default function CreateInvoice() {
   const [students, setStudents] = useState([])
   const [feeStructures, setFeeStructures] = useState([])
   const [studentData, setStudentData] = useState(null)
+  const [semesters, setSemesters] = useState([])
   const [invoiceTypes, setInvoiceTypes] = useState([
     'Admission Fees',
     'Course Fees',
@@ -33,6 +35,7 @@ export default function CreateInvoice() {
     student_id: '',
     invoice_date: new Date().toISOString().split('T')[0],
     invoice_type: '',
+    semester_id: '', // Required for semester-based fees
     payment_method: 'pending',
     items: [
       {
@@ -61,8 +64,35 @@ export default function CreateInvoice() {
     if (selectedStudent) {
       fetchStudentData()
       fetchFeeStructures()
+      fetchSemesters()
     }
   }, [selectedStudent, collegeId])
+
+  const fetchSemesters = async () => {
+    if (!collegeId && userRole !== 'admin') return
+
+    try {
+      let query = supabase
+        .from('semesters')
+        .select('id, name_en, code, start_date')
+        .order('start_date', { ascending: false })
+        .limit(10)
+
+      if (userRole === 'user' && collegeId) {
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      } else if (userRole === 'instructor' && collegeId) {
+        query = query.eq('college_id', collegeId)
+      } else if (userRole === 'admin' && collegeId) {
+        query = query.eq('college_id', collegeId)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      setSemesters(data || [])
+    } catch (err) {
+      console.error('Error fetching semesters:', err)
+    }
+  }
 
   const fetchStudentData = async () => {
     try {
@@ -131,6 +161,7 @@ export default function CreateInvoice() {
     setFormData({
       ...formData,
       invoice_type: feeStructure.fee_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      semester_id: feeStructure.semester_id || formData.semester_id, // Set semester from fee structure
       items: [newItem]
     })
   }
@@ -203,6 +234,133 @@ export default function CreateInvoice() {
     return Math.max(0, subtotal - discount)
   }
 
+  const updateStudentFinancialMilestone = async (studentId, semesterId) => {
+    if (!semesterId) {
+      console.warn('No semester ID provided for milestone calculation')
+      return
+    }
+
+    try {
+      // Fetch all invoices for this student for the specific semester
+      const { data: semesterInvoices, error: invoicesError } = await supabase
+        .from('invoices')
+        .select('total_amount, paid_amount, status, invoice_type')
+        .eq('student_id', studentId)
+        .eq('semester_id', semesterId)
+        .neq('invoice_type', 'admission_fee') // Exclude registration/admission fees from semester milestone
+
+      if (invoicesError) {
+        console.error('Error fetching invoices for milestone calculation:', invoicesError)
+        return
+      }
+
+      // Calculate total due and total paid for this semester
+      let totalDue = 0
+      let totalPaid = 0
+
+      semesterInvoices?.forEach(invoice => {
+        totalDue += parseFloat(invoice.total_amount || 0)
+        if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
+          totalPaid += parseFloat(invoice.paid_amount || 0)
+        }
+      })
+
+      // Calculate new financial milestone for this semester
+      const newMilestone = calculateFinancialMilestone(totalPaid, totalDue)
+
+      // Update or insert student semester financial status
+      // Check if record exists
+      const { data: existingRecord, error: checkError } = await supabase
+        .from('student_semester_financial_status')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('semester_id', semesterId)
+        .maybeSingle() // Use maybeSingle() to return null instead of throwing error when no record exists
+
+      if (checkError) {
+        console.error('Error checking existing record:', checkError)
+      }
+
+      if (existingRecord) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('student_semester_financial_status')
+          .update({
+            financial_milestone_code: newMilestone,
+            total_due: totalDue,
+            total_paid: totalPaid,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingRecord.id)
+
+        if (updateError) {
+          console.error('Error updating student semester financial milestone:', updateError)
+        } else {
+          console.log(`Student ${studentId} semester ${semesterId} milestone updated to ${newMilestone} (${totalPaid}/${totalDue})`)
+        }
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('student_semester_financial_status')
+          .insert({
+            student_id: studentId,
+            semester_id: semesterId,
+            financial_milestone_code: newMilestone,
+            total_due: totalDue,
+            total_paid: totalPaid
+          })
+
+        if (insertError) {
+          console.error('Error creating student semester financial milestone:', insertError)
+        } else {
+          console.log(`Student ${studentId} semester ${semesterId} milestone created: ${newMilestone} (${totalPaid}/${totalDue})`)
+        }
+      }
+
+      // If milestone changed, check for automatic status impact
+      // PM10 → ENAC (Initial payment activates enrollment) - only for first semester
+      if (newMilestone === 'PM10') {
+        const { data: student } = await supabase
+          .from('students')
+          .select('current_status_code')
+          .eq('id', studentId)
+          .single()
+
+        if (student && student.current_status_code === 'ENPN') {
+          await supabase
+            .from('students')
+            .update({
+              current_status_code: 'ENAC',
+              status_updated_at: new Date().toISOString()
+            })
+            .eq('id', studentId)
+        }
+      }
+
+      // PM100 → Clear financial holds for this semester
+      if (newMilestone === 'PM100') {
+        // Check if all active semesters are paid
+        const { data: allSemesterStatuses } = await supabase
+          .from('student_semester_financial_status')
+          .select('financial_milestone_code')
+          .eq('student_id', studentId)
+
+        const allPaid = allSemesterStatuses?.every(status => status.financial_milestone_code === 'PM100')
+
+        if (allPaid) {
+          await supabase
+            .from('students')
+            .update({
+              financial_hold_reason_code: null
+            })
+            .eq('id', studentId)
+        }
+      }
+    } catch (err) {
+      console.error('Error updating student financial milestone:', err)
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -215,6 +373,12 @@ export default function CreateInvoice() {
 
     if (!formData.invoice_type) {
       setError('Please select an invoice type')
+      return
+    }
+
+    // For semester-based fees (not admission fees), require semester_id
+    if (formData.invoice_type !== 'Admission Fees' && !formData.semester_id) {
+      setError('Please select a semester for this invoice')
       return
     }
 
@@ -250,25 +414,32 @@ export default function CreateInvoice() {
       const total = subtotal - discount
 
       // Create invoice
+      const invoiceData = {
+        invoice_number: invoiceNumber.data,
+        student_id: selectedStudent.id,
+        college_id: selectedStudent.college_id,
+        invoice_date: formData.invoice_date,
+        invoice_type: invoiceTypeEnum,
+        status: formData.payment_method === 'cash' ? 'paid' : 'pending',
+        subtotal: subtotal,
+        discount_amount: discount,
+        scholarship_amount: 0,
+        tax_amount: 0,
+        total_amount: total,
+        paid_amount: formData.payment_method === 'cash' ? total : 0,
+        pending_amount: formData.payment_method === 'cash' ? 0 : total,
+        payment_method: formData.payment_method === 'cash' ? 'cash' : null,
+        notes: formData.notes || null
+      }
+
+      // Add semester_id only if it's not an admission fee
+      if (invoiceTypeEnum !== 'admission_fee' && formData.semester_id) {
+        invoiceData.semester_id = parseInt(formData.semester_id)
+      }
+
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
-        .insert({
-          invoice_number: invoiceNumber.data,
-          student_id: selectedStudent.id,
-          college_id: selectedStudent.college_id,
-          invoice_date: formData.invoice_date,
-          invoice_type: invoiceTypeEnum,
-          status: formData.payment_method === 'cash' ? 'paid' : 'pending',
-          subtotal: subtotal,
-          discount_amount: discount,
-          scholarship_amount: 0,
-          tax_amount: 0,
-          total_amount: total,
-          paid_amount: formData.payment_method === 'cash' ? total : 0,
-          pending_amount: formData.payment_method === 'cash' ? 0 : total,
-          payment_method: formData.payment_method === 'cash' ? 'cash' : null,
-          notes: formData.notes || null
-        })
+        .insert(invoiceData)
         .select()
         .single()
 
@@ -302,7 +473,7 @@ export default function CreateInvoice() {
 
         if (paymentNumber.error) throw paymentNumber.error
 
-        await supabase
+        const { error: paymentError } = await supabase
           .from('payments')
           .insert({
             payment_number: paymentNumber.data,
@@ -316,6 +487,15 @@ export default function CreateInvoice() {
             verified_by: null, // Will be set by trigger or manually
             verified_at: new Date().toISOString()
           })
+
+        if (paymentError) throw paymentError
+
+        // Update student financial milestone after payment (per semester)
+        // Get semester_id from invoice or formData
+        const invoiceSemesterId = invoice.semester_id || (formData.semester_id ? parseInt(formData.semester_id) : null)
+        if (invoiceSemesterId && invoiceTypeEnum !== 'admission_fee') {
+          await updateStudentFinancialMilestone(selectedStudent.id, invoiceSemesterId)
+        }
       }
 
       setSuccess(true)
@@ -469,7 +649,9 @@ export default function CreateInvoice() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Type *</label>
             <select
               value={formData.invoice_type}
-              onChange={(e) => setFormData({ ...formData, invoice_type: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, invoice_type: e.target.value, semester_id: e.target.value === 'Admission Fees' ? '' : formData.semester_id })
+              }}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
               required
             >
@@ -479,6 +661,27 @@ export default function CreateInvoice() {
               ))}
             </select>
           </div>
+          {formData.invoice_type && formData.invoice_type !== 'Admission Fees' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
+              <select
+                value={formData.semester_id}
+                onChange={(e) => setFormData({ ...formData, semester_id: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+                required
+              >
+                <option value="">Select Semester...</option>
+                {semesters.map(semester => (
+                  <option key={semester.id} value={semester.id}>
+                    {semester.name_en} ({semester.code})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Fees are semester-specific. Financial milestones (30%, 60%, etc.) are calculated per semester.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method *</label>
             <select

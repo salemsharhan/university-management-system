@@ -5,7 +5,6 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Search, Plus, MoreVertical, Edit, Trash2, Eye } from 'lucide-react'
-
 export default function Students() {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()

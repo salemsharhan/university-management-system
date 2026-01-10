@@ -22,7 +22,7 @@ export default function CreateApplication() {
   const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
-  const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
+  const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId, loading: collegesLoading } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -87,6 +87,10 @@ export default function CreateApplication() {
     personal_statement: '',
     scholarship_request: false,
     scholarship_percentage: '',
+    
+    // Application Status
+    status_code: 'APDR', // Application Draft by default
+    submit_as_draft: false, // If true, stays as APDR, otherwise moves to APSB
   })
 
   useEffect(() => {
@@ -94,6 +98,16 @@ export default function CreateApplication() {
     if (collegeId) {
       fetchMajors()
       fetchSemesters()
+      // Clear selected major and semester when college changes
+      setFormData(prev => ({
+        ...prev,
+        major_id: '',
+        semester_id: '',
+      }))
+    } else {
+      // Clear majors and semesters if no college selected
+      setMajors([])
+      setSemesters([])
     }
   }, [collegeId, userRole, requiresCollegeSelection])
 
@@ -184,6 +198,66 @@ export default function CreateApplication() {
     setCurrentStep(prev => Math.max(prev - 1, 1))
   }
 
+  const validateApplicationAgainstMajor = async (majorId, applicationData) => {
+    if (!majorId) return { isValid: false, errors: ['Major is required'] }
+
+    try {
+      // Fetch major with validation rules
+      const { data: major, error: majorError } = await supabase
+        .from('majors')
+        .select('id, validation_rules, registration_fee')
+        .eq('id', majorId)
+        .single()
+
+      if (majorError) throw majorError
+      if (!major?.validation_rules || Object.keys(major.validation_rules).length === 0) {
+        // No validation rules set, application passes
+        return { isValid: true, errors: [], requiresFee: !!major?.registration_fee }
+      }
+
+      const rules = major.validation_rules
+      const errors = []
+
+      // Validate TOEFL score
+      if (rules.toefl_min && (!applicationData.toefl_score || applicationData.toefl_score < rules.toefl_min)) {
+        errors.push(`TOEFL score must be at least ${rules.toefl_min} (provided: ${applicationData.toefl_score || 'none'})`)
+      }
+
+      // Validate IELTS score
+      if (rules.ielts_min && (!applicationData.ielts_score || applicationData.ielts_score < rules.ielts_min)) {
+        errors.push(`IELTS score must be at least ${rules.ielts_min} (provided: ${applicationData.ielts_score || 'none'})`)
+      }
+
+      // Validate GPA
+      if (rules.gpa_min && (!applicationData.gpa || applicationData.gpa < rules.gpa_min)) {
+        errors.push(`High school GPA must be at least ${rules.gpa_min} (provided: ${applicationData.gpa || 'none'})`)
+      }
+
+      // Validate graduation year
+      if (rules.graduation_year_min && (!applicationData.graduation_year || applicationData.graduation_year < rules.graduation_year_min)) {
+        errors.push(`Graduation year must be ${rules.graduation_year_min} or later (provided: ${applicationData.graduation_year || 'none'})`)
+      }
+
+      // Validate certificate type
+      if (rules.certificate_types_allowed && rules.certificate_types_allowed.length > 0) {
+        if (!applicationData.certificate_type || !rules.certificate_types_allowed.includes(applicationData.certificate_type)) {
+          errors.push(`Certificate type must be one of: ${rules.certificate_types_allowed.join(', ')} (provided: ${applicationData.certificate_type || 'none'})`)
+        }
+      }
+
+      return {
+        isValid: errors.length === 0,
+        errors,
+        requiresFee: !!major?.registration_fee,
+        requiresInterview: rules.requires_interview || false,
+        requiresEntranceExam: rules.requires_entrance_exam || false,
+      }
+    } catch (err) {
+      console.error('Error validating against major:', err)
+      return { isValid: false, errors: ['Error validating application requirements'] }
+    }
+  }
+
   const handleSubmit = async () => {
     const validationError = validateStep(currentStep)
     if (validationError) {
@@ -201,7 +275,40 @@ export default function CreateApplication() {
     setSuccess(false)
 
     try {
-      const { data, error } = await supabase
+      let finalStatusCode = formData.submit_as_draft ? 'APDR' : 'APSB'
+      let triggerCode = formData.submit_as_draft ? null : 'TRSB' // Applicant submitted application
+      let validationResult = null
+      let legacyStatus = 'pending'
+
+      // If submitting (not draft), validate against major rules
+      if (!formData.submit_as_draft && formData.major_id) {
+        validationResult = await validateApplicationAgainstMajor(parseInt(formData.major_id), {
+          toefl_score: formData.toefl_score ? parseInt(formData.toefl_score) : null,
+          ielts_score: formData.ielts_score ? parseFloat(formData.ielts_score) : null,
+          gpa: formData.gpa ? parseFloat(formData.gpa) : null,
+          graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
+          certificate_type: formData.certificate_type?.trim() || null,
+        })
+
+        if (!validationResult.isValid) {
+          // Validation failed - move to APIV (Application Invalid)
+          finalStatusCode = 'APIV'
+          triggerCode = 'TRVF' // Auto validation failed
+          legacyStatus = 'rejected'
+        } else if (validationResult.requiresFee) {
+          // Validation passed and fee required - move to APPN (Application Payment Pending)
+          finalStatusCode = 'APPN'
+          triggerCode = 'TRPW' // Payment required
+          legacyStatus = 'pending'
+        } else {
+          // Validation passed and no fee required - move to RVQU (Review Queue)
+          finalStatusCode = 'RVQU'
+          triggerCode = 'TRVP' // Auto validation passed
+          legacyStatus = 'pending'
+        }
+      }
+
+      const { data: application, error } = await supabase
         .from('applications')
         .insert({
           first_name: formData.first_name.trim(),
@@ -246,12 +353,41 @@ export default function CreateApplication() {
           scholarship_request: formData.scholarship_request,
           scholarship_percentage: formData.scholarship_percentage ? parseFloat(formData.scholarship_percentage) : null,
           college_id: collegeId,
-          status: 'pending',
+          status: legacyStatus,
+          status_code: finalStatusCode,
+          financial_milestone_code: 'PM00', // Start with no payment
+          status_changed_at: new Date().toISOString(),
+          review_notes: validationResult && !validationResult.isValid 
+            ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
+            : null,
         })
         .select()
         .single()
 
       if (error) throw error
+
+      // Log the status change to audit log
+      if (triggerCode) {
+        const { error: auditError } = await supabase
+          .from('status_change_audit_log')
+          .insert({
+            entity_type: 'application',
+            entity_id: application.id,
+            from_status_code: formData.submit_as_draft ? 'APDR' : null,
+            to_status_code: finalStatusCode,
+            trigger_code: triggerCode,
+            triggered_by: null, // System-triggered
+            notes: validationResult && !validationResult.isValid 
+              ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
+              : validationResult?.isValid && validationResult?.requiresFee
+              ? 'Validation passed. Payment required.'
+              : validationResult?.isValid
+              ? 'Validation passed. No payment required.'
+              : 'Application submitted.',
+          })
+
+        if (auditError) console.error('Error logging status change:', auditError)
+      }
 
       setSuccess(true)
       setTimeout(() => {
@@ -274,20 +410,6 @@ export default function CreateApplication() {
     if (error) setError('')
   }
 
-  if (requiresCollegeSelection) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className={`text-center ${isRTL ? 'text-right' : 'text-left'}`}>
-          <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-yellow-600" />
-          </div>
-          <h2 className={`text-xl font-bold text-gray-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.collegeSelectionRequired')}</h2>
-          <p className={`text-gray-600 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.collegeSelectionMessage')}</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -306,38 +428,70 @@ export default function CreateApplication() {
         </div>
       </div>
 
-      {/* College Selector for Admin */}
+      {/* College Selector for University Admin */}
       {userRole === 'admin' && (
-        <div className={`rounded-lg p-6 ${requiresCollegeSelection ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-blue-50 border border-blue-200'}`}>
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
-            <Building2 className={`w-6 h-6 ${requiresCollegeSelection ? 'text-yellow-600' : 'text-blue-600'}`} />
-            <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-              <p className={`text-base font-semibold ${requiresCollegeSelection ? 'text-yellow-900' : 'text-blue-900'} ${isRTL ? 'text-right' : 'text-left'}`}>
-                {requiresCollegeSelection ? t('admissions.collegeSelectionRequired') : t('admissions.selectedCollege')}
-              </p>
-              <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'} ${isRTL ? 'text-right' : 'text-left'}`}>
-                {requiresCollegeSelection 
-                  ? t('admissions.collegeSelectionMessage') 
-                  : `${t('admissions.workingWith')}: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || t('common.unknown')}`}
-              </p>
+        <div className={`rounded-xl shadow-sm p-6 ${requiresCollegeSelection ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-white border-2 border-blue-200'}`}>
+          <div className={`flex flex-col ${isRTL ? 'items-end' : 'items-start'} md:flex-row md:items-center ${isRTL ? 'md:flex-row-reverse md:space-x-reverse' : 'md:space-x-4'} gap-4`}>
+            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
+              <div className={`p-3 rounded-lg ${requiresCollegeSelection ? 'bg-yellow-100' : 'bg-blue-100'}`}>
+                <Building2 className={`w-6 h-6 ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'}`} />
+              </div>
+              <div className={isRTL ? 'text-right' : 'text-left'}>
+                <p className={`text-base font-bold ${requiresCollegeSelection ? 'text-yellow-900' : 'text-blue-900'}`}>
+                  {requiresCollegeSelection ? (t('admissions.collegeSelectionRequired') || 'College Selection Required') : (t('admissions.selectedCollege') || 'Selected College')}
+                </p>
+                <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'} mt-1`}>
+                  {requiresCollegeSelection 
+                    ? (t('admissions.collegeSelectionMessage') || 'Please select a college to create an application for')
+                    : `${t('admissions.workingWith') || 'Working with'}: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || t('common.unknown') || 'Unknown'}`}
+                </p>
+              </div>
             </div>
-            <select
-              value={selectedCollegeId || ''}
-              onChange={(e) => setSelectedCollegeId(parseInt(e.target.value))}
-              className={`px-4 py-3 border rounded-lg text-sm bg-white focus:ring-2 focus:border-transparent min-w-[300px] ${
-                requiresCollegeSelection 
-                  ? 'border-yellow-300 focus:ring-yellow-500' 
-                  : 'border-blue-300 focus:ring-blue-500'
-              }`}
-              required
-            >
-              <option value="">{t('admissions.selectCollege')}</option>
-              {colleges.map(college => (
-                <option key={college.id} value={college.id}>
-                  {college.name_en} ({college.code})
+            <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'} w-full md:w-auto`}>
+              <label className={`block text-sm font-medium mb-2 ${requiresCollegeSelection ? 'text-yellow-800' : 'text-gray-700'}`}>
+                {t('admissions.selectCollege') || 'Select College'} *
+              </label>
+              <select
+                value={selectedCollegeId || ''}
+                onChange={(e) => {
+                  const newCollegeId = e.target.value ? parseInt(e.target.value) : null
+                  setSelectedCollegeId(newCollegeId)
+                  // Clear any errors when college changes
+                  if (error) setError('')
+                }}
+                disabled={collegesLoading}
+                className={`w-full px-4 py-3 border-2 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:border-transparent transition-all ${
+                  requiresCollegeSelection 
+                    ? 'border-yellow-400 focus:ring-yellow-500 text-yellow-900' 
+                    : 'border-blue-300 focus:ring-blue-500 text-gray-900'
+                } ${collegesLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                required
+              >
+                <option value="">
+                  {collegesLoading 
+                    ? (t('admissions.loadingColleges') || 'Loading colleges...') 
+                    : (t('admissions.selectCollege') || '-- Select a College --')}
                 </option>
-              ))}
-            </select>
+                {colleges.length > 0 ? (
+                  colleges.map(college => (
+                    <option key={college.id} value={college.id}>
+                      {college.name_en} {college.abbreviation ? `(${college.abbreviation})` : `(${college.code})`}
+                    </option>
+                  ))
+                ) : !collegesLoading && (
+                  <option value="" disabled>{t('admissions.noCollegesAvailable') || 'No colleges available'}</option>
+                )}
+              </select>
+              {collegesLoading && (
+                <p className="text-xs text-gray-500 mt-1 flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-500"></div>
+                  <span>{t('admissions.loadingColleges') || 'Loading available colleges...'}</span>
+                </p>
+              )}
+              {!collegesLoading && colleges.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">{t('admissions.noCollegesAvailable') || 'No active colleges found. Please contact the administrator.'}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1094,6 +1248,26 @@ export default function CreateApplication() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Submit Options */}
+            <div className="border-t pt-6 mt-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Submission Options</h3>
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  name="submit_as_draft"
+                  checked={formData.submit_as_draft}
+                  onChange={handleChange}
+                  className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <label className="text-sm font-medium text-gray-700">
+                  Save as draft (I will submit later)
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                If unchecked, the application will be submitted immediately. Draft applications can be edited later.
+              </p>
             </div>
           </div>
         )}
