@@ -8,15 +8,7 @@ const corsHeaders = {
 }
 
 // Microsoft Teams configuration - stored securely in Edge Function
-const MICROSOFT_CONFIG = {
-  tenantId: 'a5925acf-4467-4376-b43c-97253f129d0a',
-  clientId: '6542c633-3375-4030-a10c-898b0f6855b7',
-  clientSecret: 'jFf8Q~5Slp2aC8i0nRBZ8RCkSQHaWvdA8wdAobcs', // Stored server-side only
-  scope: 'https://graph.microsoft.com/.default',
-  tokenUrl: 'https://login.microsoftonline.com/a5925acf-4467-4376-b43c-97253f129d0a/oauth2/v2.0/token',
-  graphApiUrl: 'https://graph.microsoft.com/v1.0',
-  defaultOrganizerEmail: 'e.alkhalaf@q8da.com' // Default organizer email
-}
+
 
 serve(async (req) => {
   // Handle CORS preflight requests
