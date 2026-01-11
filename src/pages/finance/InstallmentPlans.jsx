@@ -96,19 +96,33 @@ export default function InstallmentPlans() {
         </button>
       </div>
 
-      {requiresCollegeSelection && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select College</label>
+      {userRole === 'admin' && (
+        <div className={`bg-white rounded-2xl shadow-sm border p-4 ${
+          requiresCollegeSelection
+            ? 'border-yellow-300 bg-yellow-50' 
+            : 'border-gray-200'
+        }`}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Filter by College {requiresCollegeSelection && <span className="text-red-500">*</span>}
+          </label>
           <select
             value={selectedCollegeId || ''}
             onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+            className={`w-full md:w-64 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-primary-500 ${
+              requiresCollegeSelection
+                ? 'border-yellow-300 bg-white'
+                : 'border-gray-300'
+            }`}
+            required={requiresCollegeSelection}
           >
             <option value="">All Colleges</option>
             {colleges.map(college => (
               <option key={college.id} value={college.id}>{college.name_en}</option>
             ))}
           </select>
+          {requiresCollegeSelection && (
+            <p className="text-xs text-yellow-600 mt-1">Please select a college to view installment plans</p>
+          )}
         </div>
       )}
 

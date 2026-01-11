@@ -8,3 +8,4 @@ COMMENT ON COLUMN "subjects"."grade_configuration" IS 'Array of grade type confi
 
 
 
+

@@ -4,7 +4,657 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { createStudentFromApplication } from '../../utils/createStudentFromApplication'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Mail, Phone, MapPin, Calendar, GraduationCap, FileText, User, AlertCircle, BookOpen, Edit, Save, X, ChevronDown, ChevronUp, ArrowRight, Info, Sparkles, Shield, TrendingUp, ArrowDown } from 'lucide-react'
+
+const editSteps = [
+  { id: 1, name: 'Personal Information', icon: User },
+  { id: 2, name: 'Contact Information', icon: Phone },
+  { id: 3, name: 'Emergency Contact', icon: AlertCircle },
+  { id: 4, name: 'Academic Information', icon: GraduationCap },
+  { id: 5, name: 'Test Scores', icon: FileText },
+  { id: 6, name: 'Transfer Information', icon: BookOpen },
+  { id: 7, name: 'Additional Information', icon: FileText },
+]
+
+// Edit Application Modal Component
+function EditApplicationModal({ 
+  application, 
+  formData, 
+  handleChange, 
+  handleSave, 
+  handleClose, 
+  saving, 
+  error, 
+  majors, 
+  semesters, 
+  isRTL 
+}) {
+  const [currentStep, setCurrentStep] = useState(1)
+
+  const handleFieldChange = (field, value) => {
+    handleChange(field, value)
+  }
+
+  const handleNext = () => {
+    setCurrentStep(prev => Math.min(prev + 1, editSteps.length))
+  }
+
+  const handleBack = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1))
+  }
+
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
+            
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information (English)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                  <input
+                    type="text"
+                    value={formData.first_name || ''}
+                    onChange={(e) => handleFieldChange('first_name', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
+                  <input
+                    type="text"
+                    value={formData.middle_name || ''}
+                    onChange={(e) => handleFieldChange('middle_name', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                  <input
+                    type="text"
+                    value={formData.last_name || ''}
+                    onChange={(e) => handleFieldChange('last_name', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information (Arabic - Optional)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">First Name (Arabic)</label>
+                  <input
+                    type="text"
+                    value={formData.first_name_ar || ''}
+                    onChange={(e) => handleFieldChange('first_name_ar', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name (Arabic)</label>
+                  <input
+                    type="text"
+                    value={formData.middle_name_ar || ''}
+                    onChange={(e) => handleFieldChange('middle_name_ar', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    dir="rtl"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Last Name (Arabic)</label>
+                  <input
+                    type="text"
+                    value={formData.last_name_ar || ''}
+                    onChange={(e) => handleFieldChange('last_name_ar', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    dir="rtl"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                  <input
+                    type="email"
+                    value={formData.email || ''}
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={formData.phone || ''}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth *</label>
+                  <input
+                    type="date"
+                    value={formData.date_of_birth || ''}
+                    onChange={(e) => handleFieldChange('date_of_birth', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                  <select
+                    value={formData.gender || ''}
+                    onChange={(e) => handleFieldChange('gender', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nationality</label>
+                  <input
+                    type="text"
+                    value={formData.nationality || ''}
+                    onChange={(e) => handleFieldChange('nationality', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Religion</label>
+                  <input
+                    type="text"
+                    value={formData.religion || ''}
+                    onChange={(e) => handleFieldChange('religion', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Place of Birth</label>
+                  <input
+                    type="text"
+                    value={formData.place_of_birth || ''}
+                    onChange={(e) => handleFieldChange('place_of_birth', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Enrollment Date</label>
+                  <input
+                    type="date"
+                    value={formData.enrollment_date || ''}
+                    onChange={(e) => handleFieldChange('enrollment_date', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      case 2:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+                <input
+                  type="text"
+                  value={formData.street_address || ''}
+                  onChange={(e) => handleFieldChange('street_address', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                <input
+                  type="text"
+                  value={formData.city || ''}
+                  onChange={(e) => handleFieldChange('city', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">State / Province</label>
+                <input
+                  type="text"
+                  value={formData.state_province || ''}
+                  onChange={(e) => handleFieldChange('state_province', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Postal / ZIP Code</label>
+                <input
+                  type="text"
+                  value={formData.postal_code || ''}
+                  onChange={(e) => handleFieldChange('postal_code', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                <input
+                  type="text"
+                  value={formData.country || ''}
+                  onChange={(e) => handleFieldChange('country', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+        )
+      case 3:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Emergency Contact</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
+                <input
+                  type="text"
+                  value={formData.emergency_contact_name || ''}
+                  onChange={(e) => handleFieldChange('emergency_contact_name', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Relationship</label>
+                <input
+                  type="text"
+                  value={formData.emergency_contact_relationship || ''}
+                  onChange={(e) => handleFieldChange('emergency_contact_relationship', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                <input
+                  type="tel"
+                  value={formData.emergency_contact_phone || ''}
+                  onChange={(e) => handleFieldChange('emergency_contact_phone', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={formData.emergency_contact_email || ''}
+                  onChange={(e) => handleFieldChange('emergency_contact_email', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+        )
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Academic Information</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Major *</label>
+                <select
+                  value={formData.major_id || ''}
+                  onChange={(e) => handleFieldChange('major_id', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Major</option>
+                  {majors.map(major => (
+                    <option key={major.id} value={major.id}>
+                      {major.name_en} ({major.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Semester</label>
+                <select
+                  value={formData.semester_id || ''}
+                  onChange={(e) => handleFieldChange('semester_id', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">Select Semester</option>
+                  {semesters.map(semester => (
+                    <option key={semester.id} value={semester.id}>
+                      {semester.name_en} ({semester.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">High School Name</label>
+                <input
+                  type="text"
+                  value={formData.high_school_name || ''}
+                  onChange={(e) => handleFieldChange('high_school_name', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">High School Country</label>
+                <input
+                  type="text"
+                  value={formData.high_school_country || ''}
+                  onChange={(e) => handleFieldChange('high_school_country', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Graduation Year</label>
+                <input
+                  type="number"
+                  value={formData.graduation_year || ''}
+                  onChange={(e) => handleFieldChange('graduation_year', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">GPA / Grade</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.gpa || ''}
+                  onChange={(e) => handleFieldChange('gpa', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Certificate Type</label>
+                <input
+                  type="text"
+                  value={formData.certificate_type || ''}
+                  onChange={(e) => handleFieldChange('certificate_type', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+        )
+      case 5:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Test Scores</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">TOEFL Score</label>
+                <input
+                  type="number"
+                  value={formData.toefl_score || ''}
+                  onChange={(e) => handleFieldChange('toefl_score', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">IELTS Score</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={formData.ielts_score || ''}
+                  onChange={(e) => handleFieldChange('ielts_score', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">SAT Score</label>
+                <input
+                  type="number"
+                  value={formData.sat_score || ''}
+                  onChange={(e) => handleFieldChange('sat_score', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">GMAT Score</label>
+                <input
+                  type="number"
+                  value={formData.gmat_score || ''}
+                  onChange={(e) => handleFieldChange('gmat_score', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">GRE Score</label>
+                <input
+                  type="number"
+                  value={formData.gre_score || ''}
+                  onChange={(e) => handleFieldChange('gre_score', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+        )
+      case 6:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Transfer Information</h2>
+            <div className="flex items-center space-x-3 mb-6">
+              <input
+                type="checkbox"
+                checked={formData.is_transfer_student || false}
+                onChange={(e) => handleFieldChange('is_transfer_student', e.target.checked)}
+                className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              />
+              <label className="text-sm font-medium text-gray-700">Transfer Student</label>
+            </div>
+            {formData.is_transfer_student && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Previous University</label>
+                  <input
+                    type="text"
+                    value={formData.previous_university || ''}
+                    onChange={(e) => handleFieldChange('previous_university', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Previous Degree</label>
+                  <input
+                    type="text"
+                    value={formData.previous_degree || ''}
+                    onChange={(e) => handleFieldChange('previous_degree', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Transfer Credits</label>
+                  <input
+                    type="number"
+                    value={formData.transfer_credits || ''}
+                    onChange={(e) => handleFieldChange('transfer_credits', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      case 7:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Additional Information</h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Personal Statement</label>
+              <textarea
+                value={formData.personal_statement || ''}
+                onChange={(e) => handleFieldChange('personal_statement', e.target.value)}
+                rows={8}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex items-center space-x-3">
+              <input
+                type="checkbox"
+                checked={formData.scholarship_request || false}
+                onChange={(e) => handleFieldChange('scholarship_request', e.target.checked)}
+                className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+              />
+              <label className="text-sm font-medium text-gray-700">Scholarship Request</label>
+            </div>
+            {formData.scholarship_request && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Percentage</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.scholarship_percentage || ''}
+                  onChange={(e) => handleFieldChange('scholarship_percentage', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+              </div>
+            )}
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+        {/* Modal Header */}
+        <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} p-6 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-primary-100`}>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
+            <h2 className={`text-2xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
+              Edit Application
+            </h2>
+            <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+              Step {currentStep} of {editSteps.length} • {editSteps[currentStep - 1].name}
+            </p>
+          </div>
+          <button
+            onClick={handleClose}
+            className="p-2 hover:bg-white hover:bg-opacity-50 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between overflow-x-auto pb-4">
+            {editSteps.map((step, index) => {
+              const StepIcon = step.icon
+              const isActive = currentStep === step.id
+              const isCompleted = currentStep > step.id
+              
+              return (
+                <div key={step.id} className="flex items-center flex-shrink-0">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                        isActive
+                          ? 'bg-primary-gradient border-primary-600 text-white'
+                          : isCompleted
+                          ? 'bg-green-100 border-green-500 text-green-600'
+                          : 'bg-gray-100 border-gray-300 text-gray-400'
+                      }`}
+                    >
+                      <StepIcon className="w-5 h-5" />
+                    </div>
+                    <span className={`text-xs mt-2 font-medium ${isActive ? 'text-primary-600' : 'text-gray-500'}`}>
+                      {step.name}
+                    </span>
+                  </div>
+                  {index < editSteps.length - 1 && (
+                    <div
+                      className={`w-16 h-1 mx-2 ${
+                        isCompleted ? 'bg-primary-600' : 'bg-gray-200'
+                      }`}
+                    />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5" />
+              <span>{error}</span>
+            </div>
+          )}
+          {renderStepContent()}
+        </div>
+
+        {/* Modal Footer */}
+        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} justify-between p-6 border-t border-gray-200 bg-gray-50`}>
+          <button
+            onClick={handleBack}
+            disabled={currentStep === 1}
+            className="flex items-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowLeft className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+            <span>Previous</span>
+          </button>
+          
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleClose}
+              disabled={saving}
+              className="flex items-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>Cancel</span>
+            </button>
+            {currentStep < editSteps.length ? (
+              <button
+                onClick={handleNext}
+                className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+              >
+                <span>Next</span>
+                <ArrowRight className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+              </button>
+            ) : (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ViewApplication() {
   const navigate = useNavigate()
@@ -32,6 +682,15 @@ export default function ViewApplication() {
   const [statusNotes, setStatusNotes] = useState('')
   const [modalStep, setModalStep] = useState(1) // 1: Select Status, 2: Select Reason (if needed), 3: Add Notes
   const [showAllStatuses, setShowAllStatuses] = useState(false)
+  const [statusPassword, setStatusPassword] = useState('') // Password for student account when accepting application
+  
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editFormData, setEditFormData] = useState({})
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editMajors, setEditMajors] = useState([])
+  const [editSemesters, setEditSemesters] = useState([])
   
   // Activity timeline state
   const [activityLog, setActivityLog] = useState([])
@@ -364,6 +1023,40 @@ export default function ViewApplication() {
         // Don't throw here - the application update was successful
       }
       
+      // If status is 'DCFA' (Accepted Final), automatically create student record
+      if (selectedStatus === 'DCFA') {
+        try {
+          // Fetch full application data for student creation
+          const { data: fullApplication, error: fetchError } = await supabase
+            .from('applications')
+            .select('*')
+            .eq('id', applicationId)
+            .single()
+
+          if (!fetchError && fullApplication) {
+            // Pass custom password if provided
+            const password = statusPassword?.trim() || null
+            const result = await createStudentFromApplication(fullApplication, password)
+            
+            if (result.success) {
+              console.log('✅ Student created successfully from application:', result.student.student_id)
+              // Optionally show success message to user
+              // You could add a success state here
+            } else if (result.alreadyExists) {
+              console.log('ℹ️ Student already exists for this application')
+              // Student already exists, that's okay
+            } else {
+              console.error('⚠️ Failed to create student from application:', result.error)
+              // Log error but don't block the status update
+            }
+          }
+        } catch (studentCreationError) {
+          console.error('Error creating student from application:', studentCreationError)
+          // Don't throw - application status update was successful
+          // Student can be created manually later if needed
+        }
+      }
+      
       setShowStatusModal(false)
       setSelectedStatus('')
       setSelectedReason('')
@@ -401,6 +1094,7 @@ export default function ViewApplication() {
     setSelectedStatus('')
     setSelectedReason('')
     setStatusNotes('')
+    setStatusPassword('')
     setModalStep(1)
     setShowAllStatuses(false)
     setError('')
@@ -441,6 +1135,142 @@ export default function ViewApplication() {
     if (!statusCode) return 'Unknown'
     const status = statusCodes.find(s => s.code === statusCode)
     return status ? (isRTL ? status.name_ar : status.name_en) : statusCode
+  }
+
+  // Edit mode functions
+  const fetchEditMajors = async () => {
+    if (!application?.college_id) return
+    try {
+      const { data, error } = await supabase
+        .from('majors')
+        .select('id, name_en, code, college_id, is_university_wide')
+        .eq('status', 'active')
+        .or(`college_id.eq.${application.college_id},is_university_wide.eq.true`)
+        .order('name_en')
+      
+      if (error) throw error
+      setEditMajors(data || [])
+    } catch (err) {
+      console.error('Error fetching majors for edit:', err)
+    }
+  }
+
+  const fetchEditSemesters = async () => {
+    if (!application?.college_id) return
+    try {
+      const { data, error } = await supabase
+        .from('semesters')
+        .select('id, name_en, code, start_date, end_date, college_id, is_university_wide')
+        .or(`college_id.eq.${application.college_id},is_university_wide.eq.true`)
+        .order('start_date', { ascending: false })
+      
+      if (error) throw error
+      setEditSemesters(data || [])
+    } catch (err) {
+      console.error('Error fetching semesters for edit:', err)
+    }
+  }
+
+  const handleEditClick = async () => {
+    if (!application) return
+    setEditFormData({
+      first_name: application.first_name || '',
+      middle_name: application.middle_name || '',
+      last_name: application.last_name || '',
+      first_name_ar: application.first_name_ar || '',
+      middle_name_ar: application.middle_name_ar || '',
+      last_name_ar: application.last_name_ar || '',
+      email: application.email || '',
+      phone: application.phone || '',
+      date_of_birth: application.date_of_birth || '',
+      gender: application.gender || '',
+      nationality: application.nationality || '',
+      religion: application.religion || '',
+      place_of_birth: application.place_of_birth || '',
+      street_address: application.street_address || '',
+      city: application.city || '',
+      state_province: application.state_province || '',
+      postal_code: application.postal_code || '',
+      country: application.country || '',
+      emergency_contact_name: application.emergency_contact_name || '',
+      emergency_contact_relationship: application.emergency_contact_relationship || '',
+      emergency_contact_phone: application.emergency_contact_phone || '',
+      emergency_contact_email: application.emergency_contact_email || '',
+      major_id: application.major_id ? String(application.major_id) : '',
+      semester_id: application.semester_id ? String(application.semester_id) : '',
+      high_school_name: application.high_school_name || '',
+      high_school_country: application.high_school_country || '',
+      graduation_year: application.graduation_year ? String(application.graduation_year) : '',
+      gpa: application.gpa ? String(application.gpa) : '',
+      certificate_type: application.certificate_type || '',
+      toefl_score: application.toefl_score ? String(application.toefl_score) : '',
+      ielts_score: application.ielts_score ? String(application.ielts_score) : '',
+      sat_score: application.sat_score ? String(application.sat_score) : '',
+      gmat_score: application.gmat_score ? String(application.gmat_score) : '',
+      gre_score: application.gre_score ? String(application.gre_score) : '',
+      is_transfer_student: application.is_transfer_student || false,
+      previous_university: application.previous_university || '',
+      previous_degree: application.previous_degree || '',
+      transfer_credits: application.transfer_credits ? String(application.transfer_credits) : '',
+      personal_statement: application.personal_statement || '',
+      scholarship_request: application.scholarship_request || false,
+      scholarship_percentage: application.scholarship_percentage ? String(application.scholarship_percentage) : '',
+      enrollment_date: application.enrollment_date || '',
+    })
+    await fetchEditMajors()
+    await fetchEditSemesters()
+    setShowEditModal(true)
+    setError('')
+  }
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false)
+    setEditFormData({})
+    setError('')
+  }
+
+  const handleSaveEdit = async () => {
+    setSavingEdit(true)
+    setError('')
+    
+    try {
+      const updateData = {}
+      
+      // Build update data from form data
+      Object.keys(editFormData).forEach(key => {
+        const value = editFormData[key]
+        if (key === 'major_id' || key === 'semester_id' || key === 'graduation_year' || key === 'transfer_credits' || key === 'toefl_score' || key === 'sat_score' || key === 'gmat_score' || key === 'gre_score') {
+          updateData[key] = value ? parseInt(value) : null
+        } else if (key === 'gpa' || key === 'scholarship_percentage' || key === 'ielts_score') {
+          updateData[key] = value ? parseFloat(value) : null
+        } else if (key === 'is_transfer_student' || key === 'scholarship_request') {
+          updateData[key] = value === true || value === 'true'
+        } else {
+          updateData[key] = value || null
+        }
+      })
+
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update(updateData)
+        .eq('id', applicationId)
+
+      if (updateError) throw updateError
+
+      setShowEditModal(false)
+      setEditFormData({})
+      await fetchApplication()
+    } catch (err) {
+      console.error('Error updating application:', err)
+      setError(err.message || 'Failed to update application')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleEditChange = (field, value) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }))
+    if (error) setError('')
   }
 
   if (loading) {
@@ -514,11 +1344,20 @@ export default function ViewApplication() {
             <span>{getStatusDisplayName(application?.status_code || application?.status)}</span>
           </span>
           <button
+            onClick={handleEditClick}
+            disabled={updating || loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Edit className="w-4 h-4" />
+            <span>Edit Application</span>
+          </button>
+          <button
             onClick={() => {
               setModalStep(1)
               setSelectedStatus('')
               setSelectedReason('')
               setStatusNotes('')
+              setStatusPassword('')
               setShowAllStatuses(false)
               setError('')
               setShowStatusModal(true)
@@ -835,6 +1674,37 @@ export default function ViewApplication() {
                     </div>
                   </div>
 
+                  {selectedStatus === 'DCFA' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                      <div className="flex items-start space-x-3">
+                        <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-blue-900 mb-1">
+                            Student Account Password
+                          </p>
+                          <p className="text-sm text-blue-700 mb-3">
+                            When accepting this application, a student account will be automatically created. You can set a custom password here, or leave it blank to generate an automatic password.
+                          </p>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Password <span className="text-gray-400 font-normal">(Optional - auto-generated if blank)</span>
+                            </label>
+                            <input
+                              type="password"
+                              value={statusPassword}
+                              onChange={(e) => setStatusPassword(e.target.value)}
+                              className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                              placeholder="Leave blank for auto-generated password"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              If left blank, a temporary password will be generated automatically.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Additional Notes <span className="text-gray-400 font-normal">(Optional)</span>
@@ -896,6 +1766,22 @@ export default function ViewApplication() {
         </div>
       )}
 
+      {/* Edit Application Modal */}
+      {showEditModal && (
+        <EditApplicationModal
+          application={application}
+          formData={editFormData}
+          handleChange={handleEditChange}
+          handleSave={handleSaveEdit}
+          handleClose={handleCloseEditModal}
+          saving={savingEdit}
+          error={error}
+          majors={editMajors}
+          semesters={editSemesters}
+          isRTL={isRTL}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
@@ -908,7 +1794,16 @@ export default function ViewApplication() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">First Name</label>
-                <p className="text-gray-900 font-medium">{application?.first_name}</p>
+                {isEditMode ? (
+                  <input
+                    type="text"
+                    value={editFormData.first_name || ''}
+                    onChange={(e) => handleEditChange('first_name', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-gray-900 font-medium">{application?.first_name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Middle Name</label>

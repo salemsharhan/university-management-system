@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Edit, BookMarked, Trash2 } from 'lucide-react'
+import { ArrowLeft, Edit, BookMarked, Trash2, GraduationCap } from 'lucide-react'
 
 export default function ViewMajor() {
   const { t } = useTranslation()
@@ -72,6 +72,13 @@ export default function ViewMajor() {
           <span>{t('academic.semesters.back')}</span>
         </button>
         <div className={`flex items-center ${isRTL ? 'space-x-reverse space-x-3' : 'space-x-3'}`}>
+          <button
+            onClick={() => navigate(`/academic/majors/${id}/degree-plan`)}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all`}
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Configure Degree Plan</span>
+          </button>
           <button
             onClick={() => navigate(`/academic/majors/${id}/edit`)}
             className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all`}

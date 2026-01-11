@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, Edit, Library } from 'lucide-react'
+import { ArrowLeft, Edit, Library, Video, ExternalLink } from 'lucide-react'
 
 export default function ViewClass() {
   const { id } = useParams()
@@ -18,7 +18,7 @@ export default function ViewClass() {
     try {
       const { data, error } = await supabase
         .from('classes')
-        .select('*, subjects(id, name_en, code), semesters(id, name_en, code), instructors(id, name_en, email), class_schedules(day_of_week, start_time, end_time, location), colleges(id, name_en, code)')
+        .select('*, subjects(id, name_en, code), semesters(id, name_en, code), instructors(id, name_en, email), class_schedules(day_of_week, start_time, end_time, location, teams_meeting_url), colleges(id, name_en, code)')
         .eq('id', id)
         .single()
 
@@ -146,7 +146,7 @@ export default function ViewClass() {
               <div className="space-y-3">
                 {classData.class_schedules.map((schedule, index) => (
                   <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
                       <div>
                         <span className="text-sm font-medium text-gray-500">Day:</span>
                         <p className="text-gray-900 capitalize">{schedule.day_of_week || 'N/A'}</p>
@@ -164,6 +164,20 @@ export default function ViewClass() {
                         <p className="text-gray-900">{schedule.location || 'N/A'}</p>
                       </div>
                     </div>
+                    {schedule.teams_meeting_url && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <a
+                          href={schedule.teams_meeting_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                        >
+                          <Video className="w-4 h-4" />
+                          <span>Join Teams Meeting</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

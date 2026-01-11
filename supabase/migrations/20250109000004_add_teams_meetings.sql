@@ -66,3 +66,4 @@ COMMENT ON COLUMN class_teams_meetings.recurrence_pattern IS 'JSON string for re
 
 
 
+

@@ -290,11 +290,14 @@ export default function CreateStudent() {
       const year = new Date().getFullYear()
       const format = college.student_id_format || '{prefix}{year}{sequence:D4}'
       
-      // Get all existing student IDs for this college
+      // Get existing student IDs for this college and year (more efficient than fetching all)
+      const yearPrefix = `${prefix}${year}`
       const { data: existingStudents, error: studentError } = await supabase
         .from('students')
         .select('student_id')
         .eq('college_id', collegeIdToUse)
+        .like('student_id', `${yearPrefix}%`) // Filter by year prefix to reduce query size
+        .limit(10000) // Safety limit
       
       // Handle case where no students exist yet (not an error)
       if (studentError && studentError.code !== 'PGRST116') {
@@ -306,9 +309,8 @@ export default function CreateStudent() {
       // Start from the configured starting number or 1
       let sequence = college.student_id_starting_number || 1
       
-      // Find the highest sequence number used for this year
-      const yearPrefix = `${prefix}${year}`
-      const yearStudents = Array.from(existingIds).filter(id => id && id.startsWith(yearPrefix))
+      // Find the highest sequence number used for this year (already filtered by yearPrefix in query)
+      const yearStudents = Array.from(existingIds)
       
       if (yearStudents.length > 0) {
         // Extract sequence numbers from existing IDs
@@ -326,9 +328,9 @@ export default function CreateStudent() {
         }
       }
       
-      // Generate the ID and check for uniqueness (retry if needed)
+      // Generate the ID and check for uniqueness (use local cache only - database unique constraint will catch race conditions)
       let attempts = 0
-      const maxAttempts = 1000 // Prevent infinite loop
+      const maxAttempts = 100 // Safety limit to prevent infinite loops
       
       while (attempts < maxAttempts) {
         const generatedId = format
@@ -337,22 +339,14 @@ export default function CreateStudent() {
           .replace('{sequence:D4}', sequence.toString().padStart(4, '0'))
           .replace('{sequence:D5}', sequence.toString().padStart(5, '0'))
         
-        // Double-check: Query database to ensure ID doesn't exist
-        const { data: checkExisting, error: checkError } = await supabase
-          .from('students')
-          .select('student_id')
-          .eq('student_id', generatedId)
-          .limit(1)
-        
-        // If no error and no existing record, this ID is available
-        if (!checkError && (!checkExisting || checkExisting.length === 0)) {
-          // Also check against our local cache
-          if (!existingIds.has(generatedId)) {
-            return generatedId
-          }
+        // Check against local cache only (no database query in loop to prevent timeout)
+        // If there's a race condition, the database unique constraint will catch it
+        // and the calling code will retry with a new ID
+        if (!existingIds.has(generatedId)) {
+          return generatedId
         }
         
-        // If it exists, increment and try again
+        // If it exists in cache, increment and try again
         sequence++
         attempts++
       }

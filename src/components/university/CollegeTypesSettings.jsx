@@ -205,3 +205,4 @@ export default function CollegeTypesSettings({ collegeTypes = [], onCollegeTypes
 
 
 
+

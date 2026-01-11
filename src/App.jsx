@@ -44,6 +44,7 @@ import ViewDepartment from './pages/academic/ViewDepartment'
 import EditDepartment from './pages/academic/EditDepartment'
 import ViewMajor from './pages/academic/ViewMajor'
 import EditMajor from './pages/academic/EditMajor'
+import ManageMajorSheet from './pages/academic/ManageMajorSheet'
 import ViewSubject from './pages/academic/ViewSubject'
 import EditSubject from './pages/academic/EditSubject'
 import ViewClass from './pages/academic/ViewClass'
@@ -77,6 +78,7 @@ import StudentMyGrades from './pages/student/StudentMyGrades'
 import StudentMyAttendance from './pages/student/StudentMyAttendance'
 import StudentPayments from './pages/student/StudentPayments'
 import StudentSubjectView from './pages/student/StudentSubjectView'
+import StudentEnrollment from './pages/student/StudentEnrollment'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
 import CreateMaterial from './pages/instructor/CreateMaterial'
 import CreateHomework from './pages/instructor/CreateHomework'
@@ -84,12 +86,14 @@ import EditHomework from './pages/instructor/EditHomework'
 import CreateExam from './pages/instructor/CreateExam'
 import InvoiceManagement from './pages/finance/InvoiceManagement'
 import CreateInvoice from './pages/finance/CreateInvoice'
+import ViewInvoice from './pages/finance/ViewInvoice'
 import CreditWallet from './pages/finance/CreditWallet'
 import FinanceReports from './pages/finance/FinanceReports'
 import Donations from './pages/finance/Donations'
 import InstallmentPlans from './pages/finance/InstallmentPlans'
 import FinanceConfiguration from './pages/finance/FinanceConfiguration'
 import CreateFeeStructure from './pages/finance/CreateFeeStructure'
+import CreateFeeType from './pages/finance/CreateFeeType'
 import RegisterApplication from './pages/public/RegisterApplication'
 import TrackApplication from './pages/public/TrackApplication'
 import ApplicationStatus from './pages/public/ApplicationStatus'
@@ -602,6 +606,16 @@ function App() {
             }
           />
           <Route
+            path="/academic/majors/:id/degree-plan"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <Layout>
+                  <ManageMajorSheet />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/academic/subjects/:id"
             element={
               <ProtectedRoute>
@@ -782,6 +796,16 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/student/enroll"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <Layout>
+                  <StudentEnrollment />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
           {/* Instructor Routes - More specific routes first */}
           <Route
             path="/instructor/subjects/:id/homework/:homeworkId/edit"
@@ -855,6 +879,16 @@ function App() {
             }
           />
           <Route
+            path="/finance/invoices/:id"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ViewInvoice />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/finance/wallet"
             element={
               <ProtectedRoute>
@@ -920,6 +954,26 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CreateFeeStructure />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/configuration/types/create"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Layout>
+                  <CreateFeeType />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/configuration/types/:id/edit"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Layout>
+                  <CreateFeeType />
                 </Layout>
               </ProtectedRoute>
             }

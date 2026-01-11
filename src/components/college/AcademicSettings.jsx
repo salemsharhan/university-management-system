@@ -10,45 +10,85 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
       {/* Credit Hours Configuration */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.creditHoursConfiguration')}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minCreditHoursPerSemester')}</label>
-            <input
-              type="number"
-              value={formData.min_credit_hours}
-              onChange={(e) => handleChange('min_credit_hours', parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxCreditHoursPerSemester')}</label>
-            <input
-              type="number"
-              value={formData.max_credit_hours}
-              onChange={(e) => handleChange('max_credit_hours', parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxWithPermission')}</label>
-            <input
-              type="number"
-              value={formData.max_with_permission}
-              onChange={(e) => handleChange('max_with_permission', parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minGpaForOverload')}</label>
-            <input
-              type="number"
-              step="0.1"
-              value={formData.min_gpa_for_overload}
-              onChange={(e) => handleChange('min_gpa_for_overload', parseFloat(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
+        
+        {/* Credit Hours Source Selection */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Credit Hours Rules Source *
+          </label>
+          <select
+            value={formData.credit_hours_source || 'semester'}
+            onChange={(e) => handleChange('credit_hours_source', e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <option value="semester">From Semester Settings</option>
+            <option value="major_sheet">From Major Sheet (Degree Plan)</option>
+          </select>
+          <p className="text-xs text-gray-600 mt-2">
+            {formData.credit_hours_source === 'semester' 
+              ? 'Credit hour limits will be defined per semester. Configure in Create/Edit Semester.'
+              : 'Credit hour limits will be defined in the major sheet. Configure in Manage Major Sheet.'}
+          </p>
         </div>
+
+        {/* Show these fields only if using semester source (default/legacy behavior) */}
+        {(!formData.credit_hours_source || formData.credit_hours_source === 'semester') && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Default Min Credit Hours per Semester
+              </label>
+              <input
+                type="number"
+                value={formData.min_credit_hours}
+                onChange={(e) => handleChange('min_credit_hours', parseInt(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">Default value used when creating semesters</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Default Max Credit Hours per Semester
+              </label>
+              <input
+                type="number"
+                value={formData.max_credit_hours}
+                onChange={(e) => handleChange('max_credit_hours', parseInt(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-500 mt-1">Default value used when creating semesters</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxWithPermission')}</label>
+              <input
+                type="number"
+                value={formData.max_with_permission}
+                onChange={(e) => handleChange('max_with_permission', parseInt(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minGpaForOverload')}</label>
+              <input
+                type="number"
+                step="0.1"
+                value={formData.min_gpa_for_overload}
+                onChange={(e) => handleChange('min_gpa_for_overload', parseFloat(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Show message if using major_sheet source */}
+        {formData.credit_hours_source === 'major_sheet' && (
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              When using Major Sheet as the source, credit hour limits are configured in each major's degree plan (Manage Major Sheet).
+              The fields above are used as defaults but individual major sheets override them.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* GPA Configuration */}

@@ -132,6 +132,7 @@ const navigation = [
     ]
   },
   { name: 'My Subjects', translationKey: 'navigation.mySubjects', href: '/courses', icon: BookOpen, roles: ['student'] },
+  { name: 'Enroll in Classes', translationKey: 'navigation.enroll', href: '/student/enroll', icon: GraduationCap, roles: ['student'] },
   { name: 'My Subjects', translationKey: 'navigation.mySubjects', href: '/courses', icon: BookOpen, roles: ['instructor'] },
   { name: 'Schedule', translationKey: 'navigation.schedule', href: '/schedule', icon: Calendar, roles: ['admin', 'user', 'instructor', 'student'] },
   { 

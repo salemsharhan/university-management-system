@@ -397,5 +397,3 @@ async function getAccessTokenInternal() {
   return await response.json()
 }
 
-
-

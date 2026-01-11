@@ -40,32 +40,46 @@ export default function RegisterApplication() {
     last_name_ar: '',
     email: '',
     phone: '',
+    mobile_phone: '',
     date_of_birth: '',
     gender: '',
     nationality: '',
     religion: '',
     place_of_birth: '',
+    marital_status: '',
+    blood_type: '',
+    is_international: false,
     
     // Contact Information
     street_address: '',
+    address: '', // Alias for street_address
     city: '',
     state_province: '',
+    state: '', // Alias for state_province
     postal_code: '',
     country: '',
     
     // Emergency Contact
     emergency_contact_name: '',
     emergency_contact_relationship: '',
+    emergency_contact_relation: '', // Alias
     emergency_contact_phone: '',
+    emergency_phone: '', // Alias
     emergency_contact_email: '',
     
     // Academic Information
     major_id: '',
     semester_id: '',
+    study_type: '',
+    study_load: '',
+    study_approach: '',
+    credit_hours: '',
+    enrollment_date: '',
     high_school_name: '',
     high_school_country: '',
     graduation_year: '',
     gpa: '',
+    high_school_gpa: '', // Alias for gpa
     certificate_type: '',
     
     // Test Scores
@@ -75,16 +89,38 @@ export default function RegisterApplication() {
     gmat_score: '',
     gre_score: '',
     
+    // Identity Documents
+    national_id: '',
+    passport_number: '',
+    passport_expiry: '',
+    visa_number: '',
+    visa_expiry: '',
+    residence_permit_number: '',
+    residence_permit_expiry: '',
+    
     // Transfer Information
     is_transfer_student: false,
     previous_university: '',
     previous_degree: '',
     transfer_credits: '',
     
+    // Scholarship
+    scholarship_request: false,
+    has_scholarship: false, // Alias
+    scholarship_type: '',
+    scholarship_percentage: '',
+    
+    // Medical
+    medical_conditions: '',
+    allergies: '',
+    medications: '',
+    
     // Additional Information
     personal_statement: '',
-    scholarship_request: false,
-    scholarship_percentage: '',
+    notes: '',
+    
+    // Documents (for future file upload)
+    documents: [],
     
     // Application Status
     status_code: 'APDR',
@@ -289,49 +325,58 @@ export default function RegisterApplication() {
         }
       }
 
+      // Use alias fields if main fields are empty (for compatibility)
+      const streetAddress = formData.street_address || formData.address || ''
+      const stateProvince = formData.state_province || formData.state || ''
+      const emergencyRelationship = formData.emergency_contact_relationship || formData.emergency_contact_relation || ''
+      const emergencyPhone = formData.emergency_contact_phone || formData.emergency_phone || ''
+      const scholarshipRequest = formData.scholarship_request || formData.has_scholarship || false
+      const gpaValue = formData.gpa || formData.high_school_gpa || ''
+
+      // Insert application - only select essential fields to reduce query time
       const { data: application, error } = await supabase
         .from('applications')
         .insert({
-          first_name: formData.first_name.trim(),
-          middle_name: formData.middle_name.trim() || null,
-          last_name: formData.last_name.trim(),
-          first_name_ar: formData.first_name_ar.trim() || null,
-          middle_name_ar: formData.middle_name_ar.trim() || null,
-          last_name_ar: formData.last_name_ar.trim() || null,
-          email: formData.email.trim(),
-          phone: formData.phone.trim() || null,
+          first_name: formData.first_name?.trim() || '',
+          middle_name: formData.middle_name?.trim() || null,
+          last_name: formData.last_name?.trim() || '',
+          first_name_ar: formData.first_name_ar?.trim() || null,
+          middle_name_ar: formData.middle_name_ar?.trim() || null,
+          last_name_ar: formData.last_name_ar?.trim() || null,
+          email: formData.email?.trim() || '',
+          phone: formData.phone?.trim() || null,
           date_of_birth: formData.date_of_birth,
           gender: formData.gender || null,
-          nationality: formData.nationality.trim() || null,
-          religion: formData.religion.trim() || null,
-          place_of_birth: formData.place_of_birth.trim() || null,
-          street_address: formData.street_address.trim() || null,
-          city: formData.city.trim() || null,
-          state_province: formData.state_province.trim() || null,
-          postal_code: formData.postal_code.trim() || null,
-          country: formData.country.trim() || null,
-          emergency_contact_name: formData.emergency_contact_name.trim() || null,
-          emergency_contact_relationship: formData.emergency_contact_relationship.trim() || null,
-          emergency_contact_phone: formData.emergency_contact_phone.trim() || null,
-          emergency_contact_email: formData.emergency_contact_email.trim() || null,
+          nationality: formData.nationality?.trim() || null,
+          religion: formData.religion?.trim() || null,
+          place_of_birth: formData.place_of_birth?.trim() || null,
+          street_address: streetAddress?.trim() || null,
+          city: formData.city?.trim() || null,
+          state_province: stateProvince?.trim() || null,
+          postal_code: formData.postal_code?.trim() || null,
+          country: formData.country?.trim() || null,
+          emergency_contact_name: formData.emergency_contact_name?.trim() || null,
+          emergency_contact_relationship: emergencyRelationship?.trim() || null,
+          emergency_contact_phone: emergencyPhone?.trim() || null,
+          emergency_contact_email: formData.emergency_contact_email?.trim() || null,
           major_id: formData.major_id ? parseInt(formData.major_id) : null,
           semester_id: formData.semester_id ? parseInt(formData.semester_id) : null,
-          high_school_name: formData.high_school_name.trim() || null,
-          high_school_country: formData.high_school_country.trim() || null,
+          high_school_name: formData.high_school_name?.trim() || null,
+          high_school_country: formData.high_school_country?.trim() || null,
           graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
-          gpa: formData.gpa ? parseFloat(formData.gpa) : null,
-          certificate_type: formData.certificate_type.trim() || null,
+          gpa: gpaValue ? parseFloat(gpaValue) : null,
+          certificate_type: formData.certificate_type?.trim() || null,
           toefl_score: formData.toefl_score ? parseInt(formData.toefl_score) : null,
           ielts_score: formData.ielts_score ? parseFloat(formData.ielts_score) : null,
           sat_score: formData.sat_score ? parseInt(formData.sat_score) : null,
           gmat_score: formData.gmat_score ? parseInt(formData.gmat_score) : null,
           gre_score: formData.gre_score ? parseInt(formData.gre_score) : null,
           is_transfer_student: formData.is_transfer_student,
-          previous_university: formData.previous_university.trim() || null,
-          previous_degree: formData.previous_degree.trim() || null,
+          previous_university: formData.previous_university?.trim() || null,
+          previous_degree: formData.previous_degree?.trim() || null,
           transfer_credits: formData.transfer_credits ? parseInt(formData.transfer_credits) : null,
-          personal_statement: formData.personal_statement.trim() || null,
-          scholarship_request: formData.scholarship_request,
+          personal_statement: formData.personal_statement?.trim() || null,
+          scholarship_request: scholarshipRequest,
           scholarship_percentage: formData.scholarship_percentage ? parseFloat(formData.scholarship_percentage) : null,
           college_id: parseInt(selectedCollegeId),
           status: legacyStatus,
@@ -342,13 +387,15 @@ export default function RegisterApplication() {
             ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
             : null,
         })
-        .select()
+        .select('id, application_number, created_at')
         .single()
 
       if (error) throw error
 
-      if (triggerCode) {
-        await supabase
+      // Insert audit log asynchronously (don't wait for it to complete)
+      // This prevents timeout if audit log insert is slow
+      if (triggerCode && application?.id) {
+        supabase
           .from('status_change_audit_log')
           .insert({
             entity_type: 'application',
@@ -364,6 +411,13 @@ export default function RegisterApplication() {
               : validationResult?.isValid
               ? 'Validation passed. No payment required.'
               : 'Application submitted.',
+          })
+          .then(() => {
+            console.log('Audit log created successfully')
+          })
+          .catch((auditError) => {
+            console.error('Error creating audit log (non-blocking):', auditError)
+            // Don't throw - application was created successfully
           })
       }
 
@@ -636,6 +690,48 @@ export default function RegisterApplication() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    First Name (Arabic)
+                  </label>
+                  <input
+                    type="text"
+                    name="first_name_ar"
+                    value={formData.first_name_ar}
+                    onChange={handleChange}
+                    placeholder="الاسم الأول"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Middle Name (Arabic)
+                  </label>
+                  <input
+                    type="text"
+                    name="middle_name_ar"
+                    value={formData.middle_name_ar}
+                    onChange={handleChange}
+                    placeholder="الاسم الأوسط"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Last Name (Arabic)
+                  </label>
+                  <input
+                    type="text"
+                    name="last_name_ar"
+                    value={formData.last_name_ar}
+                    onChange={handleChange}
+                    placeholder="اسم العائلة"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -693,11 +789,248 @@ export default function RegisterApplication() {
                     <option value="other">Other</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nationality
+                  </label>
+                  <input
+                    type="text"
+                    name="nationality"
+                    value={formData.nationality}
+                    onChange={handleChange}
+                    placeholder="Enter nationality"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Religion
+                  </label>
+                  <input
+                    type="text"
+                    name="religion"
+                    value={formData.religion}
+                    onChange={handleChange}
+                    placeholder="Enter religion"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Place of Birth
+                  </label>
+                  <input
+                    type="text"
+                    name="place_of_birth"
+                    value={formData.place_of_birth}
+                    onChange={handleChange}
+                    placeholder="City, Country"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Marital Status
+                  </label>
+                  <select
+                    name="marital_status"
+                    value={formData.marital_status}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select Status</option>
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                    <option value="divorced">Divorced</option>
+                    <option value="widowed">Widowed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Blood Type
+                  </label>
+                  <select
+                    name="blood_type"
+                    value={formData.blood_type}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select Blood Type</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+                </div>
+                <div className="flex items-center pt-6">
+                  <input
+                    type="checkbox"
+                    name="is_international"
+                    checked={formData.is_international}
+                    onChange={handleChange}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <label className="ml-2 text-sm text-gray-700">International Student</label>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Step 4: Academic Information (Most Important) */}
+          {/* Step 2: Contact Information */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mobile Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="mobile_phone"
+                    value={formData.mobile_phone}
+                    onChange={handleChange}
+                    placeholder="+1 (555) 123-4567"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Street Address
+                  </label>
+                  <input
+                    type="text"
+                    name="street_address"
+                    value={formData.street_address}
+                    onChange={handleChange}
+                    placeholder="Enter street address"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    placeholder="Enter city"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    State / Province
+                  </label>
+                  <input
+                    type="text"
+                    name="state_province"
+                    value={formData.state_province}
+                    onChange={handleChange}
+                    placeholder="Enter state or province"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    name="country"
+                    value={formData.country}
+                    onChange={handleChange}
+                    placeholder="Enter country"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    name="postal_code"
+                    value={formData.postal_code}
+                    onChange={handleChange}
+                    placeholder="Enter postal code"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Emergency Contact */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Emergency Contact</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    name="emergency_contact_name"
+                    value={formData.emergency_contact_name}
+                    onChange={handleChange}
+                    placeholder="Full name"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Relationship
+                  </label>
+                  <input
+                    type="text"
+                    name="emergency_contact_relationship"
+                    value={formData.emergency_contact_relationship}
+                    onChange={handleChange}
+                    placeholder="e.g., Parent, Spouse, Sibling"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="emergency_contact_phone"
+                    value={formData.emergency_contact_phone}
+                    onChange={handleChange}
+                    placeholder="+1 (555) 123-4567"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    name="emergency_contact_email"
+                    value={formData.emergency_contact_email}
+                    onChange={handleChange}
+                    placeholder="contact@example.com"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Academic Information */}
           {currentStep === 4 && (
             <div className="space-y-6">
               <h2 className="text-xl font-bold text-gray-900 mb-6">Academic Information</h2>
@@ -740,62 +1073,442 @@ export default function RegisterApplication() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Study Type
+                  </label>
+                  <select
+                    name="study_type"
+                    value={formData.study_type}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select Study Type</option>
+                    <option value="full_time">Full Time</option>
+                    <option value="part_time">Part Time</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Study Load
+                  </label>
+                  <select
+                    name="study_load"
+                    value={formData.study_load}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select Study Load</option>
+                    <option value="light">Light</option>
+                    <option value="normal">Normal</option>
+                    <option value="heavy">Heavy</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Study Approach
+                  </label>
+                  <select
+                    name="study_approach"
+                    value={formData.study_approach}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">Select Study Approach</option>
+                    <option value="on_campus">On Campus</option>
+                    <option value="online">Online</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Credit Hours
+                  </label>
+                  <input
+                    type="number"
+                    name="credit_hours"
+                    value={formData.credit_hours}
+                    onChange={handleChange}
+                    placeholder="Enter credit hours"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enrollment Date
+                  </label>
+                  <input
+                    type="date"
+                    name="enrollment_date"
+                    value={formData.enrollment_date}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    High School Name
-                  </label>
-                  <input
-                    type="text"
-                    name="high_school_name"
-                    value={formData.high_school_name}
-                    onChange={handleChange}
-                    placeholder="Name of high school"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Graduation Year
-                  </label>
-                  <input
-                    type="number"
-                    name="graduation_year"
-                    value={formData.graduation_year}
-                    onChange={handleChange}
-                    placeholder="2024"
-                    min="1950"
-                    max="2100"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    GPA / Grade
-                  </label>
-                  <input
-                    type="number"
-                    name="gpa"
-                    value={formData.gpa}
-                    onChange={handleChange}
-                    placeholder="3.5"
-                    min="0"
-                    max="4"
-                    step="0.01"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  />
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Previous Education</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      High School Name
+                    </label>
+                    <input
+                      type="text"
+                      name="high_school_name"
+                      value={formData.high_school_name}
+                      onChange={handleChange}
+                      placeholder="Name of high school"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      High School Country
+                    </label>
+                    <input
+                      type="text"
+                      name="high_school_country"
+                      value={formData.high_school_country}
+                      onChange={handleChange}
+                      placeholder="Country"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Graduation Year
+                    </label>
+                    <input
+                      type="number"
+                      name="graduation_year"
+                      value={formData.graduation_year}
+                      onChange={handleChange}
+                      placeholder="2024"
+                      min="1950"
+                      max="2100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      GPA / Grade
+                    </label>
+                    <input
+                      type="number"
+                      name="gpa"
+                      value={formData.gpa}
+                      onChange={handleChange}
+                      placeholder="3.5"
+                      min="0"
+                      max="4"
+                      step="0.01"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Certificate Type
+                    </label>
+                    <input
+                      type="text"
+                      name="certificate_type"
+                      value={formData.certificate_type}
+                      onChange={handleChange}
+                      placeholder="e.g., High School Diploma"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Add other steps similarly - for brevity, I'll add a simplified version */}
-          {currentStep !== 1 && currentStep !== 4 && (
+          {/* Step 5: Test Scores */}
+          {currentStep === 5 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">{steps[currentStep - 1].name}</h2>
-              <p className="text-gray-600">This section is optional. You can skip to the next step.</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Test Scores</h2>
+              <p className="text-gray-600 mb-6">Please provide your standardized test scores (if applicable)</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    TOEFL Score
+                  </label>
+                  <input
+                    type="number"
+                    name="toefl_score"
+                    value={formData.toefl_score}
+                    onChange={handleChange}
+                    placeholder="0-120"
+                    min="0"
+                    max="120"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Maximum score: 120</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    IELTS Score
+                  </label>
+                  <input
+                    type="number"
+                    name="ielts_score"
+                    value={formData.ielts_score}
+                    onChange={handleChange}
+                    placeholder="0.0-9.0"
+                    min="0"
+                    max="9"
+                    step="0.5"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Maximum score: 9.0</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    SAT Score
+                  </label>
+                  <input
+                    type="number"
+                    name="sat_score"
+                    value={formData.sat_score}
+                    onChange={handleChange}
+                    placeholder="400-1600"
+                    min="400"
+                    max="1600"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Maximum score: 1600</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GMAT Score
+                  </label>
+                  <input
+                    type="number"
+                    name="gmat_score"
+                    value={formData.gmat_score}
+                    onChange={handleChange}
+                    placeholder="200-800"
+                    min="200"
+                    max="800"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Maximum score: 800</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GRE Score
+                  </label>
+                  <input
+                    type="number"
+                    name="gre_score"
+                    value={formData.gre_score}
+                    onChange={handleChange}
+                    placeholder="260-340"
+                    min="260"
+                    max="340"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Maximum score: 340</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 6: Transfer Information */}
+          {currentStep === 6 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Transfer Information</h2>
+              
+              <div className="flex items-center mb-6">
+                <input
+                  type="checkbox"
+                  name="is_transfer_student"
+                  checked={formData.is_transfer_student}
+                  onChange={handleChange}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label className="ml-2 text-sm font-medium text-gray-700">I am a transfer student</label>
+              </div>
+
+              {formData.is_transfer_student && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Previous University
+                    </label>
+                    <input
+                      type="text"
+                      name="previous_university"
+                      value={formData.previous_university}
+                      onChange={handleChange}
+                      placeholder="Name of previous university"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Previous Degree
+                    </label>
+                    <input
+                      type="text"
+                      name="previous_degree"
+                      value={formData.previous_degree}
+                      onChange={handleChange}
+                      placeholder="e.g., Bachelor's, Associate's"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Transfer Credits
+                    </label>
+                    <input
+                      type="number"
+                      name="transfer_credits"
+                      value={formData.transfer_credits}
+                      onChange={handleChange}
+                      placeholder="Number of credits"
+                      min="0"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 7: Additional Information */}
+          {currentStep === 7 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Additional Information</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Personal Statement
+                  </label>
+                  <textarea
+                    name="personal_statement"
+                    value={formData.personal_statement}
+                    onChange={handleChange}
+                    rows={6}
+                    placeholder="Tell us about yourself, your goals, and why you want to study at this university..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  />
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Scholarship Information</h3>
+                  <div className="flex items-center mb-4">
+                    <input
+                      type="checkbox"
+                      name="scholarship_request"
+                      checked={formData.scholarship_request}
+                      onChange={handleChange}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label className="ml-2 text-sm font-medium text-gray-700">Requesting Scholarship</label>
+                  </div>
+                  
+                  {formData.scholarship_request && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Scholarship Type
+                        </label>
+                        <input
+                          type="text"
+                          name="scholarship_type"
+                          value={formData.scholarship_type}
+                          onChange={handleChange}
+                          placeholder="e.g., Academic, Merit, Need-based"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Scholarship Percentage
+                        </label>
+                        <input
+                          type="number"
+                          name="scholarship_percentage"
+                          value={formData.scholarship_percentage}
+                          onChange={handleChange}
+                          placeholder="0-100"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Information (Optional)</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Medical Conditions
+                      </label>
+                      <textarea
+                        name="medical_conditions"
+                        value={formData.medical_conditions}
+                        onChange={handleChange}
+                        rows={3}
+                        placeholder="List any medical conditions..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Allergies
+                      </label>
+                      <textarea
+                        name="allergies"
+                        value={formData.allergies}
+                        onChange={handleChange}
+                        rows={3}
+                        placeholder="List any allergies..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Medications
+                      </label>
+                      <textarea
+                        name="medications"
+                        value={formData.medications}
+                        onChange={handleChange}
+                        rows={3}
+                        placeholder="List any medications..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Additional Notes
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleChange}
+                      rows={4}
+                      placeholder="Any additional information you'd like to provide..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -843,6 +1556,7 @@ export default function RegisterApplication() {
     </div>
   )
 }
+
 
 
 

@@ -737,7 +737,12 @@ export default function CreateSubject() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.optionalInfo')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.instructor')}</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('subjectsForm.instructor')} ({t('subjectsForm.headOfSubject') || 'Head of Subject (Administrative)'})
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {t('subjectsForm.headOfSubjectHint') || 'This is the administrative head of the subject. Teaching instructors are assigned per class when creating classes.'}
+                    </p>
                     <select
                       value={formData.instructor_id}
                       onChange={(e) => {

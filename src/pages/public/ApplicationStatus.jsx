@@ -131,8 +131,8 @@ export default function ApplicationStatus() {
   const getRequiredActions = (statusCode, statusReasonCode) => {
     const actions = []
 
-    // Payment required
-    if (statusCode === 'APPN' || statusCode === 'APPC' || statusCode === 'APSB') {
+    // Payment required - only show for pending payment statuses (not APPC which means payment is confirmed)
+    if (statusCode === 'APPN' || statusCode === 'APSB') {
       actions.push({
         type: 'payment',
         title: 'Registration Fee Payment Required',

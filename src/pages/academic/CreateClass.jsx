@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { createTeamsMeeting, formatMeetingDateTime } from '../../utils/microsoftGraph'
 import { ArrowLeft, Save, Check, Plus, X } from 'lucide-react'
 
 export default function CreateClass() {
@@ -286,19 +287,106 @@ export default function CreateClass() {
         return dates
       }
 
-      // Insert class schedules
+      // Insert class schedules and create Teams meetings
       if (formData.schedules.length > 0 && formData.schedules[0].day) {
         const validSchedules = formData.schedules.filter(s => s.day && s.start_time && s.end_time)
         
         if (validSchedules.length > 0) {
-          // Insert class_schedules (recurring schedule template)
-          const scheduleData = validSchedules.map(schedule => ({
-            class_id: classData.id,
-            day_of_week: schedule.day,
-            start_time: schedule.start_time,
-            end_time: schedule.end_time,
-            location: schedule.location || formData.room || null,
-          }))
+          // Get instructor email for Teams meetings (use default organizer if no instructor)
+          let instructorEmail = null
+          if (formData.instructor_id) {
+            const { data: instructorData } = await supabase
+              .from('instructors')
+              .select('email')
+              .eq('id', parseInt(formData.instructor_id))
+              .single()
+            instructorEmail = instructorData?.email || null
+          }
+
+          // Get subject details for meeting title
+          const { data: subjectData } = await supabase
+            .from('subjects')
+            .select('name_en, code')
+            .eq('id', parseInt(formData.subject_id))
+            .single()
+
+          const subjectName = subjectData?.name_en || 'Class'
+          const subjectCode = subjectData?.code || ''
+
+          // Helper function to get first occurrence date for a day of week
+          const getFirstOccurrenceDate = (startDate, dayOfWeek) => {
+            const start = new Date(startDate)
+            const days = { 'sunday': 0, 'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4, 'friday': 5, 'saturday': 6 }
+            const targetDay = days[dayOfWeek.toLowerCase()] ?? 0
+            const currentDay = start.getDay()
+            const daysToAdd = (targetDay - currentDay + 7) % 7
+            const firstDate = new Date(start)
+            firstDate.setDate(start.getDate() + daysToAdd)
+            return firstDate
+          }
+
+          // Create Teams meetings and insert schedules
+          const scheduleData = []
+          for (const schedule of validSchedules) {
+            let teamsMeetingUrl = null
+            let teamsMeetingId = null
+            let teamsEventId = null
+
+            // Create Teams meeting for this schedule (only if semester dates are available)
+            if (semesterData?.start_date && semesterData?.end_date) {
+              try {
+                // Get first occurrence of this schedule day
+                const firstDate = getFirstOccurrenceDate(semesterData.start_date, schedule.day)
+                
+                // Calculate meeting datetime
+                const [startHour, startMinute] = schedule.start_time.split(':')
+                const [endHour, endMinute] = schedule.end_time.split(':')
+                firstDate.setHours(parseInt(startHour), parseInt(startMinute), 0, 0)
+                
+                const endDate = new Date(firstDate)
+                endDate.setHours(parseInt(endHour), parseInt(endMinute), 0, 0)
+                
+                const { startDateTime, endDateTime } = formatMeetingDateTime(
+                  firstDate,
+                  Math.round((endDate - firstDate) / (1000 * 60)) // Duration in minutes
+                )
+
+                // Create Teams meeting
+                const meetingTitle = `${subjectCode} - ${subjectName} - Section ${formData.section} (${schedule.day.charAt(0).toUpperCase() + schedule.day.slice(1)})`
+                const meetingDescription = `Recurring class meeting for ${subjectCode} - ${subjectName}, Section ${formData.section}. Schedule: ${schedule.day} ${schedule.start_time}-${schedule.end_time}`
+
+                const teamsMeeting = await createTeamsMeeting({
+                  organizerEmail: instructorEmail, // Will use default if null
+                  subject: meetingTitle,
+                  description: meetingDescription,
+                  startDateTime,
+                  endDateTime,
+                  timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+                  attendees: [] // No attendees initially, students will join via link
+                })
+
+                if (teamsMeeting?.joinUrl) {
+                  teamsMeetingUrl = teamsMeeting.joinUrl
+                  teamsMeetingId = teamsMeeting.meetingId
+                  teamsEventId = teamsMeeting.eventId
+                }
+              } catch (meetingError) {
+                console.error('Error creating Teams meeting for schedule:', meetingError)
+                // Continue without meeting URL if creation fails
+              }
+            }
+
+            scheduleData.push({
+              class_id: classData.id,
+              day_of_week: schedule.day,
+              start_time: schedule.start_time,
+              end_time: schedule.end_time,
+              location: schedule.location || formData.room || null,
+              teams_meeting_url: teamsMeetingUrl,
+              teams_meeting_id: teamsMeetingId,
+              teams_event_id: teamsEventId,
+            })
+          }
 
           const { error: scheduleError } = await supabase
             .from('class_schedules')

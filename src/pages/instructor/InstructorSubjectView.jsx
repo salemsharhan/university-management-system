@@ -76,13 +76,6 @@ export default function InstructorSubjectView() {
 
       if (subjectError) throw subjectError
 
-      // Verify instructor is assigned to this subject
-      if (subjectData.instructor_id !== instructorData.id) {
-        setError('You are not assigned to teach this subject')
-        setLoading(false)
-        return
-      }
-
       // Parse JSONB fields
       if (subjectData.attendance_rules && typeof subjectData.attendance_rules === 'string') {
         try {
@@ -97,13 +90,32 @@ export default function InstructorSubjectView() {
 
       setSubject(subjectData)
 
-      // Fetch all related data
+      // First, fetch classes for this subject where instructor is assigned (class-wise, not subject-wise)
+      const { data: instructorClasses, error: classesError } = await supabase
+        .from('classes')
+        .select('id, code, section')
+        .eq('subject_id', id)
+        .eq('instructor_id', instructorData.id)
+        .eq('status', 'active')
+
+      if (classesError) throw classesError
+
+      // If instructor has no classes for this subject, show error
+      if (!instructorClasses || instructorClasses.length === 0) {
+        setError('You are not assigned to teach any classes for this subject')
+        setLoading(false)
+        return
+      }
+
+      const instructorClassIds = instructorClasses.map(cls => cls.id)
+
+      // Fetch all related data filtered by instructor's classes
       await Promise.all([
         fetchMaterials(),
-        fetchHomework(),
-        fetchExams(),
+        fetchHomework(instructorClassIds),
+        fetchExams(instructorClassIds),
         fetchRecordings(),
-        fetchClasses(),
+        fetchClasses(instructorData.id),
         fetchForumPosts(),
         fetchQuestions(),
       ])
@@ -130,12 +142,20 @@ export default function InstructorSubjectView() {
     }
   }
 
-  const fetchHomework = async () => {
+  const fetchHomework = async (instructorClassIds) => {
     try {
+      // Only fetch homework for classes where the instructor is assigned
+      // Instructors should only see homework for their classes, not all classes for the subject
+      if (!instructorClassIds || instructorClassIds.length === 0) {
+        setHomework([])
+        return
+      }
+
       const { data, error } = await supabase
         .from('subject_homework')
         .select('*')
         .eq('subject_id', id)
+        .in('class_id', instructorClassIds) // Only show homework for instructor's classes
         .order('due_date', { ascending: false })
 
       if (error) throw error
@@ -161,12 +181,20 @@ export default function InstructorSubjectView() {
     }
   }
 
-  const fetchExams = async () => {
+  const fetchExams = async (instructorClassIds) => {
     try {
+      // Only fetch exams for classes where the instructor is assigned
+      // Instructors should only see exams for their classes, not all classes for the subject
+      if (!instructorClassIds || instructorClassIds.length === 0) {
+        setExams([])
+        return
+      }
+
       const { data, error } = await supabase
         .from('subject_exams')
         .select('*')
         .eq('subject_id', id)
+        .in('class_id', instructorClassIds) // Only show exams for instructor's classes
         .order('scheduled_date', { ascending: false })
 
       if (error) throw error
@@ -207,8 +235,15 @@ export default function InstructorSubjectView() {
     }
   }
 
-  const fetchClasses = async () => {
+  const fetchClasses = async (instructorId) => {
     try {
+      // Only fetch classes where the instructor is assigned (class-wise assignment)
+      // This shows all classes for this subject where the instructor is the teacher
+      if (!instructorId) {
+        setClasses([])
+        return
+      }
+
       const { data, error } = await supabase
         .from('classes')
         .select(`
@@ -217,6 +252,7 @@ export default function InstructorSubjectView() {
           semesters(id, name_en, code)
         `)
         .eq('subject_id', id)
+        .eq('instructor_id', instructorId) // Only show classes where instructor is assigned
         .eq('status', 'active')
 
       if (error) throw error
@@ -469,7 +505,7 @@ export default function InstructorSubjectView() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-red-900 mb-2">Error</h2>
-            <p className="text-red-700">{error || 'Subject not found or you are not assigned to teach this subject'}</p>
+            <p className="text-red-700">{error || 'Subject not found or you are not assigned to teach any classes for this subject'}</p>
           </div>
         </div>
       </div>

@@ -55,6 +55,7 @@ export default function UniversitySettings() {
 
   const [formData, setFormData] = useState({
     // Academic
+    credit_hours_source: 'semester', // 'semester' or 'major_sheet'
     min_credit_hours: 12,
     max_credit_hours: 18,
     max_with_permission: 21,
@@ -290,6 +291,7 @@ export default function UniversitySettings() {
     try {
       // Build settings objects
       const academicSettings = {
+        credit_hours_source: formData.credit_hours_source || 'semester',
         min_credit_hours: formData.min_credit_hours,
         max_credit_hours: formData.max_credit_hours,
         max_with_permission: formData.max_with_permission,

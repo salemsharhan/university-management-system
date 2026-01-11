@@ -66,3 +66,4 @@ CREATE TRIGGER trigger_set_application_number
 
 
 
+

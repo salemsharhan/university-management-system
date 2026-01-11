@@ -156,21 +156,21 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
       
       if (application) {
         // Payment for application registration fee
-        const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
+        // Store payment information in the application record
+        // The invoice will be created retroactively when the student is enrolled
         
-        // For application payments, we update the application directly since invoices require student_id
-        // Store payment information in the application's financial_milestone_code instead
-        // The invoice will be created when the student is enrolled
-        
-        // Just update the application status and financial milestone
         const newMilestone = 'PM10'
+        const paymentDate = new Date().toISOString()
         
         const { error: updateError } = await supabase
           .from('applications')
           .update({
             financial_milestone_code: newMilestone,
             status_code: application.status_code === 'APPN' ? 'APPC' : application.status_code,
-            status_changed_at: new Date().toISOString()
+            status_changed_at: paymentDate,
+            registration_fee_amount: amount,
+            registration_fee_paid_at: paymentDate,
+            registration_fee_payment_method: paymentMethod === 'online' ? 'online_payment' : 'bank_transfer'
           })
           .eq('id', application.id)
 
@@ -186,7 +186,7 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
             to_status_code: application.status_code === 'APPN' ? 'APPC' : application.status_code,
             transition_reason_code: null,
             trigger_code: 'TRWH',
-            notes: `Registration fee payment received: ${amount}`
+            notes: `Registration fee payment received: $${amount.toFixed(2)} via ${paymentMethod === 'online' ? 'online payment' : 'bank transfer'}`
           })
 
         if (logError) console.error('Error logging status change:', logError)

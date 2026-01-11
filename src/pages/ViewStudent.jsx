@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ArrowLeft, Edit, GraduationCap } from 'lucide-react'
+import { ArrowLeft, Edit, GraduationCap, BookOpen, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
+import { getStudentSemesterMilestone, checkFinancePermission, getMilestoneInfo } from '../utils/financePermissions'
 
 export default function ViewStudent() {
   const { id } = useParams()
@@ -9,10 +10,37 @@ export default function ViewStudent() {
   const [student, setStudent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [enrollmentEligibility, setEnrollmentEligibility] = useState(null)
+  const [checkingEligibility, setCheckingEligibility] = useState(false)
+  const [activeSemester, setActiveSemester] = useState(null)
 
   useEffect(() => {
     fetchStudent()
+    fetchActiveSemester()
   }, [id])
+
+  useEffect(() => {
+    if (student && activeSemester) {
+      checkEnrollmentEligibility()
+    }
+  }, [student, activeSemester])
+
+  const fetchActiveSemester = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('semesters')
+        .select('*')
+        .in('status', ['active', 'registration_open'])
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+      setActiveSemester(data)
+    } catch (err) {
+      console.error('Error fetching active semester:', err)
+    }
+  }
 
   const fetchStudent = async () => {
     try {
@@ -29,6 +57,79 @@ export default function ViewStudent() {
       setError(err.message || 'Failed to load student')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkEnrollmentEligibility = async () => {
+    if (!student || !activeSemester) return
+
+    setCheckingEligibility(true)
+    const eligibility = {
+      allowed: true,
+      reasons: [],
+      warnings: [],
+      financialMilestone: null,
+      financialHold: null,
+      outstandingInvoices: [],
+      totalOutstanding: 0
+    }
+
+    try {
+      // 1. Check Student Status (must be active)
+      if (student.status !== 'active') {
+        eligibility.allowed = false
+        eligibility.reasons.push(`Student status is "${student.status}". Only active students can enroll.`)
+      }
+
+      // 2. Check Financial Status
+      const { milestone, hold } = await getStudentSemesterMilestone(parseInt(id), activeSemester.id)
+      eligibility.financialMilestone = milestone
+      eligibility.financialHold = hold
+
+      // Check if enrollment action is allowed (SE_REG requires PM30)
+      const financeCheck = checkFinancePermission('SE_REG', milestone, hold)
+      if (!financeCheck.allowed) {
+        eligibility.allowed = false
+        eligibility.reasons.push(`Financial: ${financeCheck.reason}`)
+      }
+
+      // Get outstanding invoices for the semester
+      const { data: invoices, error: invoiceError } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, total_amount, paid_amount, pending_amount, status, due_date')
+        .eq('student_id', parseInt(id))
+        .eq('semester_id', activeSemester.id)
+        .in('status', ['pending', 'overdue', 'partially_paid'])
+
+      if (!invoiceError && invoices && invoices.length > 0) {
+        eligibility.outstandingInvoices = invoices
+        eligibility.totalOutstanding = invoices.reduce((sum, inv) => sum + parseFloat(inv.pending_amount || 0), 0)
+        
+        if (eligibility.totalOutstanding > 0) {
+          const milestoneInfo = getMilestoneInfo(milestone)
+          if (milestoneInfo.percentage < 30) {
+            eligibility.warnings.push(`Outstanding balance: ${eligibility.totalOutstanding.toFixed(2)}. At least 30% payment is required for enrollment.`)
+          }
+        }
+      }
+
+      // Check financial holds
+      if (hold === 'FHCH') {
+        eligibility.allowed = false
+        eligibility.reasons.push('Payment chargeback/reversal. All academic actions are blocked. Please contact finance office.')
+      } else if (hold === 'FHEX') {
+        eligibility.allowed = false
+        eligibility.reasons.push('Payment deadline exceeded. Please contact finance office to restore access.')
+      }
+
+      setEnrollmentEligibility(eligibility)
+    } catch (err) {
+      console.error('Error checking enrollment eligibility:', err)
+      eligibility.allowed = false
+      eligibility.reasons.push('Error checking enrollment eligibility. Please try again.')
+      setEnrollmentEligibility(eligibility)
+    } finally {
+      setCheckingEligibility(false)
     }
   }
 

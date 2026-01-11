@@ -11,26 +11,223 @@ export default function InvoiceManagement() {
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
 
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start with loading true for initial fetch
   const [searchQuery, setSearchQuery] = useState('')
   const [studentData, setStudentData] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [groupedInvoices, setGroupedInvoices] = useState({})
   const [walletBalance, setWalletBalance] = useState(0)
   const [pendingFees, setPendingFees] = useState(0)
+  const [viewMode, setViewMode] = useState('all') // Default to 'all' for admins
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [semesters, setSemesters] = useState([])
+  const [selectedSemesterId, setSelectedSemesterId] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    if (searchQuery && searchQuery.length >= 3) {
+    // For admins and college admins, fetch all invoices on load
+    if (viewMode === 'all') {
+      if (userRole === 'admin') {
+        // University admin can view all invoices regardless of college selection
+        fetchAllInvoices()
+        fetchSemesters()
+      } else if (userRole === 'user') {
+        // College admin needs collegeId to fetch invoices
+        if (collegeId) {
+          fetchAllInvoices()
+          fetchSemesters()
+        } else {
+          // Wait for collegeId to be set
+          setLoading(false)
+        }
+      } else {
+        // Not admin or college admin - no invoices to show
+        setLoading(false)
+      }
+    } else {
+      // Student view mode - don't load invoices on mount
+      setLoading(false)
+    }
+  }, [userRole, collegeId, selectedCollegeId, statusFilter, selectedSemesterId, viewMode])
+
+  useEffect(() => {
+    if (viewMode === 'student' && searchQuery && searchQuery.length >= 3) {
       const timeoutId = setTimeout(() => {
         searchStudent()
       }, 500)
       return () => clearTimeout(timeoutId)
-    } else {
+    } else if (viewMode === 'student') {
       setStudentData(null)
       setInvoices([])
       setGroupedInvoices({})
     }
-  }, [searchQuery, collegeId])
+  }, [searchQuery, collegeId, viewMode])
+
+  const fetchSemesters = async () => {
+    // For university admin, fetch all semesters
+    // For college admin, fetch semesters for their college
+    if (userRole !== 'admin' && userRole !== 'user') return
+    if (userRole === 'user' && !collegeId) return
+
+    try {
+      let query = supabase
+        .from('semesters')
+        .select('id, name_en, code, start_date, end_date')
+        .order('start_date', { ascending: false })
+        .limit(50)
+
+      if (userRole === 'user' && collegeId) {
+        // College admin: show their college's semesters and university-wide
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      } else if (userRole === 'admin' && selectedCollegeId) {
+        // University admin with college selected: show that college's semesters
+        query = query.eq('college_id', selectedCollegeId).eq('is_university_wide', false)
+      }
+      // University admin without college selected: show all semesters (no filter)
+
+      const { data, error } = await query
+      if (error) throw error
+      setSemesters(data || [])
+    } catch (err) {
+      console.error('Error fetching semesters:', err)
+    }
+  }
+
+  const fetchAllInvoices = async () => {
+    // Only fetch for admins and college admins in 'all' view mode
+    if (viewMode !== 'all' || (userRole !== 'admin' && userRole !== 'user')) {
+      setLoading(false)
+      return
+    }
+    
+    // For college admin, need collegeId
+    if (userRole === 'user' && !collegeId) {
+      setLoading(false)
+      setInvoices([])
+      setGroupedInvoices({})
+      return
+    }
+
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('invoices')
+        .select(`
+          id,
+          invoice_number,
+          invoice_date,
+          due_date,
+          invoice_type,
+          status,
+          subtotal,
+          discount_amount,
+          scholarship_amount,
+          total_amount,
+          paid_amount,
+          pending_amount,
+          semester_id,
+          student_id,
+          college_id,
+          students (
+            id,
+            student_id,
+            name_en,
+            first_name,
+            last_name,
+            email
+          ),
+          semesters (
+            id,
+            name_en,
+            code,
+            start_date,
+            end_date
+          ),
+          colleges (
+            id,
+            name_en,
+            code
+          )
+        `)
+        .order('invoice_date', { ascending: false })
+        .limit(500) // Limit to recent 500 invoices
+
+      // Filter by college if selected (for university admin) or if user is college admin
+      if (userRole === 'admin' && selectedCollegeId) {
+        query = query.eq('college_id', selectedCollegeId)
+      } else if (userRole === 'user' && collegeId) {
+        // College admin - always filter by their college
+        query = query.eq('college_id', collegeId)
+      }
+      // If userRole === 'admin' and selectedCollegeId is null/empty, show all invoices (no filter)
+
+      // Filter by status
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter)
+      }
+
+      // Filter by semester if selected
+      if (selectedSemesterId) {
+        query = query.eq('semester_id', selectedSemesterId)
+      }
+
+      const { data: invoicesData, error: invoicesError } = await query
+
+      if (invoicesError) {
+        console.error('Error fetching invoices:', invoicesError)
+        console.error('Error details:', JSON.stringify(invoicesError, null, 2))
+        setError(`Failed to fetch invoices: ${invoicesError.message || 'Unknown error'}`)
+        setInvoices([])
+        setGroupedInvoices({})
+        return
+      }
+
+      console.log('Fetched invoices:', invoicesData?.length || 0, 'invoices')
+      setInvoices(invoicesData || [])
+
+      // Group invoices by semester
+      const grouped = {}
+      let totalPending = 0
+
+      ;(invoicesData || []).forEach(invoice => {
+        const semesterKey = invoice.semester_id 
+          ? `semester_${invoice.semester_id}` 
+          : 'no_semester'
+        
+        if (!grouped[semesterKey]) {
+          grouped[semesterKey] = {
+            semester: invoice.semesters,
+            invoices: [],
+            totalAmount: 0,
+            paidAmount: 0,
+            pendingAmount: 0
+          }
+        }
+
+        grouped[semesterKey].invoices.push(invoice)
+        grouped[semesterKey].totalAmount += parseFloat(invoice.total_amount || 0)
+        grouped[semesterKey].paidAmount += parseFloat(invoice.paid_amount || 0)
+        grouped[semesterKey].pendingAmount += parseFloat(invoice.pending_amount || 0)
+        
+        if (invoice.status === 'pending' || invoice.status === 'overdue' || invoice.status === 'partially_paid') {
+          totalPending += parseFloat(invoice.pending_amount || 0)
+        }
+      })
+
+      console.log('Grouped invoices:', Object.keys(grouped).length, 'groups')
+      setGroupedInvoices(grouped)
+      setPendingFees(totalPending)
+      setError('') // Clear any previous errors
+
+    } catch (err) {
+      console.error('Error fetching all invoices:', err)
+      setError(`Failed to load invoices: ${err.message || 'Unknown error'}`)
+      setInvoices([])
+      setGroupedInvoices({})
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const searchStudent = async () => {
     if (!collegeId && userRole !== 'admin') return
@@ -245,16 +442,44 @@ export default function InvoiceManagement() {
         </button>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+            <p className="text-red-800">{error}</p>
+          </div>
+        </div>
+      )}
+
       {/* College Selection for Admin */}
-      {requiresCollegeSelection && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+      {userRole === 'admin' && (
+        <div className={`bg-white rounded-2xl shadow-sm border p-4 ${
+          requiresCollegeSelection
+            ? 'border-yellow-300 bg-yellow-50' 
+            : 'border-gray-200'
+        }`}>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select College
+            Filter by College {requiresCollegeSelection && <span className="text-red-500">*</span>}
           </label>
           <select
             value={selectedCollegeId || ''}
-            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            onChange={(e) => {
+              const newCollegeId = e.target.value ? parseInt(e.target.value) : null
+              setSelectedCollegeId(newCollegeId)
+              setSelectedSemesterId('') // Reset semester filter when college changes
+              setError('') // Clear errors
+              // Refresh invoices when college changes
+              if (viewMode === 'all') {
+                fetchAllInvoices()
+              }
+            }}
+            className={`w-full md:w-64 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+              requiresCollegeSelection
+                ? 'border-yellow-300 bg-white'
+                : 'border-gray-300'
+            }`}
+            required={requiresCollegeSelection}
           >
             <option value="">All Colleges</option>
             {colleges.map(college => (
@@ -263,27 +488,128 @@ export default function InvoiceManagement() {
               </option>
             ))}
           </select>
+          {requiresCollegeSelection && (
+            <p className="text-xs text-yellow-600 mt-1">Please select a college to view invoices</p>
+          )}
         </div>
       )}
 
-      {/* Search */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by Student Number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
+      {/* View Mode Toggle and Filters (for admins) */}
+      {(userRole === 'admin' || userRole === 'user') && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">View Mode:</label>
+              <button
+                onClick={() => {
+                  setViewMode('all')
+                  setSearchQuery('')
+                  setStudentData(null)
+                }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  viewMode === 'all'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Invoices
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('student')
+                  setInvoices([])
+                  setGroupedInvoices({})
+                }}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  viewMode === 'student'
+                    ? 'bg-primary-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Search by Student
+              </button>
+            </div>
+          </div>
+
+          {viewMode === 'all' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="paid">Paid</option>
+                  <option value="partially_paid">Partially Paid</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Semester</label>
+                <select
+                  value={selectedSemesterId}
+                  onChange={(e) => setSelectedSemesterId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">All Semesters</option>
+                  {semesters.map(semester => (
+                    <option key={semester.id} value={semester.id}>
+                      {semester.name_en} ({semester.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Total Invoices:</span> {invoices.length}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {/* Search by Student */}
+      {viewMode === 'student' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by Student Number..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
-          <span className="ml-3 text-gray-600">Searching...</span>
+          <span className="ml-3 text-gray-600">{viewMode === 'all' ? 'Loading invoices...' : 'Searching...'}</span>
+        </div>
+      )}
+
+      {/* No Invoices Message for All View */}
+      {!loading && viewMode === 'all' && invoices.length === 0 && (userRole === 'admin' || userRole === 'user') && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Invoices Found</h3>
+          <p className="text-gray-600 mb-4">
+            {userRole === 'admin' && !selectedCollegeId 
+              ? 'No invoices found. Try selecting a specific college or adjust your filters.' 
+              : userRole === 'admin' && selectedCollegeId
+              ? 'No invoices found for the selected college. Try adjusting your filters.'
+              : userRole === 'user'
+              ? 'No invoices found for your college. Try adjusting your filters.'
+              : 'No invoices found for the selected filters.'}
+          </p>
         </div>
       )}
 
@@ -386,7 +712,7 @@ export default function InvoiceManagement() {
       )}
 
       {/* Invoices by Semester */}
-      {Object.keys(groupedInvoices).length > 0 && (
+      {!loading && Object.keys(groupedInvoices).length > 0 && (
         <div className="space-y-6">
           {Object.entries(groupedInvoices).map(([key, group]) => (
             <div key={key} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -400,6 +726,11 @@ export default function InvoiceManagement() {
                   {group.semester && (
                     <p className="text-sm text-gray-600 mt-1">
                       {formatDate(group.semester.start_date)} - {formatDate(group.semester.end_date)}
+                    </p>
+                  )}
+                  {viewMode === 'all' && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      {group.invoices.length} invoice{group.invoices.length !== 1 ? 's' : ''}
                     </p>
                   )}
                 </div>
@@ -452,7 +783,7 @@ export default function InvoiceManagement() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
+                        <div className="flex items-center space-x-3 mb-2 flex-wrap">
                           <span className="font-semibold">{invoice.invoice_number}</span>
                           <span
                             className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
@@ -465,8 +796,20 @@ export default function InvoiceManagement() {
                           <span className="text-sm text-gray-500 capitalize">
                             {invoice.invoice_type.replace('_', ' ')}
                           </span>
+                          {viewMode === 'all' && invoice.students && (
+                            <span className="text-sm text-gray-700 font-medium">
+                              Student: {invoice.students.student_id} - {invoice.students.first_name && invoice.students.last_name
+                                ? `${invoice.students.first_name} ${invoice.students.last_name}`
+                                : invoice.students.name_en}
+                            </span>
+                          )}
+                          {viewMode === 'all' && invoice.colleges && (
+                            <span className="text-sm text-gray-500">
+                              {invoice.colleges.name_en}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <div className="flex items-center space-x-4 text-sm text-gray-600 flex-wrap gap-2">
                           <span>Date: {formatDate(invoice.invoice_date)}</span>
                           {invoice.due_date && (
                             <span>Due: {formatDate(invoice.due_date)}</span>

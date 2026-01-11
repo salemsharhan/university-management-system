@@ -101,7 +101,7 @@ export default function StudentSubjectView() {
         .from('enrollments')
         .select(`
           *,
-          classes!inner(id, code, section, subject_id, subjects(id, name_en, code)),
+          classes!inner(id, code, section, subject_id, instructor_id, subjects(id, name_en, code), instructors(id, name_en, email)),
           semesters(id, name_en, code, start_date)
         `)
         .eq('student_id', studentData.id)
@@ -158,17 +158,18 @@ export default function StudentSubjectView() {
 
   const fetchHomework = async (classId) => {
     try {
+      // Only fetch homework for the specific class the student is enrolled in
+      // Students should only see homework assigned to their class, not subject-wide homework
+      if (!classId) {
+        setHomework([])
+        return
+      }
+
       let query = supabase
         .from('subject_homework')
         .select('*')
         .eq('subject_id', id)
-
-      // Build the OR condition based on whether classId exists
-      if (classId) {
-        query = query.or(`class_id.eq.${classId},class_id.is.null`)
-      } else {
-        query = query.is('class_id', null)
-      }
+        .eq('class_id', classId) // Only show homework for this specific class
 
       const { data, error } = await query
         .in('status', ['HW_PUB', 'HW_CLD'])
@@ -201,17 +202,18 @@ export default function StudentSubjectView() {
 
   const fetchExams = async (classId) => {
     try {
+      // Only fetch exams for the specific class the student is enrolled in
+      // Students should only see exams assigned to their class, not subject-wide exams
+      if (!classId) {
+        setExams([])
+        return
+      }
+
       let query = supabase
         .from('subject_exams')
         .select('*')
         .eq('subject_id', id)
-
-      // Build the OR condition based on whether classId exists
-      if (classId) {
-        query = query.or(`class_id.eq.${classId},class_id.is.null`)
-      } else {
-        query = query.is('class_id', null)
-      }
+        .eq('class_id', classId) // Only show exams for this specific class
 
       const { data, error } = await query
         .in('status', ['EX_SCH', 'EX_OPN', 'EX_CLS', 'EX_REL'])
@@ -552,10 +554,10 @@ export default function StudentSubjectView() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              {subject.instructors && (
+              {enrollment?.classes?.instructors && (
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">Instructor</p>
-                  <p className="text-sm font-medium text-gray-900">{subject.instructors.name_en}</p>
+                  <p className="text-sm text-gray-600">Class Instructor</p>
+                  <p className="text-sm font-medium text-gray-900">{enrollment.classes.instructors.name_en}</p>
                 </div>
               )}
             </div>
@@ -608,6 +610,24 @@ export default function StudentSubjectView() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Subject Information</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {enrollment?.classes && (
+                  <>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Class Code</p>
+                      <p className="font-semibold text-gray-900">{enrollment.classes.code}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Section</p>
+                      <p className="font-semibold text-gray-900">{enrollment.classes.section}</p>
+                    </div>
+                    {enrollment.semesters && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1">Semester</p>
+                        <p className="font-semibold text-gray-900">{enrollment.semesters.name_en} ({enrollment.semesters.code})</p>
+                      </div>
+                    )}
+                  </>
+                )}
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Credit Hours</p>
                   <p className="font-semibold text-gray-900">{subject.credit_hours}</p>
@@ -617,7 +637,7 @@ export default function StudentSubjectView() {
                   <p className="font-semibold text-gray-900 capitalize">{subject.type}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Semester</p>
+                  <p className="text-sm text-gray-600 mb-1">Subject Semester</p>
                   <p className="font-semibold text-gray-900">Semester {subject.semester_number}</p>
                 </div>
                 <div>

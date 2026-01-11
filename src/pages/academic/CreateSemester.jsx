@@ -19,6 +19,7 @@ export default function CreateSemester() {
   const [colleges, setColleges] = useState([])
   const [academicYears, setAcademicYears] = useState([])
   const [isUniversityWide, setIsUniversityWide] = useState(false)
+  const [creditHoursSource, setCreditHoursSource] = useState('semester') // 'semester' or 'major_sheet'
 
   const [formData, setFormData] = useState({
     academic_year_id: '',
@@ -78,6 +79,15 @@ export default function CreateSemester() {
     }
   }, [collegeId, isUniversityWide, userRole])
 
+  useEffect(() => {
+    // Fetch college academic settings to determine credit hours source
+    if (collegeId && !isUniversityWide) {
+      fetchCollegeAcademicSettings()
+    } else if (isUniversityWide) {
+      fetchUniversityAcademicSettings()
+    }
+  }, [collegeId, isUniversityWide])
+
   const fetchUserCollege = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -110,6 +120,51 @@ export default function CreateSemester() {
       setColleges(data || [])
     } catch (err) {
       console.error('Error fetching colleges:', err)
+    }
+  }
+
+  const fetchCollegeAcademicSettings = async () => {
+    try {
+      if (!collegeId) return
+      
+      const { data, error } = await supabase
+        .from('colleges')
+        .select('academic_settings')
+        .eq('id', collegeId)
+        .single()
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching college academic settings:', error)
+        return
+      }
+
+      if (data?.academic_settings?.credit_hours_source) {
+        setCreditHoursSource(data.academic_settings.credit_hours_source)
+      }
+    } catch (err) {
+      console.error('Error fetching college academic settings:', err)
+    }
+  }
+
+  const fetchUniversityAcademicSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('university_settings')
+        .select('academic_settings')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching university academic settings:', error)
+        return
+      }
+
+      if (data?.academic_settings?.credit_hours_source) {
+        setCreditHoursSource(data.academic_settings.credit_hours_source)
+      }
+    } catch (err) {
+      console.error('Error fetching university academic settings:', err)
     }
   }
 
@@ -451,52 +506,67 @@ export default function CreateSemester() {
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.creditHoursConfig')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minCredits')}</label>
-                    <input
-                      type="number"
-                      value={formData.min_credit_hours}
-                      onChange={(e) => handleChange('min_credit_hours', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxCredits')}</label>
-                    <input
-                      type="number"
-                      value={formData.max_credit_hours}
-                      onChange={(e) => handleChange('max_credit_hours', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxWithPermission')}</label>
-                    <input
-                      type="number"
-                      value={formData.max_credit_hours_with_permission}
-                      onChange={(e) => handleChange('max_credit_hours_with_permission', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minGpaForMax')}</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.min_gpa_for_max_credits}
-                      onChange={(e) => handleChange('min_gpa_for_max_credits', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
+              {/* Credit Hours Configuration - Only show if source is 'semester' */}
+              {(!creditHoursSource || creditHoursSource === 'semester') && (
+                <div className="border-t pt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.creditHoursConfig')}</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minCredits')}</label>
+                      <input
+                        type="number"
+                        value={formData.min_credit_hours}
+                        onChange={(e) => handleChange('min_credit_hours', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxCredits')}</label>
+                      <input
+                        type="number"
+                        value={formData.max_credit_hours}
+                        onChange={(e) => handleChange('max_credit_hours', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxWithPermission')}</label>
+                      <input
+                        type="number"
+                        value={formData.max_credit_hours_with_permission}
+                        onChange={(e) => handleChange('max_credit_hours_with_permission', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1"></p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minGpaForMax')}</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={formData.min_gpa_for_max_credits}
+                        onChange={(e) => handleChange('min_gpa_for_max_credits', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                      <p className="text-xs text-gray-500 mt-1"></p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Show info message if using major_sheet source */}
+              {creditHoursSource === 'major_sheet' && (
+                <div className="border-t pt-4">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> This college uses Major Sheet (Degree Plan) as the source for credit hour rules.
+                      Credit hour limits are configured in each major's degree plan (Manage Major Sheet), not in semester settings.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="border-t pt-4">
                 <div>

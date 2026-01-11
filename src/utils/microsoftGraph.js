@@ -50,7 +50,7 @@ export const getAccessToken = async () => {
     }
 
     // Use Edge Function to get access token (solves CORS issue)
-    const { data, error } = await supabase.functions.invoke('microsoft-teams', {
+    const { data, error } = await supabase.functions.invoke('dynamic-worker', {
       body: { action: 'token' }
     })
 
@@ -143,7 +143,7 @@ export const createTeamsMeeting = async (meetingData) => {
 export const updateTeamsMeeting = async (organizerEmail, eventId, updateData) => {
   try {
     // Use Edge Function to update Teams meeting (solves CORS issue)
-    const { data, error } = await supabase.functions.invoke('microsoft-teams', {
+    const { data, error } = await supabase.functions.invoke('dynamic-worker', {
       method: 'POST',
       body: {
         action: 'update-meeting',
@@ -173,7 +173,7 @@ export const updateTeamsMeeting = async (organizerEmail, eventId, updateData) =>
 export const deleteTeamsMeeting = async (organizerEmail, eventId) => {
   try {
     // Use Edge Function to delete Teams meeting (solves CORS issue)
-    const { data, error } = await supabase.functions.invoke('microsoft-teams', {
+    const { data, error } = await supabase.functions.invoke('dynamic-worker', {
       method: 'POST',
       body: {
         action: 'delete-meeting',

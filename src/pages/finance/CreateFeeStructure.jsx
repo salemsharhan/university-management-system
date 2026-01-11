@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
-import { ArrowLeft, Save, Loader2 } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Plus, Trash2 } from 'lucide-react'
 
 export default function CreateFeeStructure() {
   const navigate = useNavigate()
@@ -18,6 +18,8 @@ export default function CreateFeeStructure() {
   const [success, setSuccess] = useState(false)
   const [majors, setMajors] = useState([])
   const [semesters, setSemesters] = useState([])
+  const [feeTypes, setFeeTypes] = useState([])
+  const [selectedFeeType, setSelectedFeeType] = useState(null)
 
   const [formData, setFormData] = useState({
     fee_type: '',
@@ -25,7 +27,7 @@ export default function CreateFeeStructure() {
     fee_name_ar: '',
     amount: '',
     currency: 'USD',
-    semester_id: '', // Required - fees are semester-specific
+    applies_to_semester: [], // Array of semester IDs - supports multiple semesters
     applies_to_degree_level: [],
     applies_to_major: [],
     is_university_wide: false,
@@ -33,15 +35,43 @@ export default function CreateFeeStructure() {
     valid_from: '',
     valid_to: '',
     description: '',
+    payment_portions: [], // Array of payment portions
   })
 
   useEffect(() => {
+    fetchFeeTypes()
     fetchMajors()
     fetchSemesters()
     if (isEdit) {
       fetchFeeStructure()
     }
   }, [id, collegeId])
+
+  const fetchFeeTypes = async () => {
+    try {
+      let query = supabase
+        .from('fee_types')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('name_en', { ascending: true })
+
+      if (userRole === 'user' && collegeId) {
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      } else if (userRole === 'admin' && collegeId) {
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      } else if (userRole === 'admin') {
+        // University admin can see all fee types
+        query = query.or('is_university_wide.eq.true,college_id.is.null')
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      setFeeTypes(data || [])
+    } catch (err) {
+      console.error('Error fetching fee types:', err)
+    }
+  }
 
 
   const fetchMajors = async () => {
@@ -103,21 +133,33 @@ export default function CreateFeeStructure() {
 
       if (error) throw error
 
+      // Handle both old (semester_id) and new (applies_to_semester) formats
+      const semesterIds = data.applies_to_semester || (data.semester_id ? [data.semester_id] : [])
+
       setFormData({
         fee_type: data.fee_type || '',
         fee_name_en: data.fee_name_en || '',
         fee_name_ar: data.fee_name_ar || '',
         amount: data.amount || '',
         currency: data.currency || 'USD',
-        semester_id: data.semester_id || '',
+        applies_to_semester: semesterIds,
         applies_to_degree_level: data.applies_to_degree_level || [],
         applies_to_major: data.applies_to_major || [],
         is_university_wide: data.is_university_wide || false,
         is_active: data.is_active !== undefined ? data.is_active : true,
-        valid_from: data.valid_from || '',
-        valid_to: data.valid_to || '',
-        description: data.description || ''
+        valid_from: data.valid_from ? data.valid_from.split('T')[0] : '',
+        valid_to: data.valid_to ? data.valid_to.split('T')[0] : '',
+        description: data.description || '',
+        payment_portions: data.payment_portions || []
       })
+
+      // Set selected fee type if exists
+      if (data.fee_type) {
+        const feeType = feeTypes.find(ft => ft.code === data.fee_type)
+        if (feeType) {
+          setSelectedFeeType(feeType)
+        }
+      }
     } catch (err) {
       console.error('Error fetching fee structure:', err)
       setError('Failed to load fee structure')
@@ -142,15 +184,107 @@ export default function CreateFeeStructure() {
     setFormData({ ...formData, applies_to_major: updated })
   }
 
+  const handleSemesterToggle = (semesterId) => {
+    const current = formData.applies_to_semester || []
+    const updated = current.includes(semesterId)
+      ? current.filter(id => id !== semesterId)
+      : [...current, semesterId]
+    setFormData({ ...formData, applies_to_semester: updated })
+  }
+
+  const handleFeeTypeChange = (feeTypeCode) => {
+    const feeType = feeTypes.find(ft => ft.code === feeTypeCode)
+    setSelectedFeeType(feeType || null)
+    
+    if (feeType) {
+      setFormData({
+        ...formData,
+        fee_type: feeType.code,
+        fee_name_en: formData.fee_name_en || feeType.name_en,
+        fee_name_ar: formData.fee_name_ar || feeType.name_ar || ''
+      })
+    } else {
+      setFormData({ ...formData, fee_type: feeTypeCode })
+    }
+  }
+
+  const addPaymentPortion = () => {
+    const newPortion = {
+      portion_number: formData.payment_portions.length + 1,
+      percentage: '',
+      deadline_type: 'days_from_invoice', // 'days_from_invoice', 'days_from_previous', 'custom_date'
+      days: '',
+      custom_date: ''
+    }
+    setFormData({
+      ...formData,
+      payment_portions: [...formData.payment_portions, newPortion]
+    })
+  }
+
+  const removePaymentPortion = (index) => {
+    const updated = formData.payment_portions.filter((_, i) => i !== index)
+    // Renumber portions
+    const renumbered = updated.map((p, i) => ({ ...p, portion_number: i + 1 }))
+    setFormData({ ...formData, payment_portions: renumbered })
+  }
+
+  const updatePaymentPortion = (index, field, value) => {
+    const updated = [...formData.payment_portions]
+    updated[index] = { ...updated[index], [field]: value }
+    setFormData({ ...formData, payment_portions: updated })
+  }
+
+  const calculateTotalPercentage = () => {
+    return formData.payment_portions.reduce((sum, p) => sum + (parseFloat(p.percentage) || 0), 0)
+  }
+
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess(false)
 
-    if (!formData.fee_type || !formData.fee_name_en || !formData.amount || !formData.semester_id) {
-      setError('Please fill in all required fields including semester')
+    if (!formData.fee_type || !formData.fee_name_en || !formData.amount) {
+      setError('Please fill in all required fields')
       return
+    }
+
+    // Check if semester is required for this fee type
+    const requiresSemester = selectedFeeType?.requires_semester !== false
+    if (requiresSemester && formData.applies_to_semester.length === 0) {
+      setError('Please select at least one semester for this fee type')
+      return
+    }
+
+    // Validate payment portions if defined
+    if (formData.payment_portions.length > 0) {
+      const totalPercentage = calculateTotalPercentage()
+      if (Math.abs(totalPercentage - 100) > 0.01) {
+        setError(`Payment portions must total 100%. Current total: ${totalPercentage.toFixed(2)}%`)
+        return
+      }
+
+      // Validate each portion
+      for (let i = 0; i < formData.payment_portions.length; i++) {
+        const portion = formData.payment_portions[i]
+        if (!portion.percentage || parseFloat(portion.percentage) <= 0) {
+          setError(`Portion ${i + 1}: Percentage is required and must be greater than 0`)
+          return
+        }
+
+        if (portion.deadline_type === 'days_from_invoice' || portion.deadline_type === 'days_from_previous') {
+          if (!portion.days || parseInt(portion.days) < 0) {
+            setError(`Portion ${i + 1}: Days must be specified and non-negative`)
+            return
+          }
+        } else if (portion.deadline_type === 'custom_date') {
+          if (!portion.custom_date) {
+            setError(`Portion ${i + 1}: Custom date is required`)
+            return
+          }
+        }
+      }
     }
 
     if (!collegeId && !formData.is_university_wide && userRole !== 'admin') {
@@ -161,20 +295,32 @@ export default function CreateFeeStructure() {
     setLoading(true)
 
     try {
+      // Prepare payment portions - convert to proper format
+      const paymentPortions = formData.payment_portions.length > 0 
+        ? formData.payment_portions.map(p => ({
+            portion_number: p.portion_number,
+            percentage: parseFloat(p.percentage),
+            deadline_type: p.deadline_type,
+            days: p.deadline_type !== 'custom_date' ? parseInt(p.days) : null,
+            custom_date: p.deadline_type === 'custom_date' ? p.custom_date : null
+          }))
+        : null
+
       const feeData = {
         fee_type: formData.fee_type,
         fee_name_en: formData.fee_name_en.trim(),
         fee_name_ar: formData.fee_name_ar.trim() || null,
         amount: parseFloat(formData.amount),
         currency: formData.currency,
-        semester_id: parseInt(formData.semester_id),
+        applies_to_semester: formData.applies_to_semester.length > 0 ? formData.applies_to_semester.map(id => parseInt(id)) : null,
         applies_to_degree_level: formData.applies_to_degree_level.length > 0 ? formData.applies_to_degree_level : null,
-        applies_to_major: formData.applies_to_major.length > 0 ? formData.applies_to_major : null,
+        applies_to_major: formData.applies_to_major.length > 0 ? formData.applies_to_major.map(id => parseInt(id)) : null,
         is_university_wide: formData.is_university_wide,
         is_active: formData.is_active,
         valid_from: formData.valid_from || null,
         valid_to: formData.valid_to || null,
-        description: formData.description.trim() || null
+        description: formData.description.trim() || null,
+        payment_portions: paymentPortions
       }
 
       if (!formData.is_university_wide && collegeId) {
@@ -227,20 +373,36 @@ export default function CreateFeeStructure() {
         </div>
       </div>
 
-      {requiresCollegeSelection && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select College</label>
+      {userRole === 'admin' && (
+        <div className={`bg-white rounded-2xl shadow-sm border p-4 ${
+          requiresCollegeSelection && !formData.is_university_wide
+            ? 'border-yellow-300 bg-yellow-50' 
+            : 'border-gray-200'
+        }`}>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select College {requiresCollegeSelection && !formData.is_university_wide && <span className="text-red-500">*</span>}
+          </label>
           <select
             value={selectedCollegeId || ''}
             onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value) : null)}
             disabled={formData.is_university_wide}
-            className="w-full md:w-64 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
+            className={`w-full md:w-64 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-primary-500 ${
+              formData.is_university_wide 
+                ? 'bg-gray-100 border-gray-300' 
+                : requiresCollegeSelection
+                ? 'border-yellow-300 bg-white'
+                : 'border-gray-300'
+            }`}
+            required={requiresCollegeSelection && !formData.is_university_wide}
           >
             <option value="">Select College</option>
             {colleges.map(college => (
               <option key={college.id} value={college.id}>{college.name_en}</option>
             ))}
           </select>
+          {requiresCollegeSelection && !formData.is_university_wide && (
+            <p className="text-xs text-yellow-600 mt-1">Please select a college or mark as university-wide</p>
+          )}
         </div>
       )}
 
@@ -251,19 +413,23 @@ export default function CreateFeeStructure() {
             <label className="block text-sm font-medium text-gray-700 mb-2">Fee Type *</label>
             <select
               value={formData.fee_type}
-              onChange={(e) => setFormData({ ...formData, fee_type: e.target.value })}
+              onChange={(e) => handleFeeTypeChange(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
               required
             >
               <option value="">Select Type</option>
-              <option value="admission_fee">Admission Fee</option>
-              <option value="course_fee">Course Fee</option>
-              <option value="subject_fee">Subject Fee</option>
-              <option value="onboarding_fee">Onboarding Fee</option>
-              <option value="penalty">Penalty</option>
-              <option value="miscellaneous">Miscellaneous</option>
-              <option value="other">Other</option>
+              {feeTypes.map(feeType => (
+                <option key={feeType.id} value={feeType.code}>
+                  {feeType.name_en} {feeType.category && `(${feeType.category})`}
+                </option>
+              ))}
             </select>
+            {selectedFeeType && (
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedFeeType.description || `Category: ${selectedFeeType.category}`}
+                {selectedFeeType.requires_semester && ' • Semester required'}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Currency *</label>
@@ -310,25 +476,58 @@ export default function CreateFeeStructure() {
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
-            <select
-              value={formData.semester_id}
-              onChange={(e) => setFormData({ ...formData, semester_id: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
-              required
-            >
-              <option value="">Select Semester...</option>
-              {semesters.map(semester => (
-                <option key={semester.id} value={semester.id}>
-                  {semester.name_en} ({semester.code})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Fees are semester-specific. Financial milestones (30%, 60%, etc.) are calculated per semester.
-            </p>
+        </div>
+
+        {/* Semesters Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Semesters {selectedFeeType?.requires_semester !== false ? '*' : ''}
+            {selectedFeeType?.requires_semester === false && ' (Optional)'}
+          </label>
+          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3">
+            {semesters.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No semesters available</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {semesters.map(semester => (
+                  <label
+                    key={semester.id}
+                    className={`flex items-center space-x-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors ${
+                      formData.applies_to_semester?.includes(semester.id)
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.applies_to_semester?.includes(semester.id) || false}
+                      onChange={() => handleSemesterToggle(semester.id)}
+                      className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                    />
+                    <div className="flex-1">
+                      <span className="text-sm font-medium">{semester.name_en}</span>
+                      <span className="text-xs text-gray-500 ml-1">({semester.code})</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
+          {formData.applies_to_semester.length > 0 && (
+            <p className="text-xs text-blue-600 mt-2">
+              Selected {formData.applies_to_semester.length} semester{formData.applies_to_semester.length !== 1 ? 's' : ''}
+            </p>
+          )}
+          {selectedFeeType?.requires_semester !== false && (
+            <p className="text-xs text-gray-500 mt-1">
+              Select one or more semesters. Financial milestones (30%, 60%, etc.) are calculated per semester.
+            </p>
+          )}
+          {selectedFeeType?.requires_semester === false && (
+            <p className="text-xs text-gray-500 mt-1">
+              This fee type does not require a semester (e.g., Admission Fee, Application Fee)
+            </p>
+          )}
         </div>
 
         {/* Scope */}
@@ -406,6 +605,136 @@ export default function CreateFeeStructure() {
               className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
             />
           </div>
+        </div>
+
+        {/* Payment Portions */}
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Payment Portions (Optional)</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Define payment installments with percentages and deadlines. If not set, a single invoice will be created.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={addPaymentPortion}
+              className="flex items-center space-x-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Portion</span>
+            </button>
+          </div>
+
+          {formData.payment_portions.length > 0 && (
+            <div className="space-y-4">
+              {formData.payment_portions.map((portion, index) => (
+                <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900">Portion {portion.portion_number}</h4>
+                    {formData.payment_portions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removePaymentPortion(index)}
+                        className="text-red-600 hover:text-red-700 text-sm"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Percentage * (Total: {calculateTotalPercentage().toFixed(2)}%)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={portion.percentage}
+                        onChange={(e) => updatePaymentPortion(index, 'percentage', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        required
+                        placeholder="e.g., 10.00"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Deadline Type *</label>
+                      <select
+                        value={portion.deadline_type}
+                        onChange={(e) => updatePaymentPortion(index, 'deadline_type', e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        required
+                      >
+                        <option value="days_from_invoice">Days from Invoice Creation</option>
+                        <option value="days_from_previous">Days from Previous Payment</option>
+                        <option value="custom_date">Custom Date</option>
+                      </select>
+                    </div>
+
+                    {portion.deadline_type !== 'custom_date' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Days *</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={portion.days}
+                          onChange={(e) => updatePaymentPortion(index, 'days', e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                          required
+                          placeholder="e.g., 10"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {portion.deadline_type === 'days_from_invoice' 
+                            ? 'Days from invoice creation date'
+                            : 'Days from previous portion payment date'}
+                        </p>
+                      </div>
+                    )}
+
+                    {portion.deadline_type === 'custom_date' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Custom Date *</label>
+                        <input
+                          type="date"
+                          value={portion.custom_date}
+                          onChange={(e) => updatePaymentPortion(index, 'custom_date', e.target.value)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                          required
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Total Percentage:</strong> {calculateTotalPercentage().toFixed(2)}% 
+                  {Math.abs(calculateTotalPercentage() - 100) > 0.01 && (
+                    <span className="text-red-600 ml-2">
+                      (Must equal 100% - Current difference: {(100 - calculateTotalPercentage()).toFixed(2)}%)
+                    </span>
+                  )}
+                </p>
+                <p className="text-xs text-blue-700 mt-2">
+                  When an invoice is created using this fee structure, multiple invoices will be generated (one per portion).
+                  Financial milestones will be calculated based on the total percentage paid across all portions.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {formData.payment_portions.length === 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-sm text-gray-600">
+                No payment portions defined. A single invoice will be created when this fee structure is used.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Description */}
