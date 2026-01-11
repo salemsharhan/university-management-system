@@ -24,15 +24,7 @@ const TOKEN_EXPIRY_CACHE_KEY = 'microsoft_graph_token_expiry'
  * 
  * @returns {Promise<object>} Configuration object with tenant_id, client_id, client_secret, etc.
  */
-export const getMicrosoftTeamsConfig = async () => {
-  // Configuration is now handled server-side via Edge Function
-  // This is just for reference - actual API calls go through Edge Function
-  return {
-    tenantId: 'a5925acf-4467-4376-b43c-97253f129d0a',
-    clientId: '6542c633-3375-4030-a10c-898b0f6855b7',
-    graphApiUrl: 'https://graph.microsoft.com/v1.0'
-  }
-}
+
 
 /**
  * Get access token from Microsoft Graph API
