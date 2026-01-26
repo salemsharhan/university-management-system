@@ -114,6 +114,30 @@ export default function CreateAcademicYear() {
 
       if (insertError) throw insertError
 
+      // If this is a university-wide academic year, clone it to all existing colleges
+      if (isUniversityWide && data) {
+        const { data: colleges, error: collegesError } = await supabase
+          .from('colleges')
+          .select('id')
+          .eq('status', 'active')
+
+        if (!collegesError && colleges && colleges.length > 0) {
+          const clones = colleges.map(c => ({
+            name_en: data.name_en,
+            name_ar: data.name_ar,
+            code: data.code,
+            start_date: data.start_date,
+            end_date: data.end_date,
+            description: data.description,
+            description_ar: data.description_ar,
+            is_university_wide: false,
+            college_id: c.id,
+          }))
+
+          await supabase.from('academic_years').insert(clones)
+        }
+      }
+
       setSuccess(true)
       setTimeout(() => {
         navigate('/academic/years')

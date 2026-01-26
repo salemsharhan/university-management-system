@@ -276,7 +276,7 @@ export default function Enrollments() {
                 ) : (
                   filteredEnrollments.map((enrollment) => (
                     <tr key={enrollment.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <div>
                           <div className="text-sm font-medium text-gray-900">
                             {enrollment.students?.first_name} {enrollment.students?.last_name}
@@ -286,7 +286,7 @@ export default function Enrollments() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <div>
                           <div className="text-sm font-medium text-gray-900">
                             {enrollment.classes?.subjects?.code} - {enrollment.classes?.subjects?.name_en}
@@ -296,22 +296,22 @@ export default function Enrollments() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <div className="text-sm text-gray-900">
                           {enrollment.semesters?.name_en || 'N/A'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <div className="text-sm text-gray-900">
                           {new Date(enrollment.enrollment_date).toLocaleDateString()}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(enrollment.status)}`}>
                           {t(`enrollments.${enrollment.status || 'enrolled'}`)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <div className="text-sm text-gray-900">
                           {enrollment.grade || '-'}
                         </div>

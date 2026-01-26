@@ -86,3 +86,5 @@ CREATE INDEX IF NOT EXISTS idx_applications_college_app_number
 ON applications(college_id, application_number) 
 WHERE application_number IS NOT NULL;
 
+
+

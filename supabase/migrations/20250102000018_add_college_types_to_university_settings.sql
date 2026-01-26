@@ -11,3 +11,5 @@ COMMENT ON COLUMN "university_settings"."college_types" IS 'Array of college typ
 
 
 
+
+

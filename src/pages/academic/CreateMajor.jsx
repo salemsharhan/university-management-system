@@ -508,6 +508,51 @@ export default function CreateMajor() {
 
       if (insertError) throw insertError
 
+      // If this is a university-wide major, clone it to all existing colleges
+      if (isUniversityWide && majorData) {
+        const { data: colleges, error: collegesError } = await supabase
+          .from('colleges')
+          .select('id')
+          .eq('status', 'active')
+
+        if (!collegesError && colleges && colleges.length > 0) {
+          const clones = colleges.map(c => ({
+            faculty_id: null,
+            department_id: majorData.department_id,
+            code: majorData.code,
+            name_en: majorData.name_en,
+            name_ar: majorData.name_ar,
+            degree_level: majorData.degree_level,
+            degree_title_en: majorData.degree_title_en,
+            degree_title_ar: majorData.degree_title_ar,
+            total_credits: majorData.total_credits,
+            core_credits: majorData.core_credits,
+            elective_credits: majorData.elective_credits,
+            min_semesters: majorData.min_semesters,
+            max_semesters: majorData.max_semesters,
+            min_gpa: majorData.min_gpa,
+            tuition_fee: majorData.tuition_fee,
+            lab_fee: majorData.lab_fee,
+            registration_fee: majorData.registration_fee,
+            accreditation_date: majorData.accreditation_date,
+            accreditation_expiry: majorData.accreditation_expiry,
+            accrediting_body: majorData.accrediting_body,
+            head_of_major: null,
+            head_email: null,
+            head_phone: null,
+            head_of_major_id: null,
+            description: majorData.description,
+            description_ar: majorData.description_ar,
+            status: majorData.status,
+            is_university_wide: false,
+            college_id: c.id,
+            validation_rules: majorData.validation_rules,
+          }))
+
+          await supabase.from('majors').insert(clones)
+        }
+      }
+
       // Create Major Sheet if configured
       if (showMajorSheetConfig && majorSheet.version) {
         const majorSheetData = {

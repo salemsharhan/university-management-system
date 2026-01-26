@@ -158,6 +158,31 @@ export default function CreateDepartment() {
 
       if (insertError) throw insertError
 
+      // If this is a university-wide department, clone it to all existing colleges
+      if (isUniversityWide && data) {
+        const { data: colleges, error: collegesError } = await supabase
+          .from('colleges')
+          .select('id')
+          .eq('status', 'active')
+
+        if (!collegesError && colleges && colleges.length > 0) {
+          const clones = colleges.map(c => ({
+            code: data.code,
+            faculty_id: null,
+            head_id: null, // head will typically be college-specific
+            name_en: data.name_en,
+            name_ar: data.name_ar,
+            description: data.description,
+            description_ar: data.description_ar,
+            status: data.status,
+            is_university_wide: false,
+            college_id: c.id,
+          }))
+
+          await supabase.from('departments').insert(clones)
+        }
+      }
+
       setSuccess(true)
       setTimeout(() => {
         navigate('/academic/departments')

@@ -11,3 +11,5 @@ COMMENT ON COLUMN "applications"."registration_fee_amount" IS 'Amount of registr
 COMMENT ON COLUMN "applications"."registration_fee_paid_at" IS 'Date and time when registration fee was paid.';
 COMMENT ON COLUMN "applications"."registration_fee_payment_method" IS 'Payment method used for registration fee payment.';
 
+
+

@@ -6,3 +6,5 @@ ADD COLUMN IF NOT EXISTS "enrollment_date" date;
 
 COMMENT ON COLUMN "applications"."enrollment_date" IS 'Intended enrollment date when the application is accepted. Used when creating student records from applications.';
 
+
+

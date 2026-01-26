@@ -347,7 +347,7 @@ export default function FinanceConfiguration() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {feeStructures.map((fee) => (
                   <tr key={fee.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{fee.fee_name_en}</div>
                         {fee.fee_name_ar && (
@@ -355,17 +355,17 @@ export default function FinanceConfiguration() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
                       <span className="text-sm text-gray-900">{getFeeTypeLabel(fee.fee_type)}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
                       <div>
                         <span className="text-sm font-semibold text-primary-600">
                           {fee.currency} {parseFloat(fee.amount || 0).toFixed(2)}
                         </span>
                       </div>
                     </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-left">
                     <div className="text-sm text-gray-900">
                       {fee.applies_to_semester && Array.isArray(fee.applies_to_semester) && fee.applies_to_semester.length > 0 ? (
                         <div className="font-semibold">{fee.applies_to_semester.length} semester{fee.applies_to_semester.length !== 1 ? 's' : ''} selected</div>
@@ -384,19 +384,19 @@ export default function FinanceConfiguration() {
                       )}
                     </div>
                   </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
                       <span className="text-sm text-gray-900">
                         {fee.is_university_wide ? 'University Wide' : (fee.colleges?.name_en || 'N/A')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         fee.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {fee.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => navigate(`/finance/configuration/${fee.id}/edit`)}

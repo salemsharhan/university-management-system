@@ -8,3 +8,5 @@ COMMENT ON COLUMN "university_settings"."grade_types" IS 'Array of grade types t
 
 
 
+
+

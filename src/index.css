@@ -125,3 +125,28 @@ html[lang="ar"] a {
 [dir="ltr"] select {
   text-align: left;
 }
+
+/* Table alignment consistency */
+table thead th {
+  text-align: inherit;
+}
+
+table tbody td {
+  text-align: inherit;
+}
+
+/* Ensure table cells align with their headers */
+table thead th[class*="text-left"],
+table tbody td[class*="text-left"] {
+  text-align: left;
+}
+
+table thead th[class*="text-right"],
+table tbody td[class*="text-right"] {
+  text-align: right;
+}
+
+table thead th[class*="text-center"],
+table tbody td[class*="text-center"] {
+  text-align: center;
+}

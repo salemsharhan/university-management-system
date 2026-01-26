@@ -48,3 +48,5 @@ ON CONFLICT ("code") DO NOTHING;
 COMMENT ON TABLE "fee_types" IS 'Manageable fee types that can be customized per college or university-wide';
 COMMENT ON COLUMN "fee_types"."is_semester_based" IS 'Whether this fee type typically applies to semesters';
 COMMENT ON COLUMN "fee_types"."requires_semester" IS 'Whether semester selection is required when creating invoices with this fee type';
+
+

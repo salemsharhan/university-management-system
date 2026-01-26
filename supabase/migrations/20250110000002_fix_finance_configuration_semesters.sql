@@ -37,3 +37,5 @@ ON "finance_configuration" USING GIN ("applies_to_semester");
 -- Add comment
 COMMENT ON COLUMN "finance_configuration"."applies_to_semester" IS 'Array of semester IDs this fee structure applies to. Supports multiple semesters.';
 
+
+

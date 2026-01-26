@@ -933,6 +933,12 @@ export default function CreateCollege() {
     partial_refund_period_days: 30,
     partial_refund_percent: 50,
 
+    // Import options for university-wide structures on college creation
+    import_university_academic_years: true,
+    import_university_semesters: true,
+    import_university_departments: true,
+    import_university_majors: true,
+
     // Email
     smtp_host: 'smtp.gmail.com',
     smtp_port: 587,
@@ -1338,6 +1344,167 @@ export default function CreateCollege() {
         if (insertError) throw insertError
         data = insertData
 
+        // For new colleges, optionally import university-wide structures
+        if (data?.id) {
+          const newCollegeId = data.id
+
+          // Import university-wide academic years
+          if (formData.import_university_academic_years) {
+            const { data: uniYears, error: yearsError } = await supabase
+              .from('academic_years')
+              .select('*')
+              .eq('is_university_wide', true)
+
+            if (!yearsError && uniYears && uniYears.length > 0) {
+              const yearClones = uniYears.map(y => ({
+                name_en: y.name_en,
+                name_ar: y.name_ar,
+                code: y.code,
+                start_date: y.start_date,
+                end_date: y.end_date,
+                description: y.description,
+                description_ar: y.description_ar,
+                is_university_wide: false,
+                college_id: newCollegeId,
+              }))
+
+              if (yearClones.length > 0) {
+                await supabase.from('academic_years').insert(yearClones)
+              }
+            }
+          }
+
+          // Import university-wide semesters
+          if (formData.import_university_semesters) {
+            const { data: uniSemesters, error: semError } = await supabase
+              .from('semesters')
+              .select('*')
+              .eq('is_university_wide', true)
+
+            if (!semError && uniSemesters && uniSemesters.length > 0) {
+              // Try to map academic years by code for this college
+              const { data: collegeYears } = await supabase
+                .from('academic_years')
+                .select('id, code')
+                .eq('college_id', newCollegeId)
+                .eq('is_university_wide', false)
+
+              const yearByCode = {}
+              ;(collegeYears || []).forEach(y => {
+                if (y.code) yearByCode[y.code] = y.id
+              })
+
+              const semClones = uniSemesters.map(s => {
+                let academicYearId = s.academic_year_id
+                // Try to remap by academic year code if possible
+                academicYearId = yearByCode[s.academic_year_code] || academicYearId
+                return {
+                  academic_year_id: academicYearId,
+                  name_en: s.name_en,
+                  name_ar: s.name_ar,
+                  code: s.code,
+                  academic_year_number: s.academic_year_number,
+                  season: s.season,
+                  start_date: s.start_date,
+                  end_date: s.end_date,
+                  registration_start_date: s.registration_start_date,
+                  registration_end_date: s.registration_end_date,
+                  late_registration_end_date: s.late_registration_end_date,
+                  add_deadline: s.add_deadline,
+                  drop_deadline: s.drop_deadline,
+                  withdrawal_deadline: s.withdrawal_deadline,
+                  min_credit_hours: s.min_credit_hours,
+                  max_credit_hours: s.max_credit_hours,
+                  max_credit_hours_with_permission: s.max_credit_hours_with_permission,
+                  min_gpa_for_max_credits: s.min_gpa_for_max_credits,
+                  description: s.description,
+                  description_ar: s.description_ar,
+                  is_university_wide: false,
+                  college_id: newCollegeId,
+                }
+              })
+
+              if (semClones.length > 0) {
+                await supabase.from('semesters').insert(semClones)
+              }
+            }
+          }
+
+          // Import university-wide departments
+          if (formData.import_university_departments) {
+            const { data: uniDepts, error: deptError } = await supabase
+              .from('departments')
+              .select('*')
+              .eq('is_university_wide', true)
+
+            if (!deptError && uniDepts && uniDepts.length > 0) {
+              const deptClones = uniDepts.map(d => ({
+                code: d.code,
+                faculty_id: null,
+                head_id: null,
+                name_en: d.name_en,
+                name_ar: d.name_ar,
+                description: d.description,
+                description_ar: d.description_ar,
+                status: d.status,
+                is_university_wide: false,
+                college_id: newCollegeId,
+              }))
+
+              if (deptClones.length > 0) {
+                await supabase.from('departments').insert(deptClones)
+              }
+            }
+          }
+
+          // Import university-wide majors
+          if (formData.import_university_majors) {
+            const { data: uniMajors, error: majorsError } = await supabase
+              .from('majors')
+              .select('*')
+              .eq('is_university_wide', true)
+
+            if (!majorsError && uniMajors && uniMajors.length > 0) {
+              const majorClones = uniMajors.map(m => ({
+                faculty_id: null,
+                department_id: m.department_id,
+                code: m.code,
+                name_en: m.name_en,
+                name_ar: m.name_ar,
+                degree_level: m.degree_level,
+                degree_title_en: m.degree_title_en,
+                degree_title_ar: m.degree_title_ar,
+                total_credits: m.total_credits,
+                core_credits: m.core_credits,
+                elective_credits: m.elective_credits,
+                min_semesters: m.min_semesters,
+                max_semesters: m.max_semesters,
+                min_gpa: m.min_gpa,
+                tuition_fee: m.tuition_fee,
+                lab_fee: m.lab_fee,
+                registration_fee: m.registration_fee,
+                accreditation_date: m.accreditation_date,
+                accreditation_expiry: m.accreditation_expiry,
+                accrediting_body: m.accrediting_body,
+                head_of_major: null,
+                head_email: null,
+                head_phone: null,
+                head_of_major_id: null,
+                description: m.description,
+                description_ar: m.description_ar,
+                status: m.status,
+                is_university_wide: false,
+                college_id: newCollegeId,
+                validation_rules: m.validation_rules,
+              }))
+
+              if (majorClones.length > 0) {
+                await supabase.from('majors').insert(majorClones)
+              }
+            }
+          }
+        }
+
         // Create college admin login account if requested (only for new colleges)
         if (formData.create_admin_account !== false && formData.admin_password) {
           try {
@@ -1536,6 +1703,64 @@ export default function CreateCollege() {
                     </div>
                   )}
                   <ExaminationSettings formData={formData} handleChange={handleChange} />
+                </div>
+              )}
+
+              {/* Import university-wide structures options (only on create) */}
+              {!isEditMode && (
+                <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                    {t('colleges.importUniversityWide.title', 'Import University-wide Structures')}
+                  </h2>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {t('colleges.importUniversityWide.description', 'Choose which existing university-wide entities should be copied to this college on creation.')}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.import_university_academic_years}
+                        onChange={(e) => setFormData(prev => ({ ...prev, import_university_academic_years: e.target.checked }))}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {t('colleges.importUniversityWide.academicYears', 'Copy university-wide academic years')}
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.import_university_semesters}
+                        onChange={(e) => setFormData(prev => ({ ...prev, import_university_semesters: e.target.checked }))}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {t('colleges.importUniversityWide.semesters', 'Copy university-wide semesters')}
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.import_university_departments}
+                        onChange={(e) => setFormData(prev => ({ ...prev, import_university_departments: e.target.checked }))}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {t('colleges.importUniversityWide.departments', 'Copy university-wide departments')}
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={formData.import_university_majors}
+                        onChange={(e) => setFormData(prev => ({ ...prev, import_university_majors: e.target.checked }))}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {t('colleges.importUniversityWide.majors', 'Copy university-wide majors')}
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
             </div>

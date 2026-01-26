@@ -44,3 +44,5 @@ COMMENT ON COLUMN finance_configuration.semester_id IS 'Semester this fee applie
 
 
 
+
+

@@ -13,3 +13,5 @@ CREATE INDEX IF NOT EXISTS "idx_majors_validation_rules" ON "majors" USING gin("
 
 
 
+
+

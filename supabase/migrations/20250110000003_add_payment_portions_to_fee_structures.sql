@@ -45,3 +45,5 @@ COMMENT ON COLUMN "invoices"."portion_number" IS
 COMMENT ON COLUMN "invoices"."portion_percentage" IS 
 'Percentage of total amount for this portion';
 
+
+

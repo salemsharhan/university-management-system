@@ -240,6 +240,73 @@ export default function CreateSemester() {
 
       if (insertError) throw insertError
 
+      // If this is a university-wide semester, clone it to all existing colleges
+      if (isUniversityWide && data) {
+        // Load the academic year so we can map by code when cloning
+        const { data: academicYear, error: yearError } = await supabase
+          .from('academic_years')
+          .select('id, code')
+          .eq('id', data.academic_year_id)
+          .maybeSingle()
+
+        const { data: colleges, error: collegesError } = await supabase
+          .from('colleges')
+          .select('id')
+          .eq('status', 'active')
+
+        if (!collegesError && colleges && colleges.length > 0) {
+          const clones = []
+
+          for (const c of colleges) {
+            let targetAcademicYearId = data.academic_year_id
+
+            // If we have the original academic year's code, try to find the college-specific copy
+            if (academicYear?.code) {
+              const { data: collegeYear, error: collegeYearError } = await supabase
+                .from('academic_years')
+                .select('id')
+                .eq('code', academicYear.code)
+                .eq('college_id', c.id)
+                .eq('is_university_wide', false)
+                .maybeSingle()
+
+              if (!collegeYearError && collegeYear) {
+                targetAcademicYearId = collegeYear.id
+              }
+            }
+
+            clones.push({
+              academic_year_id: targetAcademicYearId,
+              name_en: data.name_en,
+              name_ar: data.name_ar,
+              code: data.code,
+              academic_year_number: data.academic_year_number,
+              season: data.season,
+              start_date: data.start_date,
+              end_date: data.end_date,
+              registration_start_date: data.registration_start_date,
+              registration_end_date: data.registration_end_date,
+              late_registration_end_date: data.late_registration_end_date,
+              add_deadline: data.add_deadline,
+              drop_deadline: data.drop_deadline,
+              withdrawal_deadline: data.withdrawal_deadline,
+              min_credit_hours: data.min_credit_hours,
+              max_credit_hours: data.max_credit_hours,
+              max_credit_hours_with_permission: data.max_credit_hours_with_permission,
+              min_gpa_for_max_credits: data.min_gpa_for_max_credits,
+              description: data.description,
+              description_ar: data.description_ar,
+              is_university_wide: false,
+              college_id: c.id,
+            })
+          }
+
+          if (clones.length > 0) {
+            await supabase.from('semesters').insert(clones)
+          }
+        }
+      }
+
       setSuccess(true)
       setTimeout(() => {
         navigate('/academic/semesters')

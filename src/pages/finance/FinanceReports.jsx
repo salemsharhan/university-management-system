@@ -250,15 +250,15 @@ export default function FinanceReports() {
               <tbody>
                 {reportData.data.map((invoice) => (
                   <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">{invoice.invoice_number}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 text-left">{invoice.invoice_number}</td>
+                    <td className="py-3 px-4 text-left">
                       {invoice.students?.student_id} - {invoice.students?.name_en}
                     </td>
-                    <td className="py-3 px-4 capitalize">{invoice.invoice_type.replace('_', ' ')}</td>
-                    <td className="py-3 px-4">${parseFloat(invoice.total_amount || 0).toFixed(2)}</td>
-                    <td className="py-3 px-4">${parseFloat(invoice.paid_amount || 0).toFixed(2)}</td>
-                    <td className="py-3 px-4">${parseFloat(invoice.pending_amount || 0).toFixed(2)}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 text-left capitalize">{invoice.invoice_type.replace('_', ' ')}</td>
+                    <td className="py-3 px-4 text-left">${parseFloat(invoice.total_amount || 0).toFixed(2)}</td>
+                    <td className="py-3 px-4 text-left">${parseFloat(invoice.paid_amount || 0).toFixed(2)}</td>
+                    <td className="py-3 px-4 text-left">${parseFloat(invoice.pending_amount || 0).toFixed(2)}</td>
+                    <td className="py-3 px-4 text-left">
                       <span className={`px-2 py-1 rounded-full text-xs capitalize ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                         {invoice.status}
                       </span>

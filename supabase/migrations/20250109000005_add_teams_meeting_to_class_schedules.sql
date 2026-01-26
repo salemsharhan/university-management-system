@@ -15,3 +15,5 @@ COMMENT ON COLUMN "class_schedules"."teams_meeting_url" IS 'Microsoft Teams meet
 COMMENT ON COLUMN "class_schedules"."teams_meeting_id" IS 'Microsoft Graph online meeting ID';
 COMMENT ON COLUMN "class_schedules"."teams_event_id" IS 'Microsoft Graph calendar event ID';
 
+
+

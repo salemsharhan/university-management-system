@@ -195,21 +195,21 @@ export default function Students() {
                 ) : (
                   filteredStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <span className="text-sm font-medium text-gray-900">{student.student_id || 'N/A'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <span className="text-sm font-medium text-gray-900">
                           {student.first_name} {student.last_name}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <span className="text-sm text-gray-600">{student.email || 'N/A'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <span className="text-sm text-gray-600">{student.majors?.name_en || 'N/A'}</span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
                         <span
                           className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
                             student.status || 'active'

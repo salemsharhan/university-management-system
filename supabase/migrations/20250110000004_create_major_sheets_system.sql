@@ -213,3 +213,5 @@ CREATE TRIGGER update_student_major_sheets_updated_at BEFORE UPDATE ON student_m
 CREATE TRIGGER update_college_course_group_templates_updated_at BEFORE UPDATE ON college_course_group_templates
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+
+
