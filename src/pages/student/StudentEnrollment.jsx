@@ -98,19 +98,12 @@ export default function StudentEnrollment() {
     try {
       if (!collegeId) return
       
-      const { data, error } = await supabase
-        .from('colleges')
-        .select('academic_settings')
-        .eq('id', collegeId)
-        .single()
+      // Use utility function to get effective settings (college or university based on flag)
+      const { getCollegeSettings } = await import('../../utils/getCollegeSettings.js')
+      const settings = await getCollegeSettings(collegeId)
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching college academic settings:', error)
-        return
-      }
-
-      if (data?.academic_settings?.credit_hours_source) {
-        setCreditHoursSource(data.academic_settings.credit_hours_source)
+      if (settings.academic?.credit_hours_source) {
+        setCreditHoursSource(settings.academic.credit_hours_source)
       }
     } catch (err) {
       console.error('Error fetching college academic settings:', err)
@@ -766,9 +759,9 @@ export default function StudentEnrollment() {
                     <p className="font-semibold">
                       {registrationStatus.allowed 
                         ? registrationStatus.isLateRegistration 
-                          ? 'Late Registration Period'
-                          : 'Registration Open'
-                        : 'Registration Closed'
+                          ? t('academic.semesters.lateRegistrationPeriod')
+                          : t('academic.semesters.registration_open')
+                        : t('academic.semesters.registrationClosed')
                       }
                     </p>
                     {registrationStatus.reason && (
@@ -781,16 +774,16 @@ export default function StudentEnrollment() {
 
             {currentSemester && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-900 mb-2">Registration Dates</h4>
+                <h4 className="font-semibold text-blue-900 mb-2">{t('academic.semesters.registrationDates')}</h4>
                 <div className="text-sm text-blue-700 space-y-1">
                   {currentSemester.registration_start_date && (
-                    <p>Start: {new Date(currentSemester.registration_start_date).toLocaleDateString()}</p>
+                    <p>{t('academic.semesters.start')}: {new Date(currentSemester.registration_start_date).toLocaleDateString()}</p>
                   )}
                   {currentSemester.registration_end_date && (
-                    <p>Regular End: {new Date(currentSemester.registration_end_date).toLocaleDateString()}</p>
+                    <p>{t('academic.semesters.regularEnd')}: {new Date(currentSemester.registration_end_date).toLocaleDateString()}</p>
                   )}
                   {currentSemester.late_registration_end_date && (
-                    <p>Late Registration End: {new Date(currentSemester.late_registration_end_date).toLocaleDateString()}</p>
+                    <p>{t('academic.semesters.lateRegistrationEnd')}: {new Date(currentSemester.late_registration_end_date).toLocaleDateString()}</p>
                   )}
                 </div>
               </div>
@@ -802,7 +795,7 @@ export default function StudentEnrollment() {
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Classes</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.selectClasses')}</h3>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {classes.length === 0 ? (
                   <p className="text-gray-500 text-center py-8">No classes available for this semester.</p>
@@ -895,11 +888,11 @@ export default function StudentEnrollment() {
         {/* Step 3: Review */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Enrollment</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.reviewEnrollment')}</h3>
             
             <div className="space-y-4">
               <div>
-                <h4 className="font-semibold text-gray-700 mb-2">Selected Semester</h4>
+                <h4 className="font-semibold text-gray-700 mb-2">{t('academic.semesters.selectedSemester')}</h4>
                 <p className="text-gray-900">
                   {currentSemester?.name_en} ({currentSemester?.code})
                 </p>

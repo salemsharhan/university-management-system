@@ -23,6 +23,7 @@ import Colleges from './pages/admin/Colleges'
 import CreateCollege from './pages/admin/CreateCollege'
 import ViewCollege from './pages/admin/ViewCollege'
 import CollegeProfile from './pages/admin/CollegeProfile'
+import CollegeKPIs from './pages/admin/CollegeKPIs'
 import CreateInstructor from './pages/CreateInstructor'
 import CreateAcademicYear from './pages/academic/CreateAcademicYear'
 import CreateSemester from './pages/academic/CreateSemester'
@@ -391,6 +392,26 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CollegeProfile />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/colleges/:id/kpis"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CollegeKPIs />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/college/kpis"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CollegeKPIs />
                 </Layout>
               </ProtectedRoute>
             }

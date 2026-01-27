@@ -165,19 +165,12 @@ export default function CreateEnrollment() {
     try {
       if (!collegeId) return
       
-      const { data, error } = await supabase
-        .from('colleges')
-        .select('academic_settings')
-        .eq('id', collegeId)
-        .single()
+      // Use utility function to get effective settings (college or university based on flag)
+      const { getCollegeSettings } = await import('../utils/getCollegeSettings.js')
+      const settings = await getCollegeSettings(collegeId)
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching college academic settings:', error)
-        return
-      }
-
-      if (data?.academic_settings?.credit_hours_source) {
-        setCreditHoursSource(data.academic_settings.credit_hours_source)
+      if (settings.academic?.credit_hours_source) {
+        setCreditHoursSource(settings.academic.credit_hours_source)
       }
     } catch (err) {
       console.error('Error fetching college academic settings:', err)
@@ -1632,7 +1625,7 @@ export default function CreateEnrollment() {
             className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Check className="w-4 h-4" />
-            <span>{loading ? 'Enrolling...' : validationErrors.length > 0 ? 'Cannot Enroll - Fix Errors' : 'Complete Enrollment'}</span>
+            <span>{loading ? t('enrollments.enrolling') : validationErrors.length > 0 ? t('enrollments.cannotEnroll') : t('enrollments.completeEnrollment')}</span>
           </button>
         )}
       </div>

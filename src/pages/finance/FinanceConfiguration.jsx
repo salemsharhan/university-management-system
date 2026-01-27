@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { Plus, Edit, Trash2, DollarSign, Settings, Loader2, Tag, FileText } from 'lucide-react'
 
 export default function FinanceConfiguration() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
@@ -191,13 +193,13 @@ export default function FinanceConfiguration() {
 
   const getFeeTypeLabel = (type) => {
     const labels = {
-      'admission_fee': 'Admission Fee',
-      'course_fee': 'Course Fee',
-      'subject_fee': 'Subject Fee',
-      'onboarding_fee': 'Onboarding Fee',
-      'penalty': 'Penalty',
-      'miscellaneous': 'Miscellaneous',
-      'other': 'Other'
+      'admission_fee': t('finance.feeTypes.admissionFee'),
+      'course_fee': t('finance.feeTypes.courseFee'),
+      'subject_fee': t('finance.feeTypes.subjectFee'),
+      'onboarding_fee': t('finance.feeTypes.onboardingFee'),
+      'penalty': t('finance.feeTypes.penalty'),
+      'miscellaneous': t('finance.feeTypes.miscellaneous'),
+      'other': t('finance.feeTypes.other')
     }
     return labels[type] || type
   }
@@ -206,7 +208,7 @@ export default function FinanceConfiguration() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Finance Configuration</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{t('finance.financeConfiguration')}</h1>
           <p className="text-gray-600 mt-1">Manage fee types and fee structures</p>
         </div>
         {activeTab === 'structures' && (

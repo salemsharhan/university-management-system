@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
-import { Plus, Building2, Search, MoreVertical, Edit, Trash2, Eye } from 'lucide-react'
+import { Plus, Building2, Search, MoreVertical, Edit, Trash2, Eye, BarChart3 } from 'lucide-react'
 
 export default function Colleges() {
   const { t } = useTranslation()
@@ -107,12 +107,19 @@ export default function Colleges() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-gray-200">
+              <div className="pt-4 border-t border-gray-200 space-y-2">
                 <button
                   onClick={() => navigate(`/admin/colleges/${college.id}`)}
                   className="w-full bg-primary-50 text-primary-600 py-2 rounded-xl font-medium hover:bg-primary-100 transition-colors"
                 >
                   {t('colleges.viewDetails')}
+                </button>
+                <button
+                  onClick={() => navigate(`/admin/colleges/${college.id}/kpis`)}
+                  className={`w-full flex items-center justify-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-gradient-to-r from-purple-50 to-pink-50 text-purple-600 py-2 rounded-xl font-medium hover:from-purple-100 hover:to-pink-100 transition-colors`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  <span>{t('colleges.graphs') || 'Graphs'}</span>
                 </button>
               </div>
             </div>

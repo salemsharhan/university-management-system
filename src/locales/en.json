@@ -46,7 +46,12 @@
     "notSelected": "Not selected",
     "step": "Step",
     "of": "of",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "allSemesters": "All Semesters",
+    "fallSemester": "Fall Semester",
+    "springSemester": "Spring Semester",
+    "summerSemester": "Summer Semester",
+    "academicYear": "Academic Year"
   },
   "navigation": {
     "dashboard": "Dashboard",
@@ -475,6 +480,9 @@
     "previous": "Previous",
     "submit": "Submit Enrollment",
     "submitting": "Submitting...",
+    "enrolling": "Enrolling...",
+    "cannotEnroll": "Cannot Enroll - Fix Errors",
+    "completeEnrollment": "Complete Enrollment",
     "createdSuccess": "Enrollment created successfully! Redirecting...",
     "alreadyEnrolled": "Student is already enrolled in this class",
     "enrollmentDate": "Enrollment Date",
@@ -718,6 +726,16 @@
       "planned": "Planned",
       "active": "Active",
       "registration_open": "Registration Open",
+      "registrationClosed": "Registration Closed",
+      "lateRegistrationPeriod": "Late Registration Period",
+      "registrationDates": "Registration Dates",
+      "start": "Start",
+      "regularEnd": "Regular End",
+      "lateRegistrationEnd": "Late Registration End",
+      "selectClasses": "Select Classes",
+      "reviewEnrollment": "Review Enrollment",
+      "selectedSemester": "Selected Semester",
+      "descriptionPlaceholder": "Additional information about this semester...",
       "completed": "Completed",
       "delete": "Delete",
       "deleting": "Deleting..."
@@ -867,6 +885,7 @@
     "create": "Create College",
     "searchPlaceholder": "Search colleges...",
     "viewDetails": "View Details",
+    "graphs": "Graphs",
     "email": "Email",
     "status": "Status",
     "back": "Back to Colleges",
@@ -1821,6 +1840,16 @@
   },
   "finance": {
     "title": "Finance Management",
+    "financeConfiguration": "Finance Configuration",
+    "feeTypes": {
+      "admissionFee": "Admission Fee",
+      "courseFee": "Course Fee",
+      "subjectFee": "Subject Fee",
+      "onboardingFee": "Onboarding Fee",
+      "penalty": "Penalty",
+      "miscellaneous": "Miscellaneous",
+      "other": "Other"
+    },
     "milestones": {
       "PM00": "No payment received",
       "PM10": "Initial payment received (registration fee)",

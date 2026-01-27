@@ -148,21 +148,18 @@ export default function ManageMajorSheet() {
 
   const fetchCollegeAcademicSettings = async () => {
     try {
-      if (!collegeId) return
-      
-      const { data, error } = await supabase
-        .from('colleges')
-        .select('academic_settings')
-        .eq('id', collegeId)
-        .single()
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching college academic settings:', error)
+      if (!collegeId) {
+        // If no collegeId, fetch from university settings
+        await fetchUniversityAcademicSettings()
         return
       }
+      
+      // Use utility function to get effective settings (college or university based on flag)
+      const { getCollegeSettings } = await import('../../utils/getCollegeSettings.js')
+      const settings = await getCollegeSettings(collegeId)
 
-      if (data?.academic_settings?.credit_hours_source) {
-        setCreditHoursSource(data.academic_settings.credit_hours_source)
+      if (settings.academic?.credit_hours_source) {
+        setCreditHoursSource(settings.academic.credit_hours_source)
       }
     } catch (err) {
       console.error('Error fetching college academic settings:', err)

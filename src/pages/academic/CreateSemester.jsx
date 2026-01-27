@@ -125,21 +125,18 @@ export default function CreateSemester() {
 
   const fetchCollegeAcademicSettings = async () => {
     try {
-      if (!collegeId) return
-      
-      const { data, error } = await supabase
-        .from('colleges')
-        .select('academic_settings')
-        .eq('id', collegeId)
-        .single()
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching college academic settings:', error)
+      if (!collegeId) {
+        // If no collegeId, fetch from university settings
+        await fetchUniversityAcademicSettings()
         return
       }
+      
+      // Use utility function to get effective settings (college or university based on flag)
+      const { getCollegeSettings } = await import('../../utils/getCollegeSettings.js')
+      const settings = await getCollegeSettings(collegeId)
 
-      if (data?.academic_settings?.credit_hours_source) {
-        setCreditHoursSource(data.academic_settings.credit_hours_source)
+      if (settings.academic?.credit_hours_source) {
+        setCreditHoursSource(settings.academic.credit_hours_source)
       }
     } catch (err) {
       console.error('Error fetching college academic settings:', err)
@@ -643,7 +640,7 @@ export default function CreateSemester() {
                     onChange={(e) => handleChange('description', e.target.value)}
                     rows={3}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="Additional information about this semester..."
+                    placeholder={t('academic.semesters.descriptionPlaceholder')}
                   />
                 </div>
                 <div className="mt-4">

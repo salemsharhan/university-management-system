@@ -1617,6 +1617,33 @@ export default function CreateCollege() {
             </nav>
           </div>
 
+          {/* Use University Settings Checkbox - At the top before tabs */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">
+              <label className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} cursor-pointer`}>
+                <input
+                  type="checkbox"
+                  checked={useUniversitySettings}
+                  onChange={(e) => {
+                    setUseUniversitySettings(e.target.checked)
+                    if (e.target.checked && !universitySettings) {
+                      fetchUniversitySettings()
+                    }
+                  }}
+                  className="mt-1 w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 mb-1">
+                    {t('colleges.generalSettings.useUniversitySettings') || 'Use University Settings'}
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    {t('colleges.generalSettings.useUniversitySettingsDesc') || 'If checked, this college will use the university-wide settings instead of custom settings. When enabled, all settings will be fetched from university settings at runtime.'}
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* Form Content */}
           <form onSubmit={handleSubmit}>
             <div className="p-6">

@@ -7,24 +7,6 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
   
   return (
     <div className="space-y-6">
-      {setUseUniversitySettings && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
-            <input
-              type="checkbox"
-              checked={useUniversitySettings}
-              onChange={(e) => setUseUniversitySettings(e.target.checked)}
-              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-            />
-            <div>
-              <label className="text-sm font-medium text-gray-900">{t('colleges.generalSettings.useUniversitySettings')}</label>
-              <p className="text-xs text-gray-600">
-                {t('colleges.generalSettings.useUniversitySettingsDesc') || 'Check this to auto-fill default values from university settings. All settings will still be saved per college and can be customized.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.basicInformation')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
