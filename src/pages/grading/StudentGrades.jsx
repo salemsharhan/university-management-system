@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getGradingScaleFromUniversitySettings, calculateGpaWithScale } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
@@ -19,6 +20,9 @@ export default function StudentGrades() {
   const [selectedProgram, setSelectedProgram] = useState('All Programs')
   const [loading, setLoading] = useState(false)
   const [collegeId, setCollegeId] = useState(null)
+  const [gradingScale, setGradingScale] = useState([])
+  const [enrollmentsByStudent, setEnrollmentsByStudent] = useState({})
+  const [activeSemester, setActiveSemester] = useState(null)
 
   useEffect(() => {
     // Only set collegeId and fetch if we have the required data
@@ -52,6 +56,53 @@ export default function StudentGrades() {
   useEffect(() => {
     filterStudents()
   }, [searchTerm, selectedProgram, students])
+
+  useEffect(() => {
+    getGradingScaleFromUniversitySettings().then(setGradingScale)
+  }, [])
+
+  useEffect(() => {
+    if (collegeId || userRole === 'admin') {
+      supabase
+        .from('semesters')
+        .select('id, name_en, code')
+        .or('status.eq.active,is_current.eq.true')
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => setActiveSemester(data))
+    }
+  }, [collegeId, userRole])
+
+  useEffect(() => {
+    if (filteredStudents.length === 0) {
+      setEnrollmentsByStudent({})
+      return
+    }
+    const studentIds = filteredStudents.map(s => s.id)
+    supabase
+      .from('enrollments')
+      .select(`
+        student_id,
+        semester_id,
+        classes(id, subjects(id, credit_hours)),
+        grade_components(numeric_grade, gpa_points)
+      `)
+      .in('student_id', studentIds)
+      .eq('status', 'enrolled')
+      .then(({ data }) => {
+        const byStudent = {}
+        ;(data || []).forEach(e => {
+          if (!byStudent[e.student_id]) byStudent[e.student_id] = []
+          byStudent[e.student_id].push({
+            ...e,
+            grade_components: e.grade_components,
+            classes: e.classes,
+          })
+        })
+        setEnrollmentsByStudent(byStudent)
+      })
+  }, [filteredStudents])
 
   const fetchStudents = async () => {
     // Don't fetch if we don't have required data
@@ -138,6 +189,18 @@ export default function StudentGrades() {
     setFilteredStudents(filtered)
   }
 
+  const getStudentGpas = (studentId) => {
+    const enrollments = enrollmentsByStudent[studentId] || []
+    const allGpa = calculateGpaWithScale(enrollments, gradingScale)
+    const currentGpa = activeSemester
+      ? calculateGpaWithScale(enrollments, gradingScale, activeSemester.id)
+      : { gpa: '0.00' }
+    return {
+      currentSemesterGpa: currentGpa.gpa,
+      totalGpa: allGpa.gpa,
+    }
+  }
+
   const getPrograms = () => {
     const programs = new Set()
     students.forEach(s => {
@@ -205,8 +268,8 @@ export default function StudentGrades() {
                   <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.studentId')}</th>
                   <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.name')}</th>
                   <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.program')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.currentSemester')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.cumulativeGpa')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.currentSemesterGpa')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.totalGpa')}</th>
                   <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.status')}</th>
                   <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('common.actions')}</th>
                 </tr>
@@ -226,10 +289,10 @@ export default function StudentGrades() {
                       {student.majors?.name_en || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      Semester 1
+                      {getStudentGpas(student.id).currentSemesterGpa}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      N/A
+                      {getStudentGpas(student.id).totalGpa}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">

@@ -1,95 +1,80 @@
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 
-export default function AcademicSettings({ formData, handleChange, handleGradingScaleChange }) {
+export default function AcademicSettings({ formData, handleChange, handleGradingScaleChange, readOnlyCreditsAndGrading = false }) {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
+  const ns = readOnlyCreditsAndGrading ? 'colleges.academicSettings' : 'universitySettings.academic'
   
   return (
     <div className="space-y-8">
-      {/* Credit Hours Configuration */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.creditHoursConfiguration')}</h3>
-        
-        {/* Credit Hours Source Selection */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Credit Hours Rules Source *
-          </label>
-          <select
-            value={formData.credit_hours_source || 'semester'}
-            onChange={(e) => handleChange('credit_hours_source', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          >
-            <option value="semester">From Semester Settings</option>
-            <option value="major_sheet">From Major Sheet (Degree Plan)</option>
-          </select>
-          <p className="text-xs text-gray-600 mt-2">
-            {formData.credit_hours_source === 'semester' 
-              ? 'Credit hour limits will be defined per semester. Configure in Create/Edit Semester.'
-              : 'Credit hour limits will be defined in the major sheet. Configure in Manage Major Sheet.'}
+      {/* University-wide settings - Grading Scale & Semester Credits: only show "blocked" message in College Create, not in University Settings */}
+      {readOnlyCreditsAndGrading && (
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-900 mb-2">{t('colleges.academicSettings.fromUniversitySettings') || 'From University Settings (Common for All Colleges)'}</h3>
+          <p className="text-sm text-blue-800">
+            {t('colleges.academicSettings.gradingScaleAndCreditsNote') || 'Grading scale and semester credit limits are configured in University Settings and apply to all colleges. Configure these in University Settings → Academic.'}
           </p>
         </div>
+      )}
 
-        {/* Show these fields only if using semester source (default/legacy behavior) */}
-        {(!formData.credit_hours_source || formData.credit_hours_source === 'semester') && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Min Credit Hours per Semester
-              </label>
-              <input
-                type="number"
-                value={formData.min_credit_hours}
-                onChange={(e) => handleChange('min_credit_hours', parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">Default value used when creating semesters</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Max Credit Hours per Semester
-              </label>
-              <input
-                type="number"
-                value={formData.max_credit_hours}
-                onChange={(e) => handleChange('max_credit_hours', parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-              <p className="text-xs text-gray-500 mt-1">Default value used when creating semesters</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.maxWithPermission')}</label>
-              <input
-                type="number"
-                value={formData.max_with_permission}
-                onChange={(e) => handleChange('max_with_permission', parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.academicSettings.minGpaForOverload')}</label>
-              <input
-                type="number"
-                step="0.1"
-                value={formData.min_gpa_for_overload}
-                onChange={(e) => handleChange('min_gpa_for_overload', parseFloat(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+      {/* Grading Scale & Semester Credits - editable only in University Settings */}
+      {!readOnlyCreditsAndGrading && (
+        <>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t(`${ns}.semesterCreditLimits`) || t('colleges.academicSettings.semesterCreditLimits') || 'Semester Credit Limits'}</h3>
+            <p className="text-sm text-gray-600 mb-4">{t(`${ns}.semesterCreditLimitsDesc`) || t('colleges.academicSettings.semesterCreditLimitsDesc') || 'These apply to all colleges.'}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t(`${ns}.minCreditHours`) || t('colleges.academicSettings.minCreditHours') || 'Min Credit Hours'}</label>
+                <input type="number" value={formData.min_credit_hours ?? 12} onChange={(e) => handleChange('min_credit_hours', parseInt(e.target.value) || 12)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t(`${ns}.maxCreditHours`) || t('colleges.academicSettings.maxCreditHours') || 'Max Credit Hours'}</label>
+                <input type="number" value={formData.max_credit_hours ?? 18} onChange={(e) => handleChange('max_credit_hours', parseInt(e.target.value) || 18)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t(`${ns}.maxWithPermission`) || t('colleges.academicSettings.maxWithPermission') || 'Max with Permission'}</label>
+                <input type="number" value={formData.max_with_permission ?? 21} onChange={(e) => handleChange('max_with_permission', parseInt(e.target.value) || 21)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t(`${ns}.minGpaForOverload`) || t('colleges.academicSettings.minGpaForOverload') || 'Min GPA for Overload'}</label>
+                <input type="number" step="0.1" value={formData.min_gpa_for_overload ?? 3} onChange={(e) => handleChange('min_gpa_for_overload', parseFloat(e.target.value) || 3)} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Show message if using major_sheet source */}
-        {formData.credit_hours_source === 'major_sheet' && (
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              When using Major Sheet as the source, credit hour limits are configured in each major's degree plan (Manage Major Sheet).
-              The fields above are used as defaults but individual major sheets override them.
-            </p>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{t(`${ns}.gradingScale`) || t('colleges.academicSettings.gradingScale') || 'Grading Scale'}</h3>
+            <p className="text-sm text-gray-600 mb-4">{t(`${ns}.gradingScaleDesc`) || t('colleges.academicSettings.gradingScaleDesc') || 'Letter grades and grade points. These apply to all colleges.'}</p>
+            {formData.grading_scale && Array.isArray(formData.grading_scale) && handleGradingScaleChange && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">{t(`${ns}.letter`) || t('colleges.academicSettings.letter') || 'Letter'}</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">{t(`${ns}.minPercent`) || t('colleges.academicSettings.minPercent') || 'Min %'}</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">{t(`${ns}.maxPercent`) || t('colleges.academicSettings.maxPercent') || 'Max %'}</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">{t(`${ns}.points`) || t('colleges.academicSettings.points') || 'Points'}</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">{t(`${ns}.passing`) || t('colleges.academicSettings.passing') || 'Passing'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.grading_scale.map((row, idx) => (
+                      <tr key={idx} className="border-t border-gray-200">
+                        <td className="px-4 py-2"><input type="text" value={row.letter ?? ''} onChange={(e) => handleGradingScaleChange(idx, 'letter', e.target.value)} className="w-20 px-2 py-1 border rounded" /></td>
+                        <td className="px-4 py-2"><input type="number" value={row.minPercent ?? 0} onChange={(e) => handleGradingScaleChange(idx, 'minPercent', parseFloat(e.target.value))} className="w-20 px-2 py-1 border rounded" /></td>
+                        <td className="px-4 py-2"><input type="number" value={row.maxPercent ?? 0} onChange={(e) => handleGradingScaleChange(idx, 'maxPercent', parseFloat(e.target.value))} className="w-20 px-2 py-1 border rounded" /></td>
+                        <td className="px-4 py-2"><input type="number" step="0.1" value={row.points ?? 0} onChange={(e) => handleGradingScaleChange(idx, 'points', parseFloat(e.target.value))} className="w-20 px-2 py-1 border rounded" /></td>
+                        <td className="px-4 py-2"><input type="checkbox" checked={row.passing ?? false} onChange={(e) => handleGradingScaleChange(idx, 'passing', e.target.checked)} className="rounded" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* GPA Configuration */}
       <div>
@@ -135,71 +120,6 @@ export default function AcademicSettings({ formData, handleChange, handleGrading
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>
-        </div>
-      </div>
-
-      {/* Grading Scale */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.academicSettings.gradingScale')}</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.gradeLetter')}</th>
-                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.minPercent')}</th>
-                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.maxPercent')}</th>
-                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.gradePoints')}</th>
-                <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase`}>{t('colleges.academicSettings.passing')}</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {formData.grading_scale.map((grade, index) => (
-                <tr key={index}>
-                  <td className="px-4 py-3">
-                    <input
-                      type="text"
-                      value={grade.letter}
-                      onChange={(e) => handleGradingScaleChange(index, 'letter', e.target.value)}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      value={grade.minPercent}
-                      onChange={(e) => handleGradingScaleChange(index, 'minPercent', parseInt(e.target.value))}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      value={grade.maxPercent}
-                      onChange={(e) => handleGradingScaleChange(index, 'maxPercent', parseInt(e.target.value))}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={grade.points}
-                      onChange={(e) => handleGradingScaleChange(index, 'points', parseFloat(e.target.value))}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={grade.passing}
-                      onChange={(e) => handleGradingScaleChange(index, 'passing', e.target.checked)}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 

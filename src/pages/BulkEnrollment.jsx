@@ -19,6 +19,7 @@ export default function BulkEnrollment() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  const [academicYears, setAcademicYears] = useState([])
   const [semesters, setSemesters] = useState([])
   const [students, setStudents] = useState([])
   const [availableClasses, setAvailableClasses] = useState([])
@@ -30,6 +31,7 @@ export default function BulkEnrollment() {
   const [subjects, setSubjects] = useState([])
 
   const [formData, setFormData] = useState({
+    academic_year_id: '',
     semester_id: '',
     student_id: '',
   })
@@ -39,7 +41,11 @@ export default function BulkEnrollment() {
       return
     }
     if (collegeId) {
+      fetchAcademicYears()
       fetchSemesters()
+    } else {
+      setAcademicYears([])
+      setSemesters([])
     }
   }, [collegeId, userRole, requiresCollegeSelection])
 
@@ -68,6 +74,24 @@ export default function BulkEnrollment() {
     }
   }, [studentSearch, formData.semester_id])
 
+  const fetchAcademicYears = async () => {
+    if (!collegeId) return
+    try {
+      let query = supabase
+        .from('academic_years')
+        .select('id, name_en, name_ar, code, start_date, end_date')
+        .order('start_date', { ascending: false })
+
+      query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+
+      const { data, error } = await query
+      if (error) throw error
+      setAcademicYears(data || [])
+    } catch (err) {
+      console.error('Error fetching academic years:', err)
+    }
+  }
+
   const fetchSemesters = async () => {
     // Don't fetch if we don't have required data
     if (userRole === 'user' && !collegeId) return
@@ -76,15 +100,11 @@ export default function BulkEnrollment() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date, status')
+        .select('id, name_en, code, start_date, end_date, status, academic_year_id')
         .order('start_date', { ascending: false })
 
-      // Filter by college for college admins
-      if (userRole === 'user' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      }
-      // Filter by college for instructors
-      else if (userRole === 'instructor' && collegeId) {
+      // Filter by college: show college's semesters OR university-wide
+      if (collegeId) {
         query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
@@ -130,7 +150,7 @@ export default function BulkEnrollment() {
         .eq('status', 'active')
         .order('name_en')
 
-      if (userRole === 'user' && collegeId) {
+      if (collegeId) {
         query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
@@ -174,7 +194,7 @@ export default function BulkEnrollment() {
         .eq('status', 'active')
         .order('code')
 
-      if (userRole === 'user' && collegeId) {
+      if (collegeId) {
         query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
@@ -532,15 +552,31 @@ export default function BulkEnrollment() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Panel */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Step 1: Select Semester */}
+          {/* Step 1: Select Academic Year and Semester */}
           {currentStep === 1 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
                 <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">1</span>
                 <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectSemester')}</h2>
               </div>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.selectAcademicYear')}</label>
+                <select
+                  value={formData.academic_year_id}
+                  onChange={(e) => setFormData(prev => ({ ...prev, academic_year_id: e.target.value, semester_id: '' }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                >
+                  <option value="">{t('enrollments.allAcademicYears') || 'All Academic Years'}</option>
+                  {academicYears.map(year => (
+                    <option key={year.id} value={year.id}>{year.name_en} ({year.code})</option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {semesters.map(semester => (
+                {(formData.academic_year_id
+                  ? semesters.filter(s => s.academic_year_id === parseInt(formData.academic_year_id))
+                  : semesters
+                ).map(semester => (
                   <button
                     key={semester.id}
                     onClick={() => {

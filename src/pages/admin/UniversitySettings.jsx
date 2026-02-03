@@ -628,6 +628,7 @@ export default function UniversitySettings() {
               formData={formData}
               handleChange={handleChange}
               handleGradingScaleChange={handleGradingScaleChange}
+              readOnlyCreditsAndGrading={false}
             />
           )}
           {activeTab === 'financial' && (

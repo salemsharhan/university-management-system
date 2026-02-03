@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
@@ -21,19 +22,18 @@ export default function EditSubject() {
   const [selectedCollegeId, setSelectedCollegeId] = useState(null)
   const [colleges, setColleges] = useState([])
   const [majors, setMajors] = useState([])
-  const [semesters, setSemesters] = useState([])
   const [allSubjects, setAllSubjects] = useState([])
   const [instructors, setInstructors] = useState([])
   const [gradeTypes, setGradeTypes] = useState([])
   const [gradeConfiguration, setGradeConfiguration] = useState([])
 
   const [formData, setFormData] = useState({
-    major_id: '',
+    major_scope: 'specific_majors',
+    selected_major_ids: [],
     code: '',
     name_en: '',
     name_ar: '',
     type: 'core',
-    semester_id: '',
     credit_hours: 3,
     theory_hours: 3,
     lab_hours: 0,
@@ -74,17 +74,12 @@ export default function EditSubject() {
 
   useEffect(() => {
     if (collegeId || authCollegeId) {
-      fetchSemesters()
-    }
-  }, [collegeId, authCollegeId, userRole])
-
-  useEffect(() => {
-    if (formData.semester_id && (collegeId || authCollegeId)) {
       fetchSubjects()
+      fetchMajors()
     } else {
       setAllSubjects([])
     }
-  }, [formData.semester_id, collegeId, authCollegeId])
+  }, [collegeId, authCollegeId])
 
   const fetchColleges = async () => {
     try {
@@ -105,13 +100,13 @@ export default function EditSubject() {
     try {
       let query = supabase
         .from('majors')
-        .select('id, name_en, code')
+        .select('id, name_en, name_ar, code')
         .order('name_en', { ascending: true })
 
       if (userRole === 'user' && authCollegeId) {
-        query = query.eq('college_id', authCollegeId)
+        query = query.or(`college_id.eq.${authCollegeId},is_university_wide.eq.true`)
       } else if (userRole === 'admin' && collegeId) {
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query
@@ -122,57 +117,19 @@ export default function EditSubject() {
     }
   }
 
-  const fetchSemesters = async () => {
-    const targetCollegeId = collegeId || authCollegeId
-    if (!targetCollegeId) return
-
-    try {
-      let query = supabase
-        .from('semesters')
-        .select('id, name_en, code, start_date, end_date, status, academic_year_number')
-        .order('start_date', { ascending: false })
-
-      if (userRole === 'user' && authCollegeId) {
-        query = query.eq('college_id', authCollegeId).eq('is_university_wide', false)
-      } else if (userRole === 'admin' && collegeId) {
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
-      }
-
-      const { data, error } = await query
-      if (error) throw error
-      setSemesters(data || [])
-    } catch (err) {
-      console.error('Error fetching semesters:', err)
-      setSemesters([])
-    }
-  }
-
   const fetchSubjects = async () => {
     try {
-      if (!formData.semester_id) return
       const targetCollegeId = collegeId || authCollegeId
       if (!targetCollegeId) {
         setAllSubjects([])
         return
       }
 
-      const { data: semesterData, error: semesterError } = await supabase
-        .from('semesters')
-        .select('academic_year_number')
-        .eq('id', formData.semester_id)
-        .single()
-
-      if (semesterError || !semesterData) return
-      const semesterNumber = semesterData.academic_year_number || 1
-
       let query = supabase
         .from('subjects')
-        .select('id, name_en, code, semester_number, major_id, majors(name_en)')
+        .select('id, name_en, name_ar, code')
         .eq('status', 'active')
-        .eq('college_id', targetCollegeId)
-        .eq('is_university_wide', false)
-        .lte('semester_number', semesterNumber)
-        .order('semester_number')
+        .or(`college_id.eq.${targetCollegeId},is_university_wide.eq.true`)
         .order('code')
 
       const { data, error } = await query
@@ -261,19 +218,26 @@ export default function EditSubject() {
         }
       }
 
-      // Fetch prerequisites and corequisites
-      const [prereqData, coreqData] = await Promise.all([
+      // Fetch prerequisites, corequisites, and subject_majors
+      const [prereqData, coreqData, subjectMajorsData] = await Promise.all([
         supabase.from('subject_prerequisites').select('prerequisite_subject_id').eq('subject_id', id),
-        supabase.from('subject_corequisites').select('corequisite_subject_id').eq('subject_id', id)
+        supabase.from('subject_corequisites').select('corequisite_subject_id').eq('subject_id', id),
+        supabase.from('subject_majors').select('major_id').eq('subject_id', id),
       ])
 
+      const subjectMajorIds = (subjectMajorsData.data || []).map(sm => String(sm.major_id))
+      let majorScope = 'specific_majors'
+      if (data.is_university_wide) majorScope = 'university_wide'
+      else if (data.applies_to_all_majors_of_college) majorScope = 'all_majors_of_college'
+      else if (subjectMajorIds.length > 0) majorScope = 'specific_majors'
+
       setFormData({
-        major_id: data.major_id?.toString() || '',
+        major_scope: majorScope,
+        selected_major_ids: subjectMajorIds,
         code: data.code || '',
         name_en: data.name_en || '',
         name_ar: data.name_ar || '',
         type: data.type || 'core',
-        semester_id: '', // Will need to find semester by academic_year_number
         credit_hours: data.credit_hours || 3,
         theory_hours: data.theory_hours || 3,
         lab_hours: data.lab_hours || 0,
@@ -304,24 +268,6 @@ export default function EditSubject() {
       setGradeConfiguration(gradeConfig)
       setCollegeId(data.college_id)
       setSelectedCollegeId(data.college_id)
-
-      // Find semester by semester_number
-      if (data.semester_number && (data.college_id || authCollegeId)) {
-        const targetCollegeId = data.college_id || authCollegeId
-        const { data: semData } = await supabase
-          .from('semesters')
-          .select('id')
-          .eq('college_id', targetCollegeId)
-          .eq('academic_year_number', data.semester_number)
-          .eq('is_university_wide', false)
-          .order('start_date', { ascending: false })
-          .limit(1)
-          .single()
-        
-        if (semData) {
-          setFormData(prev => ({ ...prev, semester_id: semData.id.toString() }))
-        }
-      }
     } catch (err) {
       console.error('Error fetching subject:', err)
       setError(err.message || 'Failed to load subject')
@@ -346,10 +292,6 @@ export default function EditSubject() {
       grade_type_code: selectedType.code,
       grade_type_name_en: selectedType.name_en,
       grade_type_name_ar: selectedType.name_ar,
-      maximum: '',
-      minimum: '',
-      pass_score: '',
-      fail_score: '',
       weight: ''
     }
 
@@ -408,34 +350,36 @@ export default function EditSubject() {
     setSuccess(false)
 
     try {
-      const selectedSemester = semesters.find(s => s.id === parseInt(formData.semester_id))
-      if (!selectedSemester && formData.semester_id) {
-        setError('Please select a valid semester')
+
+      const targetCollegeId = formData.college_id || collegeId || authCollegeId
+      if (formData.major_scope === 'all_majors_of_college' && !targetCollegeId) {
+        setError(t('subjectsForm.selectCollegeFirst'))
         setLoading(false)
         return
       }
-
-      const { data: semesterData, error: semesterError } = await supabase
-        .from('semesters')
-        .select('academic_year_number')
-        .eq('id', formData.semester_id)
-        .single()
-
-      if (semesterError && formData.semester_id) {
-        setError('Failed to fetch semester information')
-        setLoading(false)
-        return
+      if (formData.major_scope === 'specific_majors') {
+        if (!targetCollegeId) {
+          setError(t('subjectsForm.selectCollegeFirst'))
+          setLoading(false)
+          return
+        }
+        if (!formData.selected_major_ids?.length) {
+          setError(t('subjectsForm.selectAtLeastOneMajor'))
+          setLoading(false)
+          return
+        }
       }
 
-      const semesterNumber = semesterData?.academic_year_number || 1
+      const isUniversityWide = formData.major_scope === 'university_wide'
+      const appliesToAllMajorsOfCollege = formData.major_scope === 'all_majors_of_college'
 
       const submitData = {
-        major_id: parseInt(formData.major_id),
+        major_id: null,
         code: formData.code,
         name_en: formData.name_en,
         name_ar: formData.name_ar || formData.name_en,
         type: formData.type,
-        semester_number: semesterNumber,
+        semester_number: null,
         credit_hours: parseInt(formData.credit_hours),
         theory_hours: parseInt(formData.theory_hours),
         lab_hours: parseInt(formData.lab_hours) || 0,
@@ -450,17 +394,14 @@ export default function EditSubject() {
         description: formData.description || null,
         description_ar: formData.description_ar || null,
         status: formData.status,
-        is_university_wide: false,
-        college_id: formData.college_id || collegeId,
+        is_university_wide: isUniversityWide,
+        applies_to_all_majors_of_college: appliesToAllMajorsOfCollege,
+        college_id: isUniversityWide ? null : (formData.college_id || collegeId || authCollegeId),
         grade_configuration: gradeConfiguration.map(gc => ({
           grade_type_id: gc.grade_type_id,
           grade_type_code: gc.grade_type_code,
           grade_type_name_en: gc.grade_type_name_en,
           grade_type_name_ar: gc.grade_type_name_ar,
-          maximum: gc.maximum ? parseFloat(gc.maximum) : null,
-          minimum: gc.minimum ? parseFloat(gc.minimum) : null,
-          pass_score: gc.pass_score ? parseFloat(gc.pass_score) : null,
-          fail_score: gc.fail_score ? parseFloat(gc.fail_score) : null,
           weight: gc.weight ? parseFloat(gc.weight) : null,
         })),
         syllabus_content: formData.syllabus_content || null,
@@ -481,6 +422,16 @@ export default function EditSubject() {
         .eq('id', id)
 
       if (updateError) throw updateError
+
+      // Update subject_majors
+      await supabase.from('subject_majors').delete().eq('subject_id', id)
+      if (formData.major_scope === 'specific_majors' && formData.selected_major_ids?.length > 0) {
+        const subjectMajorsData = formData.selected_major_ids.map(mid => ({
+          subject_id: parseInt(id),
+          major_id: parseInt(mid),
+        }))
+        await supabase.from('subject_majors').insert(subjectMajorsData)
+      }
 
       // Update prerequisites
       await supabase.from('subject_prerequisites').delete().eq('subject_id', id)
@@ -561,11 +512,8 @@ export default function EditSubject() {
                       const collegeIdValue = e.target.value ? parseInt(e.target.value) : null
                       setCollegeId(collegeIdValue)
                       setSelectedCollegeId(collegeIdValue)
-                      setFormData(prev => ({ ...prev, college_id: collegeIdValue, semester_id: '' }))
-                      handleChange('major_id', '')
-                      handleChange('semester_id', '')
+                      setFormData(prev => ({ ...prev, college_id: collegeIdValue, selected_major_ids: [] }))
                       fetchMajors()
-                      fetchSemesters()
                     }}
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -580,21 +528,49 @@ export default function EditSubject() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.major')} *</label>
-                  <select
-                    value={formData.major_id}
-                    onChange={(e) => handleChange('major_id', e.target.value)}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="">{t('subjectsForm.selectMajor')}</option>
-                    {majors.map(major => (
-                      <option key={major.id} value={major.id}>{major.name_en}</option>
-                    ))}
-                  </select>
+              {/* Major scope - same as CreateSubject */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-700">{t('subjectsForm.majorScope')}</h3>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="radio" name="major_scope" value="university_wide" checked={formData.major_scope === 'university_wide'} onChange={(e) => handleChange('major_scope', e.target.value)} className="rounded-full" />
+                    <div>
+                      <span className="font-medium">{t('subjectsForm.universityWideSubject')}</span>
+                      <p className="text-xs text-gray-500">{t('subjectsForm.universityWideSubjectDesc')}</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="radio" name="major_scope" value="all_majors_of_college" checked={formData.major_scope === 'all_majors_of_college'} onChange={(e) => handleChange('major_scope', e.target.value)} disabled={!collegeId && !authCollegeId} className="rounded-full" />
+                    <div>
+                      <span className="font-medium">{t('subjectsForm.allMajorsOfCollege')}</span>
+                      <p className="text-xs text-gray-500">{t('subjectsForm.allMajorsOfCollegeDesc')}</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input type="radio" name="major_scope" value="specific_majors" checked={formData.major_scope === 'specific_majors'} onChange={(e) => handleChange('major_scope', e.target.value)} disabled={!collegeId && !authCollegeId} className="rounded-full" />
+                    <div>
+                      <span className="font-medium">{t('subjectsForm.specificMajors')}</span>
+                      <p className="text-xs text-gray-500">{t('subjectsForm.specificMajorsDesc')}</p>
+                    </div>
+                  </label>
                 </div>
+                {formData.major_scope === 'specific_majors' && (collegeId || authCollegeId) && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.selectMajors')} *</label>
+                    <div className="border rounded-lg p-3 max-h-40 overflow-y-auto space-y-2">
+                      {majors.map(major => (
+                        <label key={major.id} className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={(formData.selected_major_ids || []).includes(String(major.id))} onChange={(e) => { const ids = formData.selected_major_ids || []; const newIds = e.target.checked ? [...ids, String(major.id)] : ids.filter(i => i !== String(major.id)); handleChange('selected_major_ids', newIds) }} />
+                          <span>{getLocalizedName(major, isRTL)} ({major.code})</span>
+                        </label>
+                      ))}
+                      {majors.length === 0 && <p className="text-sm text-gray-500">{t('subjectsForm.noMajorsInCollege')}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.code')} *</label>
                   <input
@@ -632,41 +608,13 @@ export default function EditSubject() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.type')} *</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => handleChange('type', e.target.value)}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="core">{t('subjectsForm.typeCore')}</option>
-                    <option value="elective">{t('subjectsForm.typeElective')}</option>
-                    <option value="general">{t('subjectsForm.typeGeneral')}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.semester')} *</label>
-                  <select
-                    value={formData.semester_id}
-                    onChange={(e) => {
-                      handleChange('semester_id', e.target.value)
-                      handleChange('prerequisites', [])
-                      handleChange('corequisites', [])
-                    }}
-                    required
-                    disabled={!collegeId && !authCollegeId}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">{t('subjectsForm.selectSemester')}</option>
-                    {semesters.map(semester => (
-                      <option key={semester.id} value={semester.id}>
-                        {semester.name_en} ({semester.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.type')} *</label>
+                <select value={formData.type} onChange={(e) => handleChange('type', e.target.value)} required className="w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                  <option value="core">{t('subjectsForm.typeCore')}</option>
+                  <option value="elective">{t('subjectsForm.typeElective')}</option>
+                  <option value="general">{t('subjectsForm.typeGeneral')}</option>
+                </select>
               </div>
 
               {/* Credit Hours */}
@@ -717,7 +665,7 @@ export default function EditSubject() {
               {/* Prerequisites & Corequisites - Reuse from CreateSubject */}
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.prerequisitesCorequisites')}</h3>
-                {formData.semester_id && (collegeId || authCollegeId) ? (
+                {(collegeId || authCollegeId) ? (
                   allSubjects.length > 0 ? (
                   <div className="space-y-4">
                     <div>
@@ -732,14 +680,11 @@ export default function EditSubject() {
                         }}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
-                        {allSubjects.filter(s => s.id !== parseInt(id)).map(subject => {
-                          const majorName = subject.majors?.name_en || ''
-                          return (
+                        {allSubjects.filter(s => s.id !== parseInt(id)).map(subject => (
                             <option key={subject.id} value={subject.id}>
-                              {subject.code} - {subject.name_en} {majorName ? `(${majorName})` : ''} - {t('academic.subjects.semester')} {subject.semester_number}
+                              {subject.code} - {getLocalizedName(subject, isRTL)}
                             </option>
-                          )
-                        })}
+                          ))}
                       </select>
                     </div>
                     <div>
@@ -754,14 +699,11 @@ export default function EditSubject() {
                         }}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       >
-                        {allSubjects.filter(s => s.id !== parseInt(id)).map(subject => {
-                          const majorName = subject.majors?.name_en || ''
-                          return (
+                        {allSubjects.filter(s => s.id !== parseInt(id)).map(subject => (
                             <option key={subject.id} value={subject.id}>
-                              {subject.code} - {subject.name_en} {majorName ? `(${majorName})` : ''} - {t('academic.subjects.semester')} {subject.semester_number}
+                              {subject.code} - {getLocalizedName(subject, isRTL)}
                             </option>
-                          )
-                        })}
+                          ))}
                       </select>
                     </div>
                   </div>
@@ -769,7 +711,7 @@ export default function EditSubject() {
                     <p className="text-sm text-gray-500">{t('subjectsForm.noSubjectsInCollege')}</p>
                   )
                 ) : (
-                  <p className="text-sm text-gray-500">{t('subjectsForm.selectSemesterToSee')}</p>
+                  <p className="text-sm text-gray-500">{t('subjectsForm.selectCollegeFirst')}</p>
                 )}
               </div>
 
@@ -827,49 +769,10 @@ export default function EditSubject() {
                                 {t('subjectsForm.remove')}
                               </button>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.maximum')} *</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={config.maximum || ''}
-                                  onChange={(e) => handleGradeConfigChange(index, 'maximum', e.target.value)}
-                                  required
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.minimum')}</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={config.minimum || ''}
-                                  onChange={(e) => handleGradeConfigChange(index, 'minimum', e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.passScore')} *</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={config.pass_score || ''}
-                                  onChange={(e) => handleGradeConfigChange(index, 'pass_score', e.target.value)}
-                                  required
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.failScore')}</label>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  value={config.fail_score || ''}
-                                  onChange={(e) => handleGradeConfigChange(index, 'fail_score', e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                                />
-                              </div>
+                            <p className="text-xs text-gray-500 mb-3">
+                              {t('subjectsForm.gradeTypeScoresFromUniversity') || 'Maximum, minimum, pass and fail scores are set in University Settings → Grade Types.'}
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">{t('subjectsForm.weight')}</label>
                                 <input

@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Edit, Library, Video, ExternalLink } from 'lucide-react'
 
 export default function ViewClass() {
   const { id } = useParams()
+  const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const [classData, setClassData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -18,7 +21,7 @@ export default function ViewClass() {
     try {
       const { data, error } = await supabase
         .from('classes')
-        .select('*, subjects(id, name_en, code), semesters(id, name_en, code), instructors(id, name_en, email), class_schedules(day_of_week, start_time, end_time, location, teams_meeting_url), colleges(id, name_en, code)')
+        .select('*, subjects(id, name_en, name_ar, code), semesters(id, name_en, name_ar, code), instructors(id, name_en, name_ar, email), class_schedules(day_of_week, start_time, end_time, location, teams_meeting_url), colleges(id, name_en, name_ar, code)')
         .eq('id', id)
         .single()
 
@@ -83,7 +86,7 @@ export default function ViewClass() {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{classData?.code}</h1>
-            <p className="text-gray-600">{classData?.subjects?.name_en}</p>
+            <p className="text-gray-600">{getLocalizedName(classData?.subjects, isRTL)}</p>
           </div>
         </div>
 
@@ -91,11 +94,11 @@ export default function ViewClass() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Subject</h3>
-              <p className="text-gray-900">{classData?.subjects?.code} - {classData?.subjects?.name_en}</p>
+              <p className="text-gray-900">{classData?.subjects?.code} - {getLocalizedName(classData?.subjects, isRTL)}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Semester</h3>
-              <p className="text-gray-900">{classData?.semesters?.name_en || 'N/A'}</p>
+              <p className="text-gray-900">{getLocalizedName(classData?.semesters, isRTL) || 'N/A'}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Section</h3>
@@ -103,7 +106,7 @@ export default function ViewClass() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Instructor</h3>
-              <p className="text-gray-900">{classData?.instructors?.name_en || 'Not assigned'}</p>
+              <p className="text-gray-900">{getLocalizedName(classData?.instructors, isRTL) || 'Not assigned'}</p>
               {classData?.instructors?.email && (
                 <p className="text-sm text-gray-600">{classData.instructors.email}</p>
               )}
@@ -127,7 +130,7 @@ export default function ViewClass() {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">College</h3>
               <p className="text-gray-900">
-                {classData?.colleges?.name_en || (classData?.is_university_wide ? 'University-wide' : 'N/A')}
+                {getLocalizedName(classData?.colleges, isRTL) || (classData?.is_university_wide ? 'University-wide' : 'N/A')}
               </p>
             </div>
             <div>

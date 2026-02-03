@@ -70,6 +70,7 @@ export default function CreateInstructor() {
     office_hours: '',
     hire_date: '',
     status: 'active',
+    can_add_materials: false,
     
     // Education (JSONB array)
     education: [],
@@ -327,6 +328,7 @@ export default function CreateInstructor() {
         office_hours: formData.office_hours || null,
         status: formData.status,
         hire_date: formData.hire_date || null,
+        can_add_materials: formData.can_add_materials || false,
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
         nationality: formData.nationality || null,
@@ -1068,6 +1070,22 @@ export default function CreateInstructor() {
                 </select>
               </div>
             </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="can_add_materials"
+                checked={formData.can_add_materials || false}
+                onChange={(e) => handleChange('can_add_materials', e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <label htmlFor="can_add_materials" className="text-sm font-medium text-gray-700">
+                {t('createInstructor.canAddMaterials') || 'Allow instructor to add materials for their classes'}
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 -mt-2">
+              {t('createInstructor.canAddMaterialsDesc') || 'When assigned to a class, this instructor can add class-specific materials for students.'}
+            </p>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Specialization</label>

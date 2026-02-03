@@ -56,7 +56,7 @@ export default function TakeAttendance() {
         .eq('status', 'active')
 
       if (userRole === 'user' && collegeId) {
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query

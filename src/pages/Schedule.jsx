@@ -130,8 +130,7 @@ export default function Schedule() {
         const { data: semestersData, error: semestersError } = await supabase
           .from('semesters')
           .select('id, name_en, code, start_date, end_date, status')
-          .eq('college_id', instructorData.college_id)
-          .eq('is_university_wide', false)
+          .or(`college_id.eq.${instructorData.college_id},is_university_wide.eq.true`)
           .order('start_date', { ascending: false })
 
         if (!semestersError && semestersData) {
@@ -350,9 +349,9 @@ export default function Schedule() {
           query = query.eq('semester_id', selectedSemesterId)
         }
 
-        // Filter by college if selected
+        // Filter by college if selected: show college's classes OR university-wide
         if (selectedCollegeId) {
-          query = query.eq('college_id', selectedCollegeId)
+          query = query.or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
         }
 
         const { data: classes, error: classesError } = await query

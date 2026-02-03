@@ -1,7 +1,10 @@
 import { useCollege } from '../contexts/CollegeContext'
+import { useLanguage } from '../contexts/LanguageContext'
+import { getLocalizedName } from '../utils/localizedName'
 import { Building2, AlertCircle } from 'lucide-react'
 
 export default function CollegeSelector() {
+  const { isRTL } = useLanguage()
   const { selectedCollegeId, setSelectedCollegeId, colleges, loading, requiresCollegeSelection } = useCollege()
 
   if (!requiresCollegeSelection && selectedCollegeId) {
@@ -25,7 +28,7 @@ export default function CollegeSelector() {
           >
             {colleges.map(college => (
               <option key={college.id} value={college.id}>
-                {college.name_en} ({college.code})
+                {getLocalizedName(college, isRTL)} ({college.code})
               </option>
             ))}
           </select>
@@ -55,7 +58,7 @@ export default function CollegeSelector() {
             ) : (
               colleges.map(college => (
                 <option key={college.id} value={college.id}>
-                  {college.name_en} ({college.code})
+                  {getLocalizedName(college, isRTL)} ({college.code})
                 </option>
               ))
             )}

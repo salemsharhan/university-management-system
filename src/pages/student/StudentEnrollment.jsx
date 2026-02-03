@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getSemesterCreditsFromUniversitySettings } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, ArrowRight, Check, Calendar, BookOpen, FileCheck, AlertCircle, Clock } from 'lucide-react'
@@ -34,7 +35,12 @@ export default function StudentEnrollment() {
   const [studentMajorSheet, setStudentMajorSheet] = useState(null)
   const [currentSemester, setCurrentSemester] = useState(null)
   const [registrationStatus, setRegistrationStatus] = useState(null) // { allowed: boolean, reason: string }
-  const [creditHoursSource, setCreditHoursSource] = useState('semester') // 'semester' or 'major_sheet'
+  const [semesterCreditsFromUni, setSemesterCreditsFromUni] = useState({
+    min_credit_hours: 12,
+    max_credit_hours: 18,
+    max_credit_hours_with_permission: 21,
+    min_gpa_for_max_credits: 3.0,
+  })
 
   const [formData, setFormData] = useState({
     semester_id: '',
@@ -54,9 +60,6 @@ export default function StudentEnrollment() {
     if (student?.id) {
       setFormData(prev => ({ ...prev, student_id: student.id.toString() }))
       fetchSemesters()
-      if (student.college_id) {
-        fetchCollegeAcademicSettings(student.college_id)
-      }
     }
   }, [student])
 
@@ -77,7 +80,7 @@ export default function StudentEnrollment() {
       setValidationWarnings([])
       setValidationErrors([])
     }
-  }, [formData.student_id, formData.class_ids, formData.semester_id, studentMajorSheet, currentSemesterCredits])
+  }, [formData.student_id, formData.class_ids, formData.semester_id, studentMajorSheet, currentSemesterCredits, semesterCreditsFromUni])
 
   useEffect(() => {
     if (formData.semester_id && formData.student_id && studentMajorSheet) {
@@ -94,21 +97,13 @@ export default function StudentEnrollment() {
     }
   }, [formData.class_ids, classes])
 
-  const fetchCollegeAcademicSettings = async (collegeId) => {
-    try {
-      if (!collegeId) return
-      
-      // Use utility function to get effective settings (college or university based on flag)
-      const { getCollegeSettings } = await import('../../utils/getCollegeSettings.js')
-      const settings = await getCollegeSettings(collegeId)
-
-      if (settings.academic?.credit_hours_source) {
-        setCreditHoursSource(settings.academic.credit_hours_source)
-      }
-    } catch (err) {
-      console.error('Error fetching college academic settings:', err)
+  useEffect(() => {
+    const fetchCredits = async () => {
+      const credits = await getSemesterCreditsFromUniversitySettings()
+      setSemesterCreditsFromUni(credits)
     }
-  }
+    fetchCredits()
+  }, [])
 
   const fetchStudent = async () => {
     try {
@@ -458,28 +453,16 @@ export default function StudentEnrollment() {
         }
       }
 
-      // Credit limits validation - check source from college settings
-      if (currentSemester && studentMajorSheet) {
-        let minCredits = 0
-        let maxCredits = 999
+      // Credit limits validation - use university settings only
+      const minCredits = semesterCreditsFromUni.min_credit_hours
+      const maxCredits = semesterCreditsFromUni.max_credit_hours_with_permission
 
-        if (creditHoursSource === 'major_sheet' && studentMajorSheet?.major_sheet) {
-          // Use major sheet limits
-          minCredits = parseInt(studentMajorSheet.major_sheet.min_credits_per_semester) || 0
-          maxCredits = parseInt(studentMajorSheet.major_sheet.max_credits_per_semester) || 999
-        } else {
-          // Use semester limits (default)
-          minCredits = parseInt(currentSemester.min_credit_hours) || 0
-          maxCredits = parseInt(currentSemester.max_credit_hours) || 999
-        }
+      if (newTotalCredits < minCredits) {
+        warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCredits} new = ${newTotalCredits} total) will be below minimum required (${minCredits}) for this semester.`)
+      }
 
-        if (newTotalCredits < minCredits) {
-          warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCredits} new = ${newTotalCredits} total) will be below minimum required (${minCredits}) for this ${creditHoursSource === 'major_sheet' ? 'major' : 'semester'}.`)
-        }
-
-        if (newTotalCredits > maxCredits) {
-          errors.push(`Total credits (${currentSemesterCredits} current + ${selectedCredits} new = ${newTotalCredits} total) exceeds maximum allowed (${maxCredits}) for this ${creditHoursSource === 'major_sheet' ? 'major' : 'semester'}.`)
-        }
+      if (newTotalCredits > maxCredits) {
+        errors.push(`Total credits (${currentSemesterCredits} current + ${selectedCredits} new = ${newTotalCredits} total) exceeds maximum allowed (${maxCredits}) for this semester.`)
       }
 
       setValidationWarnings(warnings)

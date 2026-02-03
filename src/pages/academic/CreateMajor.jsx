@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, Plus, Trash2, ChevronDown, ChevronUp, BookOpen, GraduationCap } from 'lucide-react'
@@ -152,6 +153,7 @@ export default function CreateMajor() {
     description: '',
     description_ar: '',
     status: 'active',
+    major_status: 'draft',
     college_id: null,
     is_university_wide: false,
     // Validation Rules
@@ -162,6 +164,12 @@ export default function CreateMajor() {
     validation_certificate_types: [],
     validation_requires_interview: false,
     validation_requires_entrance_exam: false,
+    // Major-Level Academic Controls
+    max_study_duration_years: '',
+    min_gpa_override: '',
+    enable_substitution_workflow: false,
+    enable_prerequisite_override: false,
+    enforce_graduation_threshold: false,
   })
 
   useEffect(() => {
@@ -321,9 +329,9 @@ export default function CreateMajor() {
         .select('id, name_en, code, start_date, end_date')
         .order('start_date', { ascending: false })
 
-      // For college admins (user role), ONLY show their college's academic years (exclude university-wide)
+      // For college admins (user role): show college's academic years OR university-wide
       if (userRole === 'user' && currentCollegeId) {
-        query = query.eq('college_id', currentCollegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${currentCollegeId},is_university_wide.eq.true`)
       } else if (isUniversityWide) {
         // University-wide: show only university-wide academic years
         query = query.eq('is_university_wide', true)
@@ -486,9 +494,15 @@ export default function CreateMajor() {
         head_of_major_id: formData.head_of_major_id ? parseInt(formData.head_of_major_id) : null,
         description: formData.description || null,
         description_ar: formData.description_ar || null,
-        status: formData.status,
+        status: formData.major_status === 'active' ? 'active' : 'inactive',
+        major_status: formData.major_status,
         is_university_wide: isUniversityWide,
         college_id: isUniversityWide ? null : (formData.college_id || collegeId),
+        max_study_duration_years: formData.max_study_duration_years ? parseInt(formData.max_study_duration_years) : null,
+        min_gpa_override: formData.min_gpa_override ? parseFloat(formData.min_gpa_override) : null,
+        enable_substitution_workflow: formData.enable_substitution_workflow,
+        enable_prerequisite_override: formData.enable_prerequisite_override,
+        enforce_graduation_threshold: formData.enforce_graduation_threshold,
         validation_rules: {
           toefl_min: formData.validation_toefl_min ? parseInt(formData.validation_toefl_min) : null,
           ielts_min: formData.validation_ielts_min ? parseFloat(formData.validation_ielts_min) : null,
@@ -508,50 +522,7 @@ export default function CreateMajor() {
 
       if (insertError) throw insertError
 
-      // If this is a university-wide major, clone it to all existing colleges
-      if (isUniversityWide && majorData) {
-        const { data: colleges, error: collegesError } = await supabase
-          .from('colleges')
-          .select('id')
-          .eq('status', 'active')
-
-        if (!collegesError && colleges && colleges.length > 0) {
-          const clones = colleges.map(c => ({
-            faculty_id: null,
-            department_id: majorData.department_id,
-            code: majorData.code,
-            name_en: majorData.name_en,
-            name_ar: majorData.name_ar,
-            degree_level: majorData.degree_level,
-            degree_title_en: majorData.degree_title_en,
-            degree_title_ar: majorData.degree_title_ar,
-            total_credits: majorData.total_credits,
-            core_credits: majorData.core_credits,
-            elective_credits: majorData.elective_credits,
-            min_semesters: majorData.min_semesters,
-            max_semesters: majorData.max_semesters,
-            min_gpa: majorData.min_gpa,
-            tuition_fee: majorData.tuition_fee,
-            lab_fee: majorData.lab_fee,
-            registration_fee: majorData.registration_fee,
-            accreditation_date: majorData.accreditation_date,
-            accreditation_expiry: majorData.accreditation_expiry,
-            accrediting_body: majorData.accrediting_body,
-            head_of_major: null,
-            head_email: null,
-            head_phone: null,
-            head_of_major_id: null,
-            description: majorData.description,
-            description_ar: majorData.description_ar,
-            status: majorData.status,
-            is_university_wide: false,
-            college_id: c.id,
-            validation_rules: majorData.validation_rules,
-          }))
-
-          await supabase.from('majors').insert(clones)
-        }
-      }
+      // University-wide: single record, no cloning. New colleges automatically see it via query filter.
 
       // Create Major Sheet if configured
       if (showMajorSheetConfig && majorSheet.version) {
@@ -712,7 +683,7 @@ export default function CreateMajor() {
                   >
                     <option value="">{t('academic.majors.selectCollege')}</option>
                     {colleges.map(college => (
-                      <option key={college.id} value={college.id}>{college.name_en}</option>
+                      <option key={college.id} value={college.id}>{getLocalizedName(college, isRTL)}</option>
                     ))}
                   </select>
                 </div>
@@ -729,6 +700,18 @@ export default function CreateMajor() {
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                     placeholder={t('academic.majors.codePlaceholder')}
                   />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.initialStatus', 'Initial Status')} *</label>
+                  <select
+                    value={formData.major_status}
+                    onChange={(e) => handleChange('major_status', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="draft">{t('academic.majors.statusDraft', 'Draft')}</option>
+                    <option value="open_for_admission">{t('academic.majors.statusOpen', 'Open for Admission')}</option>
+                    <option value="active">{t('academic.majors.statusActive', 'Active')}</option>
+                  </select>
                 </div>
               </div>
 
@@ -1097,6 +1080,64 @@ export default function CreateMajor() {
                 </div>
               </div>
 
+              {/* Major-Level Academic Controls */}
+              <div className="border-t pt-6">
+                <h3 className={`text-lg font-semibold text-gray-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicControls', 'Major-Level Academic Controls')}</h3>
+                <p className={`text-sm text-gray-600 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicControlsDesc', 'Program-specific logic and rules')}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.maxStudyDuration', 'Maximum Study Duration (Years)')}</label>
+                    <input
+                      type="number"
+                      value={formData.max_study_duration_years}
+                      onChange={(e) => handleChange('max_study_duration_years', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder="e.g., 6"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.minGpaOverride', 'Major-Specific Min GPA Override')}</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.min_gpa_override}
+                      onChange={(e) => handleChange('min_gpa_override', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder={t('academic.majors.leaveEmptyForDefault', 'Leave empty to use default')}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className={`flex items-center gap-2 cursor-pointer ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.enable_substitution_workflow}
+                      onChange={(e) => handleChange('enable_substitution_workflow', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('academic.majors.enableSubstitutionWorkflow', 'Enable Course Substitution Approval Workflow')}</span>
+                  </label>
+                  <label className={`flex items-center gap-2 cursor-pointer ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.enable_prerequisite_override}
+                      onChange={(e) => handleChange('enable_prerequisite_override', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('academic.majors.enablePrerequisiteOverride', 'Enable Prerequisite Override Approval (via Head of Major)')}</span>
+                  </label>
+                  <label className={`flex items-center gap-2 cursor-pointer ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.enforce_graduation_threshold}
+                      onChange={(e) => handleChange('enforce_graduation_threshold', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('academic.majors.enforceGraduationThreshold', 'Enforce Graduation Credit Threshold')}</span>
+                  </label>
+                </div>
+              </div>
+
               <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
@@ -1190,7 +1231,7 @@ export default function CreateMajor() {
                           <option value="">Select Academic Year...</option>
                           {academicYears.map(year => (
                             <option key={year.id} value={year.name_en || year.code}>
-                              {year.name_en || year.code} ({new Date(year.start_date).getFullYear()}-{new Date(year.end_date).getFullYear()})
+                              {getLocalizedName(year, isRTL) || year.code} ({new Date(year.start_date).getFullYear()}-{new Date(year.end_date).getFullYear()})
                             </option>
                           ))}
                         </select>

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
+import { getSemesterCreditsFromUniversitySettings } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, Plus, X } from 'lucide-react'
@@ -19,7 +21,12 @@ export default function CreateSemester() {
   const [colleges, setColleges] = useState([])
   const [academicYears, setAcademicYears] = useState([])
   const [isUniversityWide, setIsUniversityWide] = useState(false)
-  const [creditHoursSource, setCreditHoursSource] = useState('semester') // 'semester' or 'major_sheet'
+  const [semesterCreditsFromUni, setSemesterCreditsFromUni] = useState({
+    min_credit_hours: 12,
+    max_credit_hours: 18,
+    max_credit_hours_with_permission: 21,
+    min_gpa_for_max_credits: 3.0,
+  })
 
   const [formData, setFormData] = useState({
     academic_year_id: '',
@@ -36,14 +43,17 @@ export default function CreateSemester() {
     add_deadline: '',
     drop_deadline: '',
     withdrawal_deadline: '',
-    min_credit_hours: 12,
-    max_credit_hours: 18,
-    max_credit_hours_with_permission: 21,
-    min_gpa_for_max_credits: 3.0,
     description: '',
     description_ar: '',
     college_id: null,
     is_university_wide: false,
+    status: 'draft',
+    course_registration_allowed: false,
+    add_drop_allowed: false,
+    withdrawal_allowed: false,
+    grade_entry_allowed: false,
+    attendance_editing_allowed: false,
+    late_registration_allowed: false,
   })
 
   useEffect(() => {
@@ -80,13 +90,13 @@ export default function CreateSemester() {
   }, [collegeId, isUniversityWide, userRole])
 
   useEffect(() => {
-    // Fetch college academic settings to determine credit hours source
-    if (collegeId && !isUniversityWide) {
-      fetchCollegeAcademicSettings()
-    } else if (isUniversityWide) {
-      fetchUniversityAcademicSettings()
+    // Fetch semester credits from university settings (read-only, used for display and insert)
+    const fetchCredits = async () => {
+      const credits = await getSemesterCreditsFromUniversitySettings()
+      setSemesterCreditsFromUni(credits)
     }
-  }, [collegeId, isUniversityWide])
+    fetchCredits()
+  }, [])
 
   const fetchUserCollege = async () => {
     try {
@@ -112,7 +122,7 @@ export default function CreateSemester() {
     try {
       const { data, error } = await supabase
         .from('colleges')
-        .select('id, name_en, code')
+        .select('id, name_en, name_ar, code')
         .eq('status', 'active')
         .order('name_en')
 
@@ -123,64 +133,22 @@ export default function CreateSemester() {
     }
   }
 
-  const fetchCollegeAcademicSettings = async () => {
-    try {
-      if (!collegeId) {
-        // If no collegeId, fetch from university settings
-        await fetchUniversityAcademicSettings()
-        return
-      }
-      
-      // Use utility function to get effective settings (college or university based on flag)
-      const { getCollegeSettings } = await import('../../utils/getCollegeSettings.js')
-      const settings = await getCollegeSettings(collegeId)
-
-      if (settings.academic?.credit_hours_source) {
-        setCreditHoursSource(settings.academic.credit_hours_source)
-      }
-    } catch (err) {
-      console.error('Error fetching college academic settings:', err)
-    }
-  }
-
-  const fetchUniversityAcademicSettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('university_settings')
-        .select('academic_settings')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching university academic settings:', error)
-        return
-      }
-
-      if (data?.academic_settings?.credit_hours_source) {
-        setCreditHoursSource(data.academic_settings.credit_hours_source)
-      }
-    } catch (err) {
-      console.error('Error fetching university academic settings:', err)
-    }
-  }
-
   const fetchAcademicYears = async () => {
     try {
       let query = supabase
         .from('academic_years')
-        .select('id, name_en, code, start_date, end_date')
+        .select('id, name_en, name_ar, code, start_date, end_date')
         .order('start_date', { ascending: false })
 
-      // For college admins (user role), ONLY show their college's academic years (exclude university-wide)
+      // For college admins (user role): show college's academic years OR university-wide
       if (userRole === 'user' && collegeId) {
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       } else if (isUniversityWide) {
         // University-wide: show only university-wide academic years
         query = query.eq('is_university_wide', true)
       } else if (collegeId && userRole === 'admin') {
-        // For super admin with selected college: show ONLY that college's academic years (not university-wide)
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        // For super admin with selected college: show college's academic years OR university-wide
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
       // If no college selected and not university-wide, show all (for super admin)
 
@@ -197,6 +165,34 @@ export default function CreateSemester() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const autoGenerate = () => {
+    if (!formData.academic_year_id || !formData.season) {
+      alert(t('academic.semesters.autoGenerateError'))
+      return
+    }
+
+    const selectedYear = academicYears.find(y => y.id === parseInt(formData.academic_year_id))
+    if (!selectedYear) return
+
+    const yearStart = new Date(selectedYear.start_date).getFullYear()
+    const yearEnd = new Date(selectedYear.end_date).getFullYear()
+    const seasonName = formData.season.charAt(0).toUpperCase() + formData.season.slice(1)
+    
+    // Generate name
+    const collegeName = isUniversityWide ? '' : getLocalizedName(colleges.find(c => c.id === (formData.college_id || collegeId)), isRTL)
+    const nameEn = `${seasonName} ${yearStart}-${yearEnd}${collegeName ? ` - ${collegeName}` : ''}`
+    
+    // Generate code
+    const code = `${seasonName}${yearEnd}`
+
+    setFormData(prev => ({
+      ...prev,
+      name_en: nameEn,
+      code: code,
+      academic_year_number: yearStart
+    }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
@@ -204,6 +200,10 @@ export default function CreateSemester() {
     setSuccess(false)
 
     try {
+      // Get current user email for audit
+      const { data: { user } } = await supabase.auth.getUser()
+      const userEmail = user?.email || null
+
       const submitData = {
         academic_year_id: parseInt(formData.academic_year_id),
         name_en: formData.name_en,
@@ -219,14 +219,22 @@ export default function CreateSemester() {
         add_deadline: formData.add_deadline || null,
         drop_deadline: formData.drop_deadline || null,
         withdrawal_deadline: formData.withdrawal_deadline || null,
-        min_credit_hours: parseInt(formData.min_credit_hours) || 12,
-        max_credit_hours: parseInt(formData.max_credit_hours) || 18,
-        max_credit_hours_with_permission: parseInt(formData.max_credit_hours_with_permission) || 21,
-        min_gpa_for_max_credits: parseFloat(formData.min_gpa_for_max_credits) || 3.0,
+        min_credit_hours: semesterCreditsFromUni.min_credit_hours,
+        max_credit_hours: semesterCreditsFromUni.max_credit_hours,
+        max_credit_hours_with_permission: semesterCreditsFromUni.max_credit_hours_with_permission,
+        min_gpa_for_max_credits: semesterCreditsFromUni.min_gpa_for_max_credits,
         description: formData.description || null,
         description_ar: formData.description_ar || null,
         is_university_wide: isUniversityWide,
         college_id: isUniversityWide ? null : (formData.college_id || collegeId),
+        status: formData.status || 'draft',
+        course_registration_allowed: formData.course_registration_allowed || false,
+        add_drop_allowed: formData.add_drop_allowed || false,
+        withdrawal_allowed: formData.withdrawal_allowed || false,
+        grade_entry_allowed: formData.grade_entry_allowed || false,
+        attendance_editing_allowed: formData.attendance_editing_allowed || false,
+        late_registration_allowed: formData.late_registration_allowed || false,
+        created_by: userEmail,
       }
 
       const { data, error: insertError } = await supabase
@@ -237,73 +245,7 @@ export default function CreateSemester() {
 
       if (insertError) throw insertError
 
-      // If this is a university-wide semester, clone it to all existing colleges
-      if (isUniversityWide && data) {
-        // Load the academic year so we can map by code when cloning
-        const { data: academicYear, error: yearError } = await supabase
-          .from('academic_years')
-          .select('id, code')
-          .eq('id', data.academic_year_id)
-          .maybeSingle()
-
-        const { data: colleges, error: collegesError } = await supabase
-          .from('colleges')
-          .select('id')
-          .eq('status', 'active')
-
-        if (!collegesError && colleges && colleges.length > 0) {
-          const clones = []
-
-          for (const c of colleges) {
-            let targetAcademicYearId = data.academic_year_id
-
-            // If we have the original academic year's code, try to find the college-specific copy
-            if (academicYear?.code) {
-              const { data: collegeYear, error: collegeYearError } = await supabase
-                .from('academic_years')
-                .select('id')
-                .eq('code', academicYear.code)
-                .eq('college_id', c.id)
-                .eq('is_university_wide', false)
-                .maybeSingle()
-
-              if (!collegeYearError && collegeYear) {
-                targetAcademicYearId = collegeYear.id
-              }
-            }
-
-            clones.push({
-              academic_year_id: targetAcademicYearId,
-              name_en: data.name_en,
-              name_ar: data.name_ar,
-              code: data.code,
-              academic_year_number: data.academic_year_number,
-              season: data.season,
-              start_date: data.start_date,
-              end_date: data.end_date,
-              registration_start_date: data.registration_start_date,
-              registration_end_date: data.registration_end_date,
-              late_registration_end_date: data.late_registration_end_date,
-              add_deadline: data.add_deadline,
-              drop_deadline: data.drop_deadline,
-              withdrawal_deadline: data.withdrawal_deadline,
-              min_credit_hours: data.min_credit_hours,
-              max_credit_hours: data.max_credit_hours,
-              max_credit_hours_with_permission: data.max_credit_hours_with_permission,
-              min_gpa_for_max_credits: data.min_gpa_for_max_credits,
-              description: data.description,
-              description_ar: data.description_ar,
-              is_university_wide: false,
-              college_id: c.id,
-            })
-          }
-
-          if (clones.length > 0) {
-            await supabase.from('semesters').insert(clones)
-          }
-        }
-      }
-
+      // University-wide: single record, no cloning. New colleges automatically see it via query filter.
       setSuccess(true)
       setTimeout(() => {
         navigate('/academic/semesters')
@@ -317,22 +259,25 @@ export default function CreateSemester() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>{t('academic.semesters.back')}</span>
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900">{t('academic.semesters.createTitle')}</h1>
-          <p className="text-gray-600 mt-1">{t('academic.semesters.createSubtitle')}</p>
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-5xl mx-auto">
+        {/* Back Navigation */}
+        <button
+          onClick={() => navigate(-1)}
+          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-500 hover:text-gray-900 mb-6 text-sm font-medium`}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{t('academic.semesters.back')}</span>
+        </button>
+
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('academic.semesters.createTitle')}</h1>
+          <p className="text-sm text-gray-500">{t('academic.semesters.createSubtitle')}</p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
                 {error}
@@ -346,92 +291,102 @@ export default function CreateSemester() {
             )}
 
             <div className="space-y-6">
+              {/* Scope Selection */}
               {userRole === 'admin' && (
-                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} p-4 bg-gray-50 rounded-lg`}>
-                  <input
-                    type="checkbox"
-                    checked={isUniversityWide}
-                    onChange={(e) => {
-                      setIsUniversityWide(e.target.checked)
-                      if (e.target.checked) {
-                        setFormData(prev => ({ ...prev, college_id: null }))
-                        setCollegeId(null) // Clear collegeId for university-wide
-                      } else {
-                        setFormData(prev => ({ ...prev, college_id: collegeId }))
-                        // collegeId remains the same, useEffect will handle fetchAcademicYears
-                      }
-                    }}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                  />
-                  <label className="text-sm font-medium text-gray-700">
-                    {t('academic.semesters.universityWide')}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <label className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} cursor-pointer`}>
+                    <input
+                      type="checkbox"
+                      id="universityWide"
+                      checked={isUniversityWide}
+                      onChange={(e) => {
+                        setIsUniversityWide(e.target.checked)
+                        if (e.target.checked) {
+                          setFormData(prev => ({ ...prev, college_id: null }))
+                          setCollegeId(null)
+                        } else {
+                          setFormData(prev => ({ ...prev, college_id: collegeId }))
+                        }
+                      }}
+                      className="w-4 h-4 text-primary-600 rounded border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900">{t('academic.semesters.universityWide')}</span>
                   </label>
+                  <p className={`text-xs text-gray-500 mt-2 ${isRTL ? 'text-right' : 'text-left'} ${isRTL ? 'mr-7' : 'ml-7'}`}>
+                    {t('academic.semesters.universityWideDesc')}
+                  </p>
                 </div>
               )}
 
+              {/* College Selection */}
               {userRole === 'admin' && !isUniversityWide && (
-                <div>
+                <div id="collegeSection">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('navigation.colleges')}</label>
                   <select
                     value={formData.college_id || ''}
                     onChange={(e) => {
                       const selectedCollegeId = e.target.value ? parseInt(e.target.value) : null
-                      setCollegeId(selectedCollegeId) // Update collegeId state first
+                      setCollegeId(selectedCollegeId)
                       handleChange('college_id', selectedCollegeId)
-                      // fetchAcademicYears will be called automatically by useEffect when collegeId changes
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="">{t('academic.semesters.selectCollege')}</option>
                     {colleges.map(college => (
-                      <option key={college.id} value={college.id}>{college.name_en}</option>
+                      <option key={college.id} value={college.id}>{getLocalizedName(college, isRTL)}</option>
                     ))}
                   </select>
                 </div>
               )}
 
+              {/* Academic Year Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.academicYear')} *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('academic.semesters.academicYear')} <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={formData.academic_year_id}
                   onChange={(e) => handleChange('academic_year_id', e.target.value)}
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-4 py-3.5 border border-gray-200 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">{t('academic.semesters.selectAcademicYear')}</option>
                   {academicYears.map(year => (
                     <option key={year.id} value={year.id}>
-                      {year.name_en} ({year.code})
+                      {getLocalizedName(year, isRTL)} ({year.code})
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">{/* helper text intentionally left generic */}</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.name')} *</label>
-                <input
-                  type="text"
-                  value={formData.name_en}
-                  onChange={(e) => handleChange('name_en', e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="e.g., Fall Semester 2024"
-                />
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.name')} <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={formData.name_en}
+                    onChange={(e) => handleChange('name_en', e.target.value)}
+                    required
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="e.g., Fall Semester 2024"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">{t('academic.semesters.nameHint')}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.nameAr')}</label>
+                  <input
+                    type="text"
+                    value={formData.name_ar}
+                    onChange={(e) => handleChange('name_ar', e.target.value)}
+                    dir="rtl"
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="الفصل الدراسي الأول 2024"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.nameAr')}</label>
-                <input
-                  type="text"
-                  value={formData.name_ar}
-                  onChange={(e) => handleChange('name_ar', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="الفصل الدراسي الأول 2024"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.code')} *</label>
                   <input
@@ -442,7 +397,7 @@ export default function CreateSemester() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="e.g., FALL2024"
                   />
-                  <p className="text-xs text-gray-500 mt-1"></p>
+                  <p className="text-xs text-gray-500 mt-1">{t('academic.semesters.codeHint')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.numberYear')} *</label>
@@ -454,62 +409,75 @@ export default function CreateSemester() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     placeholder="2024"
                   />
-                  <p className="text-xs text-gray-500 mt-1"></p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.season')} *</label>
+                  <select
+                    value={formData.season}
+                    onChange={(e) => handleChange('season', e.target.value)}
+                    required
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="">{t('academic.semesters.selectSeason')}</option>
+                    <option value="fall">{t('academic.semesters.fall')}</option>
+                    <option value="spring">{t('academic.semesters.spring')}</option>
+                    <option value="summer">{t('academic.semesters.summer')}</option>
+                    <option value="winter">{t('academic.semesters.winter')}</option>
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.season')} *</label>
-                <select
-                  value={formData.season}
-                  onChange={(e) => handleChange('season', e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              {/* Auto-generate Helper */}
+              <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{t('academic.semesters.autoGenerateTitle')}</div>
+                  <div className="text-xs text-gray-500 mt-1">{t('academic.semesters.autoGenerateDesc')}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={autoGenerate}
+                  className="px-5 py-2.5 bg-primary-gradient text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-all"
                 >
-                  <option value="">{t('academic.semesters.selectSeason')}</option>
-                  <option value="fall">{t('academic.semesters.fall')}</option>
-                  <option value="spring">{t('academic.semesters.spring')}</option>
-                  <option value="summer">{t('academic.semesters.summer')}</option>
-                  <option value="winter">{t('academic.semesters.winter')}</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1"></p>
+                  {t('academic.semesters.autoGenerateNow')}
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Semester Dates */}
+              <h3 className="text-base font-semibold text-gray-900 mb-5 pt-6 border-t border-gray-200">{t('academic.semesters.semesterDates')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.startDate')} *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.startDate')} <span className="text-red-500">*</span></label>
                   <input
                     type="date"
                     value={formData.start_date}
                     onChange={(e) => handleChange('start_date', e.target.value)}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.endDate')} *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.endDate')} <span className="text-red-500">*</span></label>
                   <input
                     type="date"
                     value={formData.end_date}
                     onChange={(e) => handleChange('end_date', e.target.value)}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.registrationDates')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Registration Dates */}
+              <h3 className="text-base font-semibold text-gray-900 mb-5 pt-6 border-t border-gray-200">{t('academic.semesters.registrationDates')}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.registrationStart')}</label>
                     <input
                       type="date"
                       value={formData.registration_start_date}
                       onChange={(e) => handleChange('registration_start_date', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
-                    <p className="text-xs text-gray-500 mt-1"></p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.registrationEnd')}</label>
@@ -517,123 +485,192 @@ export default function CreateSemester() {
                       type="date"
                       value={formData.registration_end_date}
                       onChange={(e) => handleChange('registration_end_date', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.lateRegistrationEnd')}</label>
-                    <input
-                      type="date"
-                      value={formData.late_registration_end_date}
-                      onChange={(e) => handleChange('late_registration_end_date', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
                   </div>
                 </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.academicDeadlines')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.addDeadline')}</label>
-                    <input
-                      type="date"
-                      value={formData.add_deadline}
-                      onChange={(e) => handleChange('add_deadline', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.dropDeadline')}</label>
-                    <input
-                      type="date"
-                      value={formData.drop_deadline}
-                      onChange={(e) => handleChange('drop_deadline', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.withdrawalDeadline')}</label>
-                    <input
-                      type="date"
-                      value={formData.withdrawal_deadline}
-                      onChange={(e) => handleChange('withdrawal_deadline', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                    <p className="text-xs text-gray-500 mt-1"></p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Credit Hours Configuration - Only show if source is 'semester' */}
-              {(!creditHoursSource || creditHoursSource === 'semester') && (
-                <div className="border-t pt-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.creditHoursConfig')}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minCredits')}</label>
-                      <input
-                        type="number"
-                        value={formData.min_credit_hours}
-                        onChange={(e) => handleChange('min_credit_hours', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                      <p className="text-xs text-gray-500 mt-1"></p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxCredits')}</label>
-                      <input
-                        type="number"
-                        value={formData.max_credit_hours}
-                        onChange={(e) => handleChange('max_credit_hours', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                      <p className="text-xs text-gray-500 mt-1"></p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxWithPermission')}</label>
-                      <input
-                        type="number"
-                        value={formData.max_credit_hours_with_permission}
-                        onChange={(e) => handleChange('max_credit_hours_with_permission', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                      <p className="text-xs text-gray-500 mt-1"></p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minGpaForMax')}</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={formData.min_gpa_for_max_credits}
-                        onChange={(e) => handleChange('min_gpa_for_max_credits', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      />
-                      <p className="text-xs text-gray-500 mt-1"></p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Show info message if using major_sheet source */}
-              {creditHoursSource === 'major_sheet' && (
-                <div className="border-t pt-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <p className="text-sm text-blue-800">
-                      <strong>Note:</strong> This college uses Major Sheet (Degree Plan) as the source for credit hour rules.
-                      Credit hour limits are configured in each major's degree plan (Manage Major Sheet), not in semester settings.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t pt-4">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.lateRegistrationEnd')}</label>
+                  <input
+                    type="date"
+                    value={formData.late_registration_end_date}
+                    onChange={(e) => handleChange('late_registration_end_date', e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+
+              {/* Academic Deadlines */}
+              <h3 className="text-base font-semibold text-gray-900 mb-5 pt-6 border-t border-gray-200">{t('academic.semesters.academicDeadlines')}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.addDeadline')}</label>
+                  <input
+                    type="date"
+                    value={formData.add_deadline}
+                    onChange={(e) => handleChange('add_deadline', e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.dropDeadline')}</label>
+                  <input
+                    type="date"
+                    value={formData.drop_deadline}
+                    onChange={(e) => handleChange('drop_deadline', e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.withdrawalDeadline')}</label>
+                  <input
+                    type="date"
+                    value={formData.withdrawal_deadline}
+                    onChange={(e) => handleChange('withdrawal_deadline', e.target.value)}
+                    className="w-full px-4 py-3.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Credit Hours - Read-only from University Settings */}
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-base font-semibold text-gray-900 mb-5">{t('academic.semesters.creditHoursConfig')}</h3>
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-4">{t('academic.semesters.creditHoursFromUniversitySettings') || 'Semester credit limits are configured in University Settings. These values are read-only.'}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.minCredits')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.min_credit_hours}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.maxCredits')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.max_credit_hours}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.maxWithPermission')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.max_credit_hours_with_permission}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.minGpaForMax')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.min_gpa_for_max_credits}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Initial Status */}
+              <div className="border-t pt-6">
+                <h3 className="text-base font-semibold text-gray-900 mb-5">{t('academic.semesters.initialStatus')}</h3>
+                <div className={`flex ${isRTL ? 'space-x-reverse' : 'space-x-4'} gap-4`}>
+                  <label className={`flex items-center gap-2 px-6 py-4 bg-gray-50 border-2 ${formData.status === 'draft' ? 'border-primary-500' : 'border-gray-200'} rounded-xl cursor-pointer`}>
+                    <input
+                      type="radio"
+                      name="status"
+                      value="draft"
+                      checked={formData.status === 'draft'}
+                      onChange={(e) => handleChange('status', e.target.value)}
+                      className="w-4 h-4 text-primary-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900">{t('academic.semesters.statusDraft')}</span>
+                  </label>
+                  <label className={`flex items-center gap-2 px-6 py-4 bg-gray-50 border-2 ${formData.status === 'scheduled' ? 'border-primary-500' : 'border-gray-200'} rounded-xl cursor-pointer`}>
+                    <input
+                      type="radio"
+                      name="status"
+                      value="scheduled"
+                      checked={formData.status === 'scheduled'}
+                      onChange={(e) => handleChange('status', e.target.value)}
+                      className="w-4 h-4 text-primary-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900">{t('academic.semesters.statusScheduled')}</span>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">{t('academic.semesters.initialStatusHint')}</p>
+              </div>
+
+              {/* Initial Master Control Flags */}
+              <div className="border-t pt-6">
+                <h3 className="text-base font-semibold text-gray-900 mb-5">{t('academic.semesters.initialMasterControlFlags')}</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className={`flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer ${formData.course_registration_allowed ? 'ring-2 ring-primary-500' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.course_registration_allowed}
+                      onChange={(e) => handleChange('course_registration_allowed', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{t('academic.semesters.courseRegistrationAllowed')}</div>
+                      <div className="text-xs text-gray-500">{t('academic.semesters.courseRegistrationAllowedDesc')}</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer ${formData.add_drop_allowed ? 'ring-2 ring-primary-500' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.add_drop_allowed}
+                      onChange={(e) => handleChange('add_drop_allowed', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{t('academic.semesters.addDropAllowed')}</div>
+                      <div className="text-xs text-gray-500">{t('academic.semesters.addDropAllowedDesc')}</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer ${formData.withdrawal_allowed ? 'ring-2 ring-primary-500' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.withdrawal_allowed}
+                      onChange={(e) => handleChange('withdrawal_allowed', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{t('academic.semesters.withdrawalAllowed')}</div>
+                      <div className="text-xs text-gray-500">{t('academic.semesters.withdrawalAllowedDesc')}</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer ${formData.grade_entry_allowed ? 'ring-2 ring-primary-500' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.grade_entry_allowed}
+                      onChange={(e) => handleChange('grade_entry_allowed', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{t('academic.semesters.gradeEntryAllowed')}</div>
+                      <div className="text-xs text-gray-500">{t('academic.semesters.gradeEntryAllowedDesc')}</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer ${formData.attendance_editing_allowed ? 'ring-2 ring-primary-500' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.attendance_editing_allowed}
+                      onChange={(e) => handleChange('attendance_editing_allowed', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{t('academic.semesters.attendanceEditingAllowed')}</div>
+                      <div className="text-xs text-gray-500">{t('academic.semesters.attendanceEditingAllowedDesc')}</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-center gap-3 p-4 bg-gray-50 rounded-xl cursor-pointer ${formData.late_registration_allowed ? 'ring-2 ring-primary-500' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.late_registration_allowed}
+                      onChange={(e) => handleChange('late_registration_allowed', e.target.checked)}
+                      className="w-4 h-4 text-primary-600 rounded"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{t('academic.semesters.lateRegistrationAllowed')}</div>
+                      <div className="text-xs text-gray-500">{t('academic.semesters.lateRegistrationAllowedDesc')}</div>
+                    </div>
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">{t('academic.semesters.initialMasterControlFlagsDesc')}</p>
+              </div>
+
+              {/* Description */}
+              <div className="border-t pt-6">
+                <h3 className="text-base font-semibold text-gray-900 mb-5">{t('academic.semesters.description')}</h3>
+                <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.description')}</label>
                   <textarea
                     value={formData.description}
@@ -643,34 +680,36 @@ export default function CreateSemester() {
                     placeholder={t('academic.semesters.descriptionPlaceholder')}
                   />
                 </div>
-                <div className="mt-4">
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.descriptionAr')}</label>
                   <textarea
                     value={formData.description_ar}
                     onChange={(e) => handleChange('description_ar', e.target.value)}
                     rows={3}
+                    dir="rtl"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="معلومات إضافية عن هذا الفصل الدراسي..."
+                    placeholder="...معلومات إضافية عن هذا الفصل الدراسي"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className={`flex ${isRTL ? 'justify-start space-x-reverse space-x-4' : 'justify-end space-x-4'}`}>
+          {/* Form Actions */}
+          <div className={`flex ${isRTL ? 'justify-start space-x-reverse space-x-4' : 'justify-end space-x-4'} pt-6 border-t border-gray-200`}>
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-7 py-3.5 border border-gray-200 rounded-lg text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
             >
               {t('academic.semesters.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
-              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-7 py-3.5 bg-primary-gradient text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              <Save className="w-5 h-5" />
+              <Save className="w-4 h-4" />
               <span>{loading ? t('academic.semesters.creating') : t('academic.semesters.create')}</span>
             </button>
           </div>

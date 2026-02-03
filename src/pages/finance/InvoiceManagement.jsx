@@ -81,7 +81,7 @@ export default function InvoiceManagement() {
         query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       } else if (userRole === 'admin' && selectedCollegeId) {
         // University admin with college selected: show that college's semesters
-        query = query.eq('college_id', selectedCollegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
       }
       // University admin without college selected: show all semesters (no filter)
 

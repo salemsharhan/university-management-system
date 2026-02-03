@@ -107,7 +107,7 @@ const navigation = [
   { name: 'Departments', translationKey: 'navigation.departments', href: '/academic/departments', icon: Building2, roles: ['admin', 'user'] },
   { name: 'Majors', translationKey: 'navigation.majors', href: '/academic/majors', icon: BookMarked, roles: ['admin', 'user'] },
   { name: 'Subjects', translationKey: 'navigation.subjects', href: '/academic/subjects', icon: BookOpen, roles: ['admin', 'user'] },
-  { name: 'Classes', translationKey: 'navigation.classes', href: '/academic/classes', icon: Library, roles: ['admin', 'user'] },
+  { name: 'Sessions', translationKey: 'navigation.sessions', href: '/academic/classes', icon: Library, roles: ['admin', 'user'] },
   { 
     name: 'Enrollments', 
     translationKey: 'navigation.enrollments',
@@ -121,19 +121,7 @@ const navigation = [
   },
   { name: 'Students', translationKey: 'navigation.students', href: '/students', icon: GraduationCap, roles: ['admin', 'user', 'instructor'] },
   { name: 'Instructors', translationKey: 'navigation.instructors', href: '/instructors', icon: Users, roles: ['admin', 'user'] },
-  { 
-    name: 'Courses', 
-    translationKey: 'navigation.courses', 
-    href: '/courses', 
-    icon: BookOpen, 
-    roles: ['admin', 'user'],
-    submenu: [
-      { name: 'All Courses', translationKey: 'navigation.allCourses', href: '/courses' },
-    ]
-  },
-  { name: 'My Subjects', translationKey: 'navigation.mySubjects', href: '/courses', icon: BookOpen, roles: ['student'] },
-  { name: 'Enroll in Classes', translationKey: 'navigation.enroll', href: '/student/enroll', icon: GraduationCap, roles: ['student'] },
-  { name: 'My Subjects', translationKey: 'navigation.mySubjects', href: '/courses', icon: BookOpen, roles: ['instructor'] },
+  { name: 'Enroll in Sessions', translationKey: 'navigation.enroll', href: '/student/enroll', icon: GraduationCap, roles: ['student'] },
   { name: 'Schedule', translationKey: 'navigation.schedule', href: '/schedule', icon: Calendar, roles: ['admin', 'user', 'instructor', 'student'] },
   { 
     name: 'Examinations', 
@@ -203,7 +191,6 @@ const navigation = [
     roles: ['admin', 'user', 'instructor'],
     submenu: [
       { name: 'User Settings', translationKey: 'navigation.userSettings', href: '/settings' },
-      { name: 'University Settings', translationKey: 'navigation.universitySettings', href: '/admin/university-settings' },
     ]
   },
 ]

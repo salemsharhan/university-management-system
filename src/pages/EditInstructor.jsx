@@ -21,6 +21,7 @@ export default function EditInstructor() {
     department_id: '',
     title: 'lecturer',
     status: 'active',
+    can_add_materials: false,
   })
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function EditInstructor() {
         department_id: data.department_id || '',
         title: data.title || 'lecturer',
         status: data.status || 'active',
+        can_add_materials: data.can_add_materials || false,
       })
     } catch (err) {
       console.error('Error fetching instructor:', err)
@@ -92,6 +94,7 @@ export default function EditInstructor() {
         department_id: formData.department_id ? parseInt(formData.department_id) : null,
         title: formData.title,
         status: formData.status,
+        can_add_materials: formData.can_add_materials || false,
       }
 
       const { error: updateError } = await supabase
@@ -203,6 +206,19 @@ export default function EditInstructor() {
                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               <label className="text-sm font-medium text-gray-700">Active</label>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="can_add_materials"
+                checked={formData.can_add_materials || false}
+                onChange={(e) => handleChange('can_add_materials', e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <label htmlFor="can_add_materials" className="text-sm font-medium text-gray-700">
+                Allow instructor to add materials for their classes
+              </label>
             </div>
           </div>
         </div>

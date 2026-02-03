@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
@@ -18,6 +19,7 @@ export default function GradeManagement() {
   const [classes, setClasses] = useState([])
   const [loading, setLoading] = useState(false)
   const [collegeId, setCollegeId] = useState(null)
+  const [gradeTypes, setGradeTypes] = useState([])
 
   useEffect(() => {
     // Set college ID based on role first
@@ -55,6 +57,10 @@ export default function GradeManagement() {
     }
   }, [selectedSemester, collegeId])
 
+  useEffect(() => {
+    getGradeTypesFromUniversitySettings().then(setGradeTypes)
+  }, [])
+
   const fetchSemesters = async () => {
     // Don't fetch if we don't have required data
     if (userRole === 'user' && !authCollegeId) return
@@ -67,17 +73,17 @@ export default function GradeManagement() {
         .select('id, name_en, code, start_date, end_date, status')
         .order('start_date', { ascending: false })
 
-      // Filter by college for college admins - only their college's semesters
+      // Filter by college for college admins: college's semesters OR university-wide
       if (userRole === 'user' && authCollegeId) {
-        query = query.eq('college_id', authCollegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${authCollegeId},is_university_wide.eq.true`)
       }
-      // Filter by college for instructors
+      // Filter by college for instructors: college's semesters OR university-wide
       else if (userRole === 'instructor' && authCollegeId) {
-        query = query.eq('college_id', authCollegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${authCollegeId},is_university_wide.eq.true`)
       }
-      // Filter by selected college for super admins
+      // Filter by selected college for super admins: college's semesters OR university-wide
       else if (userRole === 'admin' && selectedCollegeId) {
-        query = query.eq('college_id', selectedCollegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query
@@ -116,11 +122,10 @@ export default function GradeManagement() {
         .eq('status', 'active')
         .order('code')
 
-      // Filter by college
-      if (collegeId) {
-        query = query.eq('college_id', collegeId)
-      } else if (userRole === 'user' && authCollegeId) {
-        query = query.eq('college_id', authCollegeId)
+      // Filter by college: show college's classes OR university-wide classes
+      const effectiveCollegeId = collegeId || (userRole === 'user' && authCollegeId) || (userRole === 'admin' && selectedCollegeId) || authCollegeId
+      if (effectiveCollegeId) {
+        query = query.or(`college_id.eq.${effectiveCollegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query
@@ -238,7 +243,9 @@ export default function GradeManagement() {
                     </div>
                     {classItem.subjects?.grade_configuration && 
                      Array.isArray(classItem.subjects.grade_configuration) && 
-                     classItem.subjects.grade_configuration.length > 0 && (
+                     classItem.subjects.grade_configuration.length > 0 && (() => {
+                      const mergedConfig = mergeGradeConfigWithTypes(classItem.subjects.grade_configuration, gradeTypes)
+                      return (
                       <div className={`flex items-start text-gray-600 mt-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <Award className={`w-4 h-4 ${isRTL ? 'ml-2' : 'mr-2'} mt-0.5`} />
                         <div className="flex-1">
@@ -246,7 +253,7 @@ export default function GradeManagement() {
                             {t('grading.gradeManagement.gradeTypes')}:
                           </span>
                           <div className="flex flex-wrap gap-1">
-                            {classItem.subjects.grade_configuration.map((config, idx) => (
+                            {mergedConfig.map((config, idx) => (
                               <span
                                 key={idx}
                                 className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800"
@@ -258,7 +265,7 @@ export default function GradeManagement() {
                             ))}
                           </div>
                           <div className="mt-1 text-xs text-gray-500">
-                            {classItem.subjects.grade_configuration.map((config, idx) => (
+                            {mergedConfig.map((config, idx) => (
                               <div key={idx} className="truncate">
                                 <span className="font-medium">{config.grade_type_name_en || config.grade_type_code}:</span>
                                 {' '}
@@ -271,7 +278,7 @@ export default function GradeManagement() {
                           </div>
                         </div>
                       </div>
-                    )}
+                    )})()}
                   </div>
                 </div>
               ))}

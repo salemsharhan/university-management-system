@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
+import { getSemesterCreditsFromUniversitySettings } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
@@ -20,6 +22,12 @@ export default function EditSemester() {
   const [colleges, setColleges] = useState([])
   const [academicYears, setAcademicYears] = useState([])
   const [isUniversityWide, setIsUniversityWide] = useState(false)
+  const [semesterCreditsFromUni, setSemesterCreditsFromUni] = useState({
+    min_credit_hours: 12,
+    max_credit_hours: 18,
+    max_credit_hours_with_permission: 21,
+    min_gpa_for_max_credits: 3.0,
+  })
 
   const [formData, setFormData] = useState({
     academic_year_id: '',
@@ -36,10 +44,6 @@ export default function EditSemester() {
     add_deadline: '',
     drop_deadline: '',
     withdrawal_deadline: '',
-    min_credit_hours: 12,
-    max_credit_hours: 18,
-    max_credit_hours_with_permission: 21,
-    min_gpa_for_max_credits: 3.0,
     description: '',
     description_ar: '',
     status: 'planned',
@@ -59,6 +63,14 @@ export default function EditSemester() {
       fetchAcademicYears()
     }
   }, [formData.college_id, isUniversityWide, userRole])
+
+  useEffect(() => {
+    const fetchCredits = async () => {
+      const credits = await getSemesterCreditsFromUniversitySettings()
+      setSemesterCreditsFromUni(credits)
+    }
+    fetchCredits()
+  }, [])
 
   const fetchSemester = async () => {
     try {
@@ -86,10 +98,6 @@ export default function EditSemester() {
         add_deadline: data.add_deadline || '',
         drop_deadline: data.drop_deadline || '',
         withdrawal_deadline: data.withdrawal_deadline || '',
-        min_credit_hours: data.min_credit_hours || 12,
-        max_credit_hours: data.max_credit_hours || 18,
-        max_credit_hours_with_permission: data.max_credit_hours_with_permission || 21,
-        min_gpa_for_max_credits: data.min_gpa_for_max_credits || 3.0,
         description: data.description || '',
         description_ar: data.description_ar || '',
         status: data.status || 'planned',
@@ -129,11 +137,11 @@ export default function EditSemester() {
         .order('start_date', { ascending: false })
 
       if (userRole === 'user' && collegeId) {
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       } else if (isUniversityWide) {
         query = query.eq('is_university_wide', true)
       } else if (collegeId && userRole === 'admin') {
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query
@@ -170,10 +178,10 @@ export default function EditSemester() {
         add_deadline: formData.add_deadline || null,
         drop_deadline: formData.drop_deadline || null,
         withdrawal_deadline: formData.withdrawal_deadline || null,
-        min_credit_hours: parseInt(formData.min_credit_hours) || 12,
-        max_credit_hours: parseInt(formData.max_credit_hours) || 18,
-        max_credit_hours_with_permission: parseInt(formData.max_credit_hours_with_permission) || 21,
-        min_gpa_for_max_credits: parseFloat(formData.min_gpa_for_max_credits) || 3.0,
+        min_credit_hours: semesterCreditsFromUni.min_credit_hours,
+        max_credit_hours: semesterCreditsFromUni.max_credit_hours,
+        max_credit_hours_with_permission: semesterCreditsFromUni.max_credit_hours_with_permission,
+        min_gpa_for_max_credits: semesterCreditsFromUni.min_gpa_for_max_credits,
         description: formData.description || null,
         description_ar: formData.description_ar || null,
         status: formData.status,
@@ -274,7 +282,7 @@ export default function EditSemester() {
                   >
                     <option value="">{t('academic.semesters.selectCollege')}</option>
                     {colleges.map(college => (
-                      <option key={college.id} value={college.id}>{college.name_en}</option>
+                      <option key={college.id} value={college.id}>{getLocalizedName(college, isRTL)}</option>
                     ))}
                   </select>
                 </div>
@@ -468,43 +476,25 @@ export default function EditSemester() {
 
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('academic.semesters.creditHoursConfig')}</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minCredits')}</label>
-                    <input
-                      type="number"
-                      value={formData.min_credit_hours}
-                      onChange={(e) => handleChange('min_credit_hours', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxCredits')}</label>
-                    <input
-                      type="number"
-                      value={formData.max_credit_hours}
-                      onChange={(e) => handleChange('max_credit_hours', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.maxWithPermission')}</label>
-                    <input
-                      type="number"
-                      value={formData.max_credit_hours_with_permission}
-                      onChange={(e) => handleChange('max_credit_hours_with_permission', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.minGpaForMax')}</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.min_gpa_for_max_credits}
-                      onChange={(e) => handleChange('min_gpa_for_max_credits', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-4">{t('academic.semesters.creditHoursFromUniversitySettings') || 'Semester credit limits are configured in University Settings. These values are read-only.'}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.minCredits')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.min_credit_hours}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.maxCredits')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.max_credit_hours}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.maxWithPermission')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.max_credit_hours_with_permission}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500 mb-1">{t('academic.semesters.minGpaForMax')}</div>
+                      <div className="text-sm font-medium text-gray-900">{semesterCreditsFromUni.min_gpa_for_max_credits}</div>
+                    </div>
                   </div>
                 </div>
               </div>

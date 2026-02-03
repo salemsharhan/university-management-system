@@ -37,7 +37,7 @@ export function CollegeProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('colleges')
-        .select('id, name_en, code, abbreviation')
+        .select('id, name_en, name_ar, code, abbreviation')
         .eq('status', 'active')
         .order('name_en')
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getLocalizedName } from '../utils/localizedName'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { 
@@ -117,7 +118,7 @@ export default function Dashboard() {
       // Fetch college performance data
       const { data: collegesData } = await supabase
         .from('colleges')
-        .select('id, name_en')
+        .select('id, name_en, name_ar')
         .eq('status', 'active')
 
       const collegePerformance = await Promise.all(
@@ -142,7 +143,7 @@ export default function Dashboard() {
           const attendanceRate = 92 // Placeholder - would need actual attendance calculations
 
           return {
-            name: college.name_en,
+            name: getLocalizedName(college, isRTL),
             students: collegeStudents || 0,
             avgGPA: collegeAvgGPA,
             attendance: attendanceRate,

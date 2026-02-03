@@ -231,7 +231,7 @@ export default function ManageMajorSheet() {
       }
     } catch (err) {
       console.error('Error fetching major:', err)
-      setError(err.message || 'Failed to load major')
+      setError(err.message || t('academic.majors.degreePlanSheet.loadMajorFailed'))
     } finally {
       setFetching(false)
     }
@@ -278,7 +278,7 @@ export default function ManageMajorSheet() {
       }
     } catch (err) {
       console.error('Error fetching major sheet details:', err)
-      setError(err.message || 'Failed to load major sheet details')
+      setError(err.message || t('academic.majors.degreePlanSheet.loadSheetDetailsFailed'))
     }
   }
 
@@ -320,7 +320,7 @@ export default function ManageMajorSheet() {
         .order('start_date', { ascending: false })
 
       if (userRole === 'user' && currentCollegeId) {
-        query = query.eq('college_id', currentCollegeId).eq('is_university_wide', false)
+        query = query.or(`college_id.eq.${currentCollegeId},is_university_wide.eq.true`)
       } else if (isUniversityWide) {
         query = query.eq('is_university_wide', true)
       } else if (currentCollegeId && userRole === 'admin') {
@@ -442,7 +442,7 @@ export default function ManageMajorSheet() {
 
     try {
       if (!majorSheet.version) {
-        throw new Error('Version is required')
+        throw new Error(t('academic.majors.degreePlanSheet.versionRequired', 'Version is required'))
       }
 
       // Deactivate existing major sheet if updating
@@ -557,7 +557,7 @@ export default function ManageMajorSheet() {
         navigate(`/academic/majors/${id}`)
       }, 2000)
     } catch (err) {
-      setError(err.message || 'Failed to save degree plan')
+      setError(err.message || t('academic.majors.degreePlanSheet.saveFailed'))
       console.error('Error saving major sheet:', err)
     } finally {
       setLoading(false)
@@ -580,10 +580,10 @@ export default function ManageMajorSheet() {
           className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back</span>
+          <span>{t('common.back')}</span>
         </button>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          Major not found
+          {t('academic.majors.degreePlanSheet.majorNotFound')}
         </div>
       </div>
     )
@@ -598,28 +598,28 @@ export default function ManageMajorSheet() {
             className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900 mb-4`}
           >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Major</span>
+            <span>{t('academic.majors.degreePlanSheet.backToMajor')}</span>
           </button>
           <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-            Configure Degree Plan - {major.name_en}
+            {t('academic.majors.degreePlanSheet.title', { majorName: major.name_en })}
           </h1>
           <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-            Define the academic structure and course requirements for this major
+            {t('academic.majors.degreePlanSheet.subtitle')}
           </p>
         </div>
 
         {subjects.length === 0 && (
           <div className="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded">
             <p className="text-sm font-medium text-amber-800 mb-2">
-              ⚠️ No Subjects Found for This Major
+              ⚠️ {t('academic.majors.degreePlanSheet.noSubjectsTitle')}
             </p>
             <p className="text-xs text-amber-700">
-              You need to create subjects for this major first before configuring the degree plan. 
+              {t('academic.majors.degreePlanSheet.noSubjectsDesc')}{' '}
               <button
                 onClick={() => navigate('/academic/subjects/create', { state: { majorId: id } })}
                 className="ml-2 text-amber-900 underline font-semibold"
               >
-                Create Subjects Now
+                {t('academic.majors.degreePlanSheet.createSubjectsNow')}
               </button>
             </p>
           </div>
@@ -635,7 +635,7 @@ export default function ManageMajorSheet() {
             {success && (
               <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Check className="w-5 h-5" />
-                <span>Degree plan saved successfully! Redirecting...</span>
+                <span>{t('academic.majors.degreePlanSheet.saveSuccess')}</span>
               </div>
             )}
 
@@ -643,12 +643,12 @@ export default function ManageMajorSheet() {
               {/* Major Sheet Basic Info */}
               <div className="border-t pt-6">
                 <h4 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-                  Major Sheet Information
+                  {t('academic.majors.degreePlanSheet.majorSheetInfo')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Version * (e.g., "2024-2025" or "v2.1")
+                      {t('academic.majors.degreePlanSheet.version')}
                     </label>
                     <input
                       type="text"
@@ -661,7 +661,7 @@ export default function ManageMajorSheet() {
                   </div>
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Academic Year *
+                      {t('academic.majors.degreePlanSheet.academicYear')}
                     </label>
                     {academicYears.length > 0 ? (
                       <select
@@ -670,7 +670,7 @@ export default function ManageMajorSheet() {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                         required
                       >
-                        <option value="">Select Academic Year...</option>
+                        <option value="">{t('academic.majors.degreePlanSheet.selectAcademicYear')}</option>
                         {academicYears.map(year => (
                           <option key={year.id} value={year.name_en || year.code}>
                             {year.name_en || year.code} ({new Date(year.start_date).getFullYear()}-{new Date(year.end_date).getFullYear()})
@@ -688,14 +688,14 @@ export default function ManageMajorSheet() {
                           required
                         />
                         <p className="text-xs text-yellow-600 mt-1">
-                          No academic years found. Please create academic years first or enter manually.
+                          {t('academic.majors.degreePlanSheet.noAcademicYears')}
                         </p>
                       </div>
                     )}
                   </div>
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Sheet Type *
+                      {t('academic.majors.degreePlanSheet.sheetType')}
                     </label>
                     <select
                       value={majorSheet.sheet_type}
@@ -703,18 +703,18 @@ export default function ManageMajorSheet() {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                       required
                     >
-                      <option value="rule_based">Rule-Based (Flexible - Choose N from M)</option>
-                      <option value="fixed_by_year">Fixed-by-Year (No Student Choice)</option>
+                      <option value="rule_based">{t('academic.majors.degreePlanSheet.sheetTypeRuleBased')}</option>
+                      <option value="fixed_by_year">{t('academic.majors.degreePlanSheet.sheetTypeFixed')}</option>
                     </select>
                     <p className="text-xs text-gray-500 mt-1">
                       {majorSheet.sheet_type === 'rule_based' 
-                        ? 'Students can choose courses based on rules (e.g., choose 3 from 10)'
-                        : 'All courses are predefined by year/semester, no student choice'}
+                        ? t('academic.majors.degreePlanSheet.sheetTypeRuleBasedHint')
+                        : t('academic.majors.degreePlanSheet.sheetTypeFixedHint')}
                     </p>
                   </div>
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Effective From *
+                      {t('academic.majors.degreePlanSheet.effectiveFrom')}
                     </label>
                     <input
                       type="date"
@@ -726,7 +726,7 @@ export default function ManageMajorSheet() {
                   </div>
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Effective To (Optional)
+                      {t('academic.majors.degreePlanSheet.effectiveTo')}
                     </label>
                     <input
                       type="date"
@@ -737,7 +737,7 @@ export default function ManageMajorSheet() {
                   </div>
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Total Credits Required *
+                      {t('academic.majors.degreePlanSheet.totalCreditsRequired')}
                     </label>
                     <input
                       type="number"
@@ -752,7 +752,7 @@ export default function ManageMajorSheet() {
                     <>
                       <div>
                         <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                          Min Credits per Semester *
+                          {t('academic.majors.degreePlanSheet.minCreditsPerSemester')}
                         </label>
                         <input
                           type="number"
@@ -761,11 +761,11 @@ export default function ManageMajorSheet() {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                           required
                         />
-                        <p className="text-xs text-gray-500 mt-1">Minimum credit hours required per semester for this major</p>
+                        <p className="text-xs text-gray-500 mt-1">{t('academic.majors.degreePlanSheet.minCreditsPerSemesterHint')}</p>
                       </div>
                       <div>
                         <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                          Max Credits per Semester *
+                          {t('academic.majors.degreePlanSheet.maxCreditsPerSemester')}
                         </label>
                         <input
                           type="number"
@@ -774,7 +774,7 @@ export default function ManageMajorSheet() {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                           required
                         />
-                        <p className="text-xs text-gray-500 mt-1">Maximum credit hours allowed per semester for this major</p>
+                        <p className="text-xs text-gray-500 mt-1">{t('academic.majors.degreePlanSheet.maxCreditsPerSemesterHint')}</p>
                       </div>
                     </>
                   )}
@@ -784,16 +784,14 @@ export default function ManageMajorSheet() {
                     <div className="md:col-span-2">
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <p className="text-sm text-blue-800">
-                          <strong>Note:</strong> This college uses Semester Settings as the source for credit hour rules.
-                          Credit hour limits are configured per semester (Create/Edit Semester), not in the major sheet.
-                          These fields are shown for reference but will not be used for validation.
+                          {t('academic.majors.degreePlanSheet.creditHoursNote')}
                         </p>
                       </div>
                     </div>
                   )}
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
-                      Min GPA for Graduation
+                      {t('academic.majors.degreePlanSheet.minGpaForGraduation')}
                     </label>
                     <input
                       type="number"
@@ -809,10 +807,10 @@ export default function ManageMajorSheet() {
               {/* Course Groups */}
               <div className="border-t pt-6">
                 <h4 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-                  Course Groups Configuration
+                  {t('academic.majors.degreePlanSheet.courseGroupsConfig')}
                 </h4>
                 <p className={`text-sm text-gray-600 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-                  Configure the 5 course groups with their rules and courses. Each group defines what students must complete.
+                  {t('academic.majors.degreePlanSheet.courseGroupsConfigDesc')}
                 </p>
 
                 {courseGroups.map((group, groupIndex) => (
@@ -832,15 +830,22 @@ export default function ManageMajorSheet() {
                         </button>
                         <div>
                           <h5 className="font-semibold text-gray-900">
-                            Group {group.group_number}: {group.group_name_en}
+                            {t('academic.majors.degreePlanSheet.group', { number: group.group_number })}: {isRTL ? (group.group_name_ar || group.group_name_en) : group.group_name_en}
                           </h5>
                           <p className="text-xs text-gray-500">
-                            {group.group_type.replace('_', ' ').toUpperCase()}
+                            {group.group_type === 'university_requirements' ? t('academic.majors.degreePlanSheet.universityRequirements') :
+                              group.group_type === 'college_requirements' ? t('academic.majors.degreePlanSheet.collegeRequirements') :
+                              group.group_type === 'major_core' ? t('academic.majors.degreePlanSheet.majorCore') :
+                              group.group_type === 'major_electives' ? t('academic.majors.degreePlanSheet.majorElectives') :
+                              group.group_type === 'free_electives' ? t('academic.majors.degreePlanSheet.freeElectives') :
+                              group.group_type.replace('_', ' ').toUpperCase()}
                           </p>
                         </div>
                       </div>
                       <div className="text-sm text-gray-600">
-                        {group.courses.length} course{group.courses.length !== 1 ? 's' : ''} added
+                        {group.courses.length === 1 
+                          ? t('academic.majors.degreePlanSheet.courseAdded')
+                          : t('academic.majors.degreePlanSheet.coursesAdded', { count: group.courses.length })}
                       </div>
                     </div>
 
@@ -849,7 +854,7 @@ export default function ManageMajorSheet() {
                         {/* Group Rules */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Group Name (English) *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.groupNameEn')}</label>
                             <input
                               type="text"
                               value={group.group_name_en}
@@ -859,7 +864,7 @@ export default function ManageMajorSheet() {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Group Name (Arabic)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.groupNameAr')}</label>
                             <input
                               type="text"
                               value={group.group_name_ar}
@@ -868,7 +873,7 @@ export default function ManageMajorSheet() {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Rule Type *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.ruleType')}</label>
                             <select
                               value={group.rule_type}
                               onChange={(e) => {
@@ -887,13 +892,13 @@ export default function ManageMajorSheet() {
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                               required
                             >
-                              <option value="all_required">All Required (Mandatory)</option>
-                              <option value="choose_n_from_m">Choose N from M</option>
-                              <option value="flexible">Flexible (Minimum Credits)</option>
+                              <option value="all_required">{t('academic.majors.degreePlanSheet.ruleAllRequired')}</option>
+                              <option value="choose_n_from_m">{t('academic.majors.degreePlanSheet.ruleChooseNFromM')}</option>
+                              <option value="flexible">{t('academic.majors.degreePlanSheet.ruleFlexible')}</option>
                             </select>
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Min Credits Required *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.minCreditsRequired')}</label>
                             <input
                               type="number"
                               value={group.min_credits_required}
@@ -905,7 +910,7 @@ export default function ManageMajorSheet() {
                           {group.rule_type === 'choose_n_from_m' && (
                             <>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Choose Count (N) *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.chooseCount')}</label>
                                 <input
                                   type="number"
                                   value={group.choose_count || ''}
@@ -914,10 +919,10 @@ export default function ManageMajorSheet() {
                                   placeholder="e.g., 3"
                                   required={group.rule_type === 'choose_n_from_m'}
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Number of courses student must choose</p>
+                                <p className="text-xs text-gray-500 mt-1">{t('academic.majors.degreePlanSheet.chooseCountHint')}</p>
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Total Options (M)</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.totalOptions')}</label>
                                 <input
                                   type="number"
                                   value={group.total_options || group.courses.length}
@@ -926,29 +931,29 @@ export default function ManageMajorSheet() {
                                   placeholder="Auto-calculated from courses"
                                   readOnly
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Total courses available (auto-updated when courses are added)</p>
+                                <p className="text-xs text-gray-500 mt-1">{t('academic.majors.degreePlanSheet.totalOptionsHint')}</p>
                               </div>
                             </>
                           )}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Max Credits Allowed</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.maxCreditsAllowed')}</label>
                             <input
                               type="number"
                               value={group.max_credits_allowed || ''}
                               onChange={(e) => handleCourseGroupChange(groupIndex, 'max_credits_allowed', e.target.value || null)}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                              placeholder="Optional"
+                              placeholder={t('academic.majors.degreePlanSheet.optional')}
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Min GPA Required</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.minGpaRequired')}</label>
                             <input
                               type="number"
                               step="0.1"
                               value={group.min_gpa_required || ''}
                               onChange={(e) => handleCourseGroupChange(groupIndex, 'min_gpa_required', e.target.value || null)}
                               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                              placeholder="Optional"
+                              placeholder={t('academic.majors.degreePlanSheet.optional')}
                             />
                           </div>
                         </div>
@@ -961,7 +966,7 @@ export default function ManageMajorSheet() {
                               onChange={(e) => handleCourseGroupChange(groupIndex, 'allows_substitution', e.target.checked)}
                               className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                             />
-                            <span className="text-sm text-gray-700">Allows Substitution</span>
+                            <span className="text-sm text-gray-700">{t('academic.majors.degreePlanSheet.allowsSubstitution')}</span>
                           </label>
                           {group.allows_substitution && (
                             <label className="flex items-center space-x-2">
@@ -971,14 +976,14 @@ export default function ManageMajorSheet() {
                                 onChange={(e) => handleCourseGroupChange(groupIndex, 'requires_approval_for_substitution', e.target.checked)}
                                 className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                               />
-                              <span className="text-sm text-gray-700">Requires Approval for Substitution</span>
+                              <span className="text-sm text-gray-700">{t('academic.majors.degreePlanSheet.requiresApprovalForSubstitution')}</span>
                             </label>
                           )}
                         </div>
 
                         {/* Add Course to Group */}
                         <div className="border-t pt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Add Course to This Group</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.addCourseToGroup')}</label>
                           <div className="flex space-x-2">
                             <select
                               value=""
@@ -992,12 +997,12 @@ export default function ManageMajorSheet() {
                               }}
                               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                             >
-                              <option value="">Select a course...</option>
+                              <option value="">{t('academic.majors.degreePlanSheet.selectCourse')}</option>
                               {subjects
                                 .filter(s => !group.courses.some(c => c.subject_id === s.id))
                                 .map(subject => (
                                   <option key={subject.id} value={subject.id}>
-                                    {subject.code} - {subject.name_en} ({subject.credit_hours} credits)
+                                    {subject.code} - {isRTL ? (subject.name_ar || subject.name_en) : subject.name_en} ({subject.credit_hours} {t('academic.majors.degreePlanSheet.credits')})
                                   </option>
                                 ))}
                             </select>
@@ -1005,16 +1010,16 @@ export default function ManageMajorSheet() {
                           {subjects.length === 0 && (
                             <div className="text-xs text-amber-600 mt-2 space-y-1">
                               <p className="font-medium">
-                                ⚠️ No subjects found for this major.
+                                ⚠️ {t('academic.majors.degreePlanSheet.noSubjectsInGroup')}
                               </p>
                               <p>
-                                Please create subjects for this major first before configuring the degree plan.
+                                {t('academic.majors.degreePlanSheet.createSubjectsFirst')}{' '}
                                 <button
                                   type="button"
                                   onClick={() => navigate('/academic/subjects/create', { state: { majorId: parseInt(id) } })}
                                   className="ml-2 text-amber-900 underline font-semibold"
                                 >
-                                  Create Subjects Now
+                                  {t('academic.majors.degreePlanSheet.createSubjectsNow')}
                                 </button>
                               </p>
                             </div>
@@ -1025,7 +1030,7 @@ export default function ManageMajorSheet() {
                         {group.courses.length > 0 && (
                           <div className="border-t pt-4">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Courses in This Group ({group.courses.length})
+                              {t('academic.majors.degreePlanSheet.coursesInGroup', { count: group.courses.length })}
                             </label>
                             <div className="space-y-2 max-h-60 overflow-y-auto">
                               {group.courses.map((course, courseIndex) => {
@@ -1034,15 +1039,15 @@ export default function ManageMajorSheet() {
                                   <div key={courseIndex} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                     <div className="flex-1">
                                       <div className="font-medium text-sm">
-                                        {subject ? `${subject.code} - ${subject.name_en}` : `Subject ID: ${course.subject_id}`}
+                                        {subject ? `${subject.code} - ${isRTL ? (subject.name_ar || subject.name_en) : subject.name_en}` : `Subject ID: ${course.subject_id}`}
                                       </div>
                                       <div className="text-xs text-gray-500">
-                                        {subject ? `${subject.credit_hours} credits` : 'Subject not found'}
+                                        {subject ? `${subject.credit_hours} ${t('academic.majors.degreePlanSheet.credits')}` : t('academic.majors.degreePlanSheet.subjectNotFound')}
                                       </div>
                                       {majorSheet.sheet_type === 'fixed_by_year' && (
                                         <div className="grid grid-cols-2 gap-2 mt-2">
                                           <div>
-                                            <label className="text-xs text-gray-600">Academic Year</label>
+                                            <label className="text-xs text-gray-600">{t('academic.majors.degreePlanSheet.academicYearLabel')}</label>
                                             <input
                                               type="number"
                                               min="1"
@@ -1050,20 +1055,20 @@ export default function ManageMajorSheet() {
                                               value={course.academic_year || ''}
                                               onChange={(e) => updateCourseInGroup(groupIndex, courseIndex, 'academic_year', e.target.value)}
                                               className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
-                                              placeholder="Year 1-4"
+                                              placeholder={t('academic.majors.degreePlanSheet.yearPlaceholder')}
                                             />
                                           </div>
                                           <div>
-                                            <label className="text-xs text-gray-600">Semester</label>
+                                            <label className="text-xs text-gray-600">{t('academic.majors.degreePlanSheet.semester')}</label>
                                             <select
                                               value={course.semester_number || ''}
                                               onChange={(e) => updateCourseInGroup(groupIndex, courseIndex, 'semester_number', e.target.value)}
                                               className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
                                             >
-                                              <option value="">Select...</option>
-                                              <option value="1">Semester 1</option>
-                                              <option value="2">Semester 2</option>
-                                              <option value="3">Summer</option>
+                                              <option value="">{t('academic.majors.degreePlanSheet.selectSemester')}</option>
+                                              <option value="1">{t('academic.majors.degreePlanSheet.semester1')}</option>
+                                              <option value="2">{t('academic.majors.degreePlanSheet.semester2')}</option>
+                                              <option value="3">{t('academic.majors.degreePlanSheet.semesterSummer')}</option>
                                             </select>
                                           </div>
                                         </div>
@@ -1076,7 +1081,7 @@ export default function ManageMajorSheet() {
                                             onChange={(e) => updateCourseInGroup(groupIndex, courseIndex, 'is_mandatory', e.target.checked)}
                                             className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                           />
-                                          <span className="text-xs text-gray-700">Mandatory</span>
+                                          <span className="text-xs text-gray-700">{t('academic.majors.degreePlanSheet.mandatory')}</span>
                                         </label>
                                       )}
                                       <label className="flex items-center space-x-2 mt-2">
@@ -1086,7 +1091,7 @@ export default function ManageMajorSheet() {
                                           onChange={(e) => updateCourseInGroup(groupIndex, courseIndex, 'is_capstone', e.target.checked)}
                                           className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                                         />
-                                        <span className="text-xs text-gray-700">Capstone/Final Year Course</span>
+                                        <span className="text-xs text-gray-700">{t('academic.majors.degreePlanSheet.capstone')}</span>
                                       </label>
                                     </div>
                                     <button
@@ -1102,20 +1107,20 @@ export default function ManageMajorSheet() {
                             </div>
                             {group.rule_type === 'choose_n_from_m' && (
                               <p className="text-xs text-blue-600 mt-2">
-                                Total options: {group.courses.length}. Students must choose {group.choose_count || 'N'} from these.
+                                {t('academic.majors.degreePlanSheet.chooseNFromMHint', { total: group.courses.length, choose: group.choose_count || 'N' })}
                               </p>
                             )}
                           </div>
                         )}
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.majors.degreePlanSheet.description')}</label>
                           <textarea
                             value={group.description}
                             onChange={(e) => handleCourseGroupChange(groupIndex, 'description', e.target.value)}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                             rows="2"
-                            placeholder="Optional description for this course group"
+                            placeholder={t('academic.majors.degreePlanSheet.descriptionPlaceholder')}
                           />
                         </div>
                       </div>
@@ -1132,7 +1137,7 @@ export default function ManageMajorSheet() {
               onClick={() => navigate(`/academic/majors/${id}`)}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
             >
-              Cancel
+              {t('academic.majors.degreePlanSheet.cancel')}
             </button>
             <button
               type="submit"
@@ -1140,7 +1145,7 @@ export default function ManageMajorSheet() {
               className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <Save className="w-5 h-5" />
-              <span>{loading ? 'Saving...' : existingMajorSheet ? 'Update Degree Plan' : 'Save Degree Plan'}</span>
+              <span>{loading ? t('academic.majors.degreePlanSheet.saving') : existingMajorSheet ? t('academic.majors.degreePlanSheet.updateDegreePlan') : t('academic.majors.degreePlanSheet.saveDegreePlan')}</span>
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getGradingScaleFromUniversitySettings, getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, FileText, Users } from 'lucide-react'
@@ -36,7 +37,7 @@ export default function ClassGrades() {
           subjects(id, name_en, code, grade_configuration),
           semesters(id, name_en, code),
           instructors(id, name_en),
-          colleges(id, name_en, academic_settings)
+          colleges(id, name_en)
         `)
         .eq('id', classId)
         .single()
@@ -44,29 +45,17 @@ export default function ClassGrades() {
       if (error) throw error
       setClassData(data)
 
-      // Extract grade configuration from subject
-      if (data?.subjects?.grade_configuration && Array.isArray(data.subjects.grade_configuration)) {
-        setGradeConfiguration(data.subjects.grade_configuration)
-      } else {
-        setGradeConfiguration([])
-      }
+      // Extract grade configuration from subject and merge with grade types (max/min/pass/fail from university)
+      const subjectConfig = data?.subjects?.grade_configuration && Array.isArray(data.subjects.grade_configuration)
+        ? data.subjects.grade_configuration
+        : []
+      const gradeTypes = await getGradeTypesFromUniversitySettings()
+      const mergedConfig = mergeGradeConfigWithTypes(subjectConfig, gradeTypes)
+      setGradeConfiguration(mergedConfig)
 
-      // Extract grading scale from college settings
-      if (data?.colleges?.academic_settings?.gradingScale) {
-        setGradingScale(data.colleges.academic_settings.gradingScale)
-      } else {
-        // Default grading scale (will be translated in display)
-        setGradingScale([
-          { letter: 'A+', minPercent: 95, maxPercent: 100, points: 4.0, passing: true },
-          { letter: 'A', minPercent: 90, maxPercent: 94, points: 3.7, passing: true },
-          { letter: 'B+', minPercent: 85, maxPercent: 89, points: 3.3, passing: true },
-          { letter: 'B', minPercent: 80, maxPercent: 84, points: 3.0, passing: true },
-          { letter: 'C+', minPercent: 75, maxPercent: 79, points: 2.7, passing: true },
-          { letter: 'C', minPercent: 70, maxPercent: 74, points: 2.0, passing: true },
-          { letter: 'D', minPercent: 60, maxPercent: 69, points: 1.0, passing: true },
-          { letter: 'F', minPercent: 0, maxPercent: 59, points: 0.0, passing: false },
-        ])
-      }
+      // Grading scale comes from university settings
+      const scale = await getGradingScaleFromUniversitySettings()
+      setGradingScale(scale)
     } catch (err) {
       console.error('Error fetching class data:', err)
       setError(err.message || t('grading.classGrades.failedToLoad'))

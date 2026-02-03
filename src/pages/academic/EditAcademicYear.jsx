@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
@@ -65,7 +66,7 @@ export default function EditAcademicYear() {
     try {
       const { data, error } = await supabase
         .from('colleges')
-        .select('id, name_en, code')
+        .select('id, name_en, name_ar, code')
         .eq('status', 'active')
         .order('name_en')
 
@@ -119,6 +120,26 @@ export default function EditAcademicYear() {
     setSuccess(false)
 
     try {
+      // If setting as current, first unset all other current years (respecting scope)
+      if (formData.is_current) {
+        let unsetQuery = supabase
+          .from('academic_years')
+          .update({ is_current: false })
+          .eq('is_current', true)
+          .neq('id', id) // Don't unset the current year being edited
+        
+        // If this is a college-specific year, only unset other years for the same college
+        if (!isUniversityWide && (formData.college_id || collegeId)) {
+          unsetQuery = unsetQuery.eq('college_id', formData.college_id || collegeId)
+        } else if (isUniversityWide) {
+          // If setting a university-wide year as current, unset all university-wide years
+          unsetQuery = unsetQuery.eq('is_university_wide', true)
+        }
+        
+        const { error: unsetError } = await unsetQuery
+        if (unsetError) throw unsetError
+      }
+
       const submitData = {
         name_en: formData.name_en,
         name_ar: formData.name_ar || formData.name_en,
@@ -221,7 +242,7 @@ export default function EditAcademicYear() {
                   >
                     <option value="">{t('academic.academicYears.selectCollege')}</option>
                     {colleges.map(college => (
-                      <option key={college.id} value={college.id}>{college.name_en}</option>
+                      <option key={college.id} value={college.id}>{getLocalizedName(college, isRTL)}</option>
                     ))}
                   </select>
                 </div>

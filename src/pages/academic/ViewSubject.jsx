@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
+import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { ArrowLeft, Edit, BookOpen } from 'lucide-react'
 
@@ -13,6 +15,7 @@ export default function ViewSubject() {
   const [subject, setSubject] = useState(null)
   const [prerequisites, setPrerequisites] = useState([])
   const [corequisites, setCorequisites] = useState([])
+  const [gradeTypes, setGradeTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -22,11 +25,15 @@ export default function ViewSubject() {
     fetchCorequisites()
   }, [id])
 
+  useEffect(() => {
+    getGradeTypesFromUniversitySettings().then(setGradeTypes)
+  }, [])
+
   const fetchSubject = async () => {
     try {
       const { data, error } = await supabase
         .from('subjects')
-        .select('*, majors(id, name_en, code), instructors(id, name_en, email), colleges(id, name_en, code)')
+        .select('*, majors(id, name_en, name_ar, code), instructors(id, name_en, name_ar, email), colleges(id, name_en, name_ar, code)')
         .eq('id', id)
         .single()
 
@@ -71,7 +78,7 @@ export default function ViewSubject() {
         const subjectIds = data.map(p => p.prerequisite_subject_id)
         const { data: subjectsData, error: subjectsError } = await supabase
           .from('subjects')
-          .select('id, code, name_en, semester_number, majors(id, name_en)')
+          .select('id, code, name_en, name_ar, semester_number, majors(id, name_en, name_ar)')
           .in('id', subjectIds)
 
         if (subjectsError) throw subjectsError
@@ -98,7 +105,7 @@ export default function ViewSubject() {
         const subjectIds = data.map(c => c.corequisite_subject_id)
         const { data: subjectsData, error: subjectsError } = await supabase
           .from('subjects')
-          .select('id, code, name_en, semester_number, majors(id, name_en)')
+          .select('id, code, name_en, name_ar, semester_number, majors(id, name_en, name_ar)')
           .in('id', subjectIds)
 
         if (subjectsError) throw subjectsError
@@ -162,7 +169,7 @@ export default function ViewSubject() {
             <BookOpen className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{subject?.name_en}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">{getLocalizedName(subject, isRTL)}</h1>
             <p className="text-gray-600">{subject?.code}</p>
           </div>
         </div>
@@ -176,7 +183,7 @@ export default function ViewSubject() {
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">{t('academic.subjects.major')}</h3>
-              <p className="text-gray-900">{subject?.majors?.name_en || 'N/A'}</p>
+              <p className="text-gray-900">{getLocalizedName(subject?.majors, isRTL) || 'N/A'}</p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.semester')}</h3>
@@ -191,13 +198,13 @@ export default function ViewSubject() {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.college')}</h3>
               <p className="text-gray-900">
-                {subject?.colleges?.name_en || (subject?.is_university_wide ? t('subjectsForm.universityWide') : 'N/A')}
+                {getLocalizedName(subject?.colleges, isRTL) || (subject?.is_university_wide ? t('subjectsForm.universityWide') : 'N/A')}
               </p>
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">{t('subjectsForm.instructor')}</h3>
               <p className="text-gray-900">
-                {subject?.instructors?.name_en || subject?.instructor_name || 'Not assigned'}
+                {getLocalizedName(subject?.instructors, isRTL) || subject?.instructor_name || 'Not assigned'}
               </p>
               {(subject?.instructors?.email || subject?.instructor_email) && (
                 <p className="text-sm text-gray-600 mt-1">
@@ -289,11 +296,11 @@ export default function ViewSubject() {
                       {prerequisites.map((prereq) => (
                         <div key={prereq.id} className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm font-medium text-gray-900">
-                            {prereq.code} - {prereq.name_en}
+                            {prereq.code} - {getLocalizedName(prereq, isRTL)}
                           </p>
-                          {prereq.majors?.name_en && (
+                          {getLocalizedName(prereq.majors, isRTL) && (
                             <p className="text-xs text-gray-600 mt-1">
-                              {prereq.majors.name_en} - {t('academic.subjects.semester')} {prereq.semester_number}
+                              {getLocalizedName(prereq.majors, isRTL)} - {t('academic.subjects.semester')} {prereq.semester_number}
                             </p>
                           )}
                         </div>
@@ -308,11 +315,11 @@ export default function ViewSubject() {
                       {corequisites.map((coreq) => (
                         <div key={coreq.id} className="p-3 bg-gray-50 rounded-lg">
                           <p className="text-sm font-medium text-gray-900">
-                            {coreq.code} - {coreq.name_en}
+                            {coreq.code} - {getLocalizedName(coreq, isRTL)}
                           </p>
-                          {coreq.majors?.name_en && (
+                          {getLocalizedName(coreq.majors, isRTL) && (
                             <p className="text-xs text-gray-600 mt-1">
-                              {coreq.majors.name_en} - {t('academic.subjects.semester')} {coreq.semester_number}
+                              {getLocalizedName(coreq.majors, isRTL)} - {t('academic.subjects.semester')} {coreq.semester_number}
                             </p>
                           )}
                         </div>
@@ -324,42 +331,44 @@ export default function ViewSubject() {
             </div>
           )}
 
-          {/* Grade Configuration */}
-          {subject?.grade_configuration && Array.isArray(subject.grade_configuration) && subject.grade_configuration.length > 0 && (
+          {/* Grade Configuration - max/min/pass/fail from University Settings Grade Types */}
+          {subject?.grade_configuration && Array.isArray(subject.grade_configuration) && subject.grade_configuration.length > 0 && (() => {
+            const mergedConfig = mergeGradeConfigWithTypes(subject.grade_configuration, gradeTypes)
+            return (
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.gradeConfiguration')}</h3>
               <div className="space-y-4">
-                {subject.grade_configuration.map((config, idx) => (
+                {mergedConfig.map((config, idx) => (
                   <div key={idx} className="p-4 bg-gray-50 rounded-lg">
                     <h4 className="text-sm font-semibold text-gray-900 mb-3">
                       {config.grade_type_name_en} ({config.grade_type_code})
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      {config.maximum && (
+                      {(config.maximum != null && config.maximum !== '') && (
                         <div>
                           <p className="text-xs font-medium text-gray-500">{t('subjectsForm.maximum')}</p>
                           <p className="text-sm text-gray-900">{config.maximum}</p>
                         </div>
                       )}
-                      {config.minimum && (
+                      {(config.minimum != null && config.minimum !== '') && (
                         <div>
                           <p className="text-xs font-medium text-gray-500">{t('subjectsForm.minimum')}</p>
                           <p className="text-sm text-gray-900">{config.minimum}</p>
                         </div>
                       )}
-                      {config.pass_score && (
+                      {(config.pass_score != null && config.pass_score !== '') && (
                         <div>
                           <p className="text-xs font-medium text-gray-500">{t('subjectsForm.passScore')}</p>
                           <p className="text-sm text-gray-900">{config.pass_score}</p>
                         </div>
                       )}
-                      {config.fail_score && (
+                      {(config.fail_score != null && config.fail_score !== '') && (
                         <div>
                           <p className="text-xs font-medium text-gray-500">{t('subjectsForm.failScore')}</p>
                           <p className="text-sm text-gray-900">{config.fail_score}</p>
                         </div>
                       )}
-                      {config.weight && (
+                      {config.weight != null && config.weight !== '' && (
                         <div>
                           <p className="text-xs font-medium text-gray-500">{t('subjectsForm.weight')}</p>
                           <p className="text-sm text-gray-900">{config.weight}%</p>
@@ -370,7 +379,7 @@ export default function ViewSubject() {
                 ))}
               </div>
             </div>
-          )}
+          )})()}
 
           {/* Syllabus */}
           {(subject?.syllabus_content || subject?.syllabus_content_ar) && (

@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import {
+  getGradingScaleFromUniversitySettings,
+  getSubjectGpaFromEnrollment,
+  calculateGpaWithScale,
+} from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { GraduationCap, FileText, Calendar } from 'lucide-react'
@@ -12,12 +17,17 @@ export default function StudentMyGrades() {
   const [loading, setLoading] = useState(true)
   const [student, setStudent] = useState(null)
   const [enrollments, setEnrollments] = useState([])
+  const [gradingScale, setGradingScale] = useState([])
 
   useEffect(() => {
     if (user?.email) {
       fetchStudentData()
     }
   }, [user])
+
+  useEffect(() => {
+    getGradingScaleFromUniversitySettings().then(setGradingScale)
+  }, [])
 
   const fetchStudentData = async () => {
     try {
@@ -79,22 +89,6 @@ export default function StudentMyGrades() {
     }
   }
 
-  const calculateGPA = (enrollments) => {
-    let totalPoints = 0
-    let totalCredits = 0
-
-    enrollments.forEach(enrollment => {
-      const grade = enrollment.grade_components?.[0]
-      const credits = enrollment.classes?.subjects?.credit_hours || 0
-      
-      if (grade?.gpa_points && credits > 0) {
-        totalPoints += grade.gpa_points * credits
-        totalCredits += credits
-      }
-    })
-
-    return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : '0.00'
-  }
 
   const groupBySemester = (enrollments) => {
     const grouped = {}
@@ -129,11 +123,11 @@ export default function StudentMyGrades() {
   }
 
   const semesterGroups = groupBySemester(enrollments)
-  const cumulativeGPA = calculateGPA(enrollments)
+  const totalGpaResult = calculateGpaWithScale(enrollments, gradingScale)
   const totalCreditsAttempted = enrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
   const totalCreditsEarned = enrollments.filter(e => {
-    const grade = e.grade_components?.[0]
-    return grade && grade.gpa_points && grade.gpa_points > 0
+    const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
+    return points != null && points > 0
   }).reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
 
   return (
@@ -164,8 +158,8 @@ export default function StudentMyGrades() {
             <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{student.colleges?.name_en || '-'}</p>
           </div>
           <div>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.cumulativeGpa')}</h3>
-            <p className={`text-2xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{cumulativeGPA}</p>
+            <h3 className={`text-sm font-medium text-gray-500 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.totalGpa')}</h3>
+            <p className={`text-2xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{totalGpaResult.gpa}</p>
             <h3 className={`text-sm font-medium text-gray-500 mb-2 mt-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.totalCredits')}</h3>
             <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
               {totalCreditsEarned} / {totalCreditsAttempted}
@@ -185,7 +179,8 @@ export default function StudentMyGrades() {
           {Object.values(semesterGroups).map((group) => {
             const semester = group.semester
             const semesterEnrollments = group.enrollments
-            const semesterGPA = calculateGPA(semesterEnrollments)
+            const semesterGpaResult = calculateGpaWithScale(semesterEnrollments, gradingScale, semester.id)
+            const semesterGPA = semesterGpaResult.gpa
             const semesterCredits = semesterEnrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
 
             return (
@@ -194,7 +189,7 @@ export default function StudentMyGrades() {
                   <Calendar className="w-5 h-5 text-primary-600" />
                   <h3 className="text-xl font-bold text-gray-900">{semester.name_en}</h3>
                   <span className={`text-sm text-gray-600 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-                    GPA: {semesterGPA} | {t('student.myGrades.credits')}: {semesterCredits}
+                    {t('student.myGrades.currentSemesterGpa')}: {semesterGPA} | {t('student.myGrades.credits')}: {semesterCredits}
                   </span>
                 </div>
                 
@@ -215,7 +210,7 @@ export default function StudentMyGrades() {
                           {t('student.myGrades.grade')}
                         </th>
                         <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.gpaPoints')}
+                          {t('student.myGrades.subjectGpa')}
                         </th>
                         <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
                           {t('student.myGrades.status')}
@@ -225,6 +220,7 @@ export default function StudentMyGrades() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {semesterEnrollments.map((enrollment) => {
                         const grade = enrollment.grade_components?.[0]
+                        const { points: subjectGpa } = getSubjectGpaFromEnrollment(enrollment, gradingScale)
                         return (
                           <tr key={enrollment.id} className="hover:bg-gray-50">
                             <td className={`px-4 py-3 text-sm text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
@@ -240,7 +236,7 @@ export default function StudentMyGrades() {
                               {grade?.letter_grade || '-'}
                             </td>
                             <td className={`px-4 py-3 text-sm text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              {grade?.gpa_points || '-'}
+                              {subjectGpa != null ? subjectGpa.toFixed(2) : '-'}
                             </td>
                             <td className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${

@@ -120,11 +120,11 @@ export default function CreateClass() {
         .order('name_en')
 
       if (collegeId) {
-        // Show ONLY that college's subjects (not university-wide)
-        query = query.eq('college_id', collegeId).eq('is_university_wide', false)
+        // Show college's subjects OR university-wide subjects
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       } else if (userRole === 'user' && authCollegeId) {
-        // For college admins, show only their college's subjects
-        query = query.eq('college_id', authCollegeId).eq('is_university_wide', false)
+        // For college admins, show their college's subjects OR university-wide
+        query = query.or(`college_id.eq.${authCollegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query
@@ -150,9 +150,8 @@ export default function CreateClass() {
       const effectiveCollegeId = collegeId || authCollegeId
 
       if (effectiveCollegeId) {
-        // Show ONLY that college's semesters (not university-wide)
-        // For college admins, instructors, or admin with selected college
-        query = query.eq('college_id', effectiveCollegeId).eq('is_university_wide', false)
+        // Show college's semesters OR university-wide semesters
+        query = query.or(`college_id.eq.${effectiveCollegeId},is_university_wide.eq.true`)
       }
 
       const { data, error } = await query

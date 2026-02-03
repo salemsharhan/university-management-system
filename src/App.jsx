@@ -82,6 +82,7 @@ import StudentSubjectView from './pages/student/StudentSubjectView'
 import StudentEnrollment from './pages/student/StudentEnrollment'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
 import CreateMaterial from './pages/instructor/CreateMaterial'
+import EditMaterial from './pages/instructor/EditMaterial'
 import CreateHomework from './pages/instructor/CreateHomework'
 import EditHomework from './pages/instructor/EditHomework'
 import CreateExam from './pages/instructor/CreateExam'
@@ -844,6 +845,16 @@ function App() {
               <ProtectedRoute allowedRoles={['instructor']}>
                 <Layout>
                   <CreateMaterial />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/subjects/:id/materials/:materialId/edit"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <Layout>
+                  <EditMaterial />
                 </Layout>
               </ProtectedRoute>
             }

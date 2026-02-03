@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
@@ -60,6 +61,12 @@ export default function EditMajor() {
     validation_certificate_types: [],
     validation_requires_interview: false,
     validation_requires_entrance_exam: false,
+    major_status: 'active',
+    max_study_duration_years: '',
+    min_gpa_override: '',
+    enable_substitution_workflow: false,
+    enable_prerequisite_override: false,
+    enforce_graduation_threshold: false,
   })
 
   useEffect(() => {
@@ -185,6 +192,12 @@ export default function EditMajor() {
         validation_certificate_types: Array.isArray(validationRules.certificate_types_allowed) ? validationRules.certificate_types_allowed : (validationRules.certificate_types_allowed ? [validationRules.certificate_types_allowed] : []),
         validation_requires_interview: validationRules.requires_interview || false,
         validation_requires_entrance_exam: validationRules.requires_entrance_exam || false,
+        major_status: data.major_status || (data.status === 'active' ? 'active' : 'draft'),
+        max_study_duration_years: data.max_study_duration_years || '',
+        min_gpa_override: data.min_gpa_override || '',
+        enable_substitution_workflow: data.enable_substitution_workflow || false,
+        enable_prerequisite_override: data.enable_prerequisite_override || false,
+        enforce_graduation_threshold: data.enforce_graduation_threshold || false,
       })
       setCollegeId(data.college_id || authCollegeId)
       setIsUniversityWide(data.is_university_wide || false)
@@ -235,9 +248,15 @@ export default function EditMajor() {
         head_of_major_id: formData.head_of_major_id ? parseInt(formData.head_of_major_id) : null,
         description: formData.description || null,
         description_ar: formData.description_ar || null,
-        status: formData.status,
+        status: formData.major_status === 'active' ? 'active' : 'inactive',
+        major_status: formData.major_status,
         is_university_wide: isUniversityWide,
         college_id: isUniversityWide ? null : (formData.college_id || collegeId),
+        max_study_duration_years: formData.max_study_duration_years ? parseInt(formData.max_study_duration_years) : null,
+        min_gpa_override: formData.min_gpa_override ? parseFloat(formData.min_gpa_override) : null,
+        enable_substitution_workflow: formData.enable_substitution_workflow,
+        enable_prerequisite_override: formData.enable_prerequisite_override,
+        enforce_graduation_threshold: formData.enforce_graduation_threshold,
         validation_rules: {
           toefl_min: formData.validation_toefl_min ? parseInt(formData.validation_toefl_min) : null,
           ielts_min: formData.validation_ielts_min ? parseFloat(formData.validation_ielts_min) : null,
@@ -341,7 +360,7 @@ export default function EditMajor() {
                   >
                     <option value="">{t('academic.majors.selectCollege')}</option>
                     {colleges.map(college => (
-                      <option key={college.id} value={college.id}>{college.name_en}</option>
+                      <option key={college.id} value={college.id}>{getLocalizedName(college, isRTL)}</option>
                     ))}
                   </select>
                 </div>
@@ -358,6 +377,21 @@ export default function EditMajor() {
                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                     placeholder={t('academic.majors.codePlaceholder')}
                   />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.initialStatus', 'Initial Status')} *</label>
+                  <select
+                    value={formData.major_status}
+                    onChange={(e) => handleChange('major_status', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  >
+                    <option value="draft">{t('academic.majors.statusDraft', 'Draft')}</option>
+                    <option value="open_for_admission">{t('academic.majors.statusOpen', 'Open for Admission')}</option>
+                    <option value="active">{t('academic.majors.statusActive', 'Active')}</option>
+                    <option value="suspended">{t('academic.majors.statusSuspended', 'Suspended')}</option>
+                    <option value="phasing_out">{t('academic.majors.statusTeachOut', 'Teach-Out')}</option>
+                    <option value="archived">{t('academic.majors.statusArchived', 'Archived')}</option>
+                  </select>
                 </div>
               </div>
 
@@ -726,11 +760,69 @@ export default function EditMajor() {
                 </div>
               </div>
 
+              {/* Major-Level Academic Controls */}
+              <div className="border-t pt-6">
+                <h3 className={`text-lg font-semibold text-gray-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicControls', 'Major-Level Academic Controls')}</h3>
+                <p className={`text-sm text-gray-600 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicControlsDesc', 'Program-specific logic and rules')}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.maxStudyDuration', 'Maximum Study Duration (Years)')}</label>
+                    <input
+                      type="number"
+                      value={formData.max_study_duration_years}
+                      onChange={(e) => handleChange('max_study_duration_years', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder="e.g., 6"
+                    />
+                  </div>
+                  <div>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.minGpaOverride', 'Major-Specific Min GPA Override')}</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={formData.min_gpa_override}
+                      onChange={(e) => handleChange('min_gpa_override', e.target.value)}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${isRTL ? 'text-right' : 'text-left'}`}
+                      placeholder={t('academic.majors.leaveEmptyForDefault', 'Leave empty to use default')}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <label className={`flex items-center gap-2 cursor-pointer ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.enable_substitution_workflow}
+                      onChange={(e) => handleChange('enable_substitution_workflow', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('academic.majors.enableSubstitutionWorkflow', 'Enable Course Substitution Approval Workflow')}</span>
+                  </label>
+                  <label className={`flex items-center gap-2 cursor-pointer ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.enable_prerequisite_override}
+                      onChange={(e) => handleChange('enable_prerequisite_override', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('academic.majors.enablePrerequisiteOverride', 'Enable Prerequisite Override Approval (via Head of Major)')}</span>
+                  </label>
+                  <label className={`flex items-center gap-2 cursor-pointer ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={formData.enforce_graduation_threshold}
+                      onChange={(e) => handleChange('enforce_graduation_threshold', e.target.checked)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{t('academic.majors.enforceGraduationThreshold', 'Enforce Graduation Credit Threshold')}</span>
+                  </label>
+                </div>
+              </div>
+
               <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <input
                   type="checkbox"
-                  checked={formData.status === 'active'}
-                  onChange={(e) => handleChange('status', e.target.checked ? 'active' : 'inactive')}
+                  checked={formData.major_status === 'active'}
+                  onChange={(e) => handleChange('major_status', e.target.checked ? 'active' : 'draft')}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
                 <label className={`text-sm font-medium text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.active')}</label>

@@ -116,7 +116,7 @@ export default function StudentSubjectView() {
 
         // Fetch all related data in parallel
         await Promise.all([
-          fetchMaterials(),
+          fetchMaterials(classId),
           fetchHomework(classId),
           fetchExams(classId),
           fetchRecordings(),
@@ -140,17 +140,29 @@ export default function StudentSubjectView() {
     }
   }
 
-  const fetchMaterials = async () => {
+  const fetchMaterials = async (classId) => {
     try {
-      const { data, error } = await supabase
-        .from('subject_materials')
-        .select('*, subject_content_types(code, name_en, name_ar, icon)')
-        .eq('subject_id', id)
-        .eq('is_published', true)
-        .order('display_order')
-
-      if (error) throw error
-      setMaterials(data || [])
+      const [subjectRes, classRes] = await Promise.all([
+        supabase
+          .from('subject_materials')
+          .select('*, subject_content_types(code, name_en, name_ar, icon)')
+          .eq('subject_id', id)
+          .eq('is_published', true)
+          .order('display_order'),
+        classId
+          ? supabase
+              .from('class_materials')
+              .select('*, subject_content_types(code, name_en, name_ar, icon)')
+              .eq('subject_id', id)
+              .eq('class_id', classId)
+              .eq('is_published', true)
+              .order('display_order')
+          : Promise.resolve({ data: [] }),
+      ])
+      if (subjectRes.error) throw subjectRes.error
+      const subjectMats = (subjectRes.data || []).map(m => ({ ...m, _source: 'subject' }))
+      const classMats = (classRes.data || []).map(m => ({ ...m, _source: 'class' }))
+      setMaterials([...subjectMats, ...classMats].sort((a, b) => (a.display_order || 0) - (b.display_order || 0)))
     } catch (err) {
       console.error('Error fetching materials:', err)
     }

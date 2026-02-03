@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getSemesterCreditsFromUniversitySettings } from '../utils/getCollegeSettings'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useCollege } from '../contexts/CollegeContext'
@@ -31,6 +32,7 @@ export default function CreateEnrollment() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  const [academicYears, setAcademicYears] = useState([])
   const [semesters, setSemesters] = useState([])
   const [students, setStudents] = useState([])
   const [classes, setClasses] = useState([])
@@ -42,10 +44,16 @@ export default function CreateEnrollment() {
   const [currentSemesterCredits, setCurrentSemesterCredits] = useState(0)
   const [studentMajorSheet, setStudentMajorSheet] = useState(null)
   const [currentSemester, setCurrentSemester] = useState(null)
-  const [creditHoursSource, setCreditHoursSource] = useState('semester') // 'semester' or 'major_sheet'
+  const [semesterCreditsFromUni, setSemesterCreditsFromUni] = useState({
+    min_credit_hours: 12,
+    max_credit_hours: 18,
+    max_credit_hours_with_permission: 21,
+    min_gpa_for_max_credits: 3.0,
+  })
   const [selectedStudentCollegeId, setSelectedStudentCollegeId] = useState(null)
 
   const [formData, setFormData] = useState({
+    academic_year_id: '',
     semester_id: semesterIdFromUrl || '',
     student_id: studentIdFromUrl || '',
     class_ids: [], // Changed to array for multiple selection
@@ -54,7 +62,13 @@ export default function CreateEnrollment() {
   const [courseGroups, setCourseGroups] = useState([]) // Store course groups for validation
 
   useEffect(() => {
-    fetchSemesters()
+    if (collegeId) {
+      fetchAcademicYears()
+      fetchSemesters()
+    } else {
+      setAcademicYears([])
+      setSemesters([])
+    }
   }, [collegeId, userRole])
 
   // Pre-fill student and semester if provided via URL params
@@ -91,12 +105,9 @@ export default function CreateEnrollment() {
     if (formData.student_id && formData.semester_id) {
       fetchStudentMajorSheet()
       fetchCurrentSemesterEnrollments()
-      // Fetch student's college to get academic settings
       if (selectedStudent) {
         setSelectedStudentCollegeId(selectedStudent.college_id)
-        fetchCollegeAcademicSettings(selectedStudent.college_id)
       } else {
-        // Fetch student to get college_id
         fetchStudentForCollegeSettings()
       }
     } else {
@@ -113,7 +124,7 @@ export default function CreateEnrollment() {
       setValidationWarnings([])
       setValidationErrors([])
     }
-  }, [formData.student_id, formData.class_ids, formData.semester_id, studentMajorSheet, currentSemesterCredits])
+  }, [formData.student_id, formData.class_ids, formData.semester_id, studentMajorSheet, currentSemesterCredits, semesterCreditsFromUni])
 
   // Refetch and filter classes when student major sheet is loaded
   useEffect(() => {
@@ -154,28 +165,19 @@ export default function CreateEnrollment() {
 
       if (data?.college_id) {
         setSelectedStudentCollegeId(data.college_id)
-        fetchCollegeAcademicSettings(data.college_id)
       }
     } catch (err) {
       console.error('Error fetching student college:', err)
     }
   }
 
-  const fetchCollegeAcademicSettings = async (collegeId) => {
-    try {
-      if (!collegeId) return
-      
-      // Use utility function to get effective settings (college or university based on flag)
-      const { getCollegeSettings } = await import('../utils/getCollegeSettings.js')
-      const settings = await getCollegeSettings(collegeId)
-
-      if (settings.academic?.credit_hours_source) {
-        setCreditHoursSource(settings.academic.credit_hours_source)
-      }
-    } catch (err) {
-      console.error('Error fetching college academic settings:', err)
+  useEffect(() => {
+    const fetchCredits = async () => {
+      const credits = await getSemesterCreditsFromUniversitySettings()
+      setSemesterCreditsFromUni(credits)
     }
-  }
+    fetchCredits()
+  }, [])
 
   const fetchStudentMajorSheet = async () => {
     try {
@@ -329,60 +331,21 @@ export default function CreateEnrollment() {
       // Get all subject IDs from selected classes
       const selectedSubjectIds = selectedClasses.map(c => c.subjects?.id).filter(Boolean)
 
-      // 1. Determine Effective Credit Limits based on college's academic settings
-      let effectiveMinCredits = 0
-      let effectiveMaxCredits = 999
-      let effectiveMaxCreditsWithPermission = 999
-      let limitSources = []
+      // Use semester credit limits from university settings only
+      const effectiveMinCredits = semesterCreditsFromUni.min_credit_hours
+      const effectiveMaxCredits = semesterCreditsFromUni.max_credit_hours
+      const effectiveMaxCreditsWithPermission = semesterCreditsFromUni.max_credit_hours_with_permission
 
-      // Use the source specified in college's academic settings
-      if (creditHoursSource === 'major_sheet' && studentMajorSheet?.major_sheet) {
-        // Use major sheet limits
-        const majorSheet = studentMajorSheet.major_sheet
-        const majorSheetMin = parseInt(majorSheet.min_credits_per_semester) || 0
-        const majorSheetMax = parseInt(majorSheet.max_credits_per_semester) || 999
-
-        effectiveMinCredits = majorSheetMin
-        effectiveMaxCredits = majorSheetMax
-        effectiveMaxCreditsWithPermission = majorSheetMax
-        limitSources.push({ type: 'major_sheet', min: majorSheetMin, max: majorSheetMax })
-      } else if (currentSemester) {
-        // Use semester limits (default)
-        const semesterMin = parseInt(currentSemester.min_credit_hours) || 0
-        const semesterMax = parseInt(currentSemester.max_credit_hours) || 999
-        const semesterMaxWithPermission = parseInt(currentSemester.max_credit_hours_with_permission) || semesterMax
-
-        effectiveMinCredits = semesterMin
-        effectiveMaxCredits = semesterMax
-        effectiveMaxCreditsWithPermission = semesterMaxWithPermission
-        limitSources.push({ type: 'semester', min: semesterMin, max: semesterMax, maxWithPermission: semesterMaxWithPermission })
-      }
-
-      // 2. Validate against effective limits
       const selectedCreditsOnly = selectedClasses.reduce((sum, c) => sum + (parseInt(c.subjects?.credit_hours) || 0), 0)
       
       if (newTotalCredits < effectiveMinCredits) {
-        if (majorSheetMin !== null && majorSheetMin > (parseInt(currentSemester?.min_credit_hours) || 0)) {
-          errors.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) is below program requirement (${effectiveMinCredits} credits minimum).`)
-        } else {
-          warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) will be below minimum required (${effectiveMinCredits}) for this semester.`)
-        }
+        warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) will be below minimum required (${effectiveMinCredits}) for this semester.`)
       }
 
-      if (newTotalCredits > effectiveMaxCredits) {
-        if (newTotalCredits > effectiveMaxCreditsWithPermission) {
-          if (majorSheetMax !== null && majorSheetMax < (parseInt(currentSemester?.max_credit_hours) || 999)) {
-            errors.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) exceeds program maximum (${effectiveMaxCreditsWithPermission} credits).`)
-          } else {
-            errors.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) exceeds maximum allowed (${effectiveMaxCreditsWithPermission} with permission). Please reduce credits or get approval.`)
-          }
-        } else {
-          if (majorSheetMax !== null && majorSheetMax < (parseInt(currentSemester?.max_credit_hours) || 999)) {
-            warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) exceeds program recommendation (${effectiveMaxCredits}).`)
-          } else {
-            warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) exceeds standard maximum (${effectiveMaxCredits}). Permission may be required.`)
-          }
-        }
+      if (newTotalCredits > effectiveMaxCreditsWithPermission) {
+        errors.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) exceeds maximum allowed (${effectiveMaxCreditsWithPermission} with permission). Please reduce credits or get approval.`)
+      } else if (newTotalCredits > effectiveMaxCredits) {
+        warnings.push(`Total credits (${currentSemesterCredits} current + ${selectedCreditsOnly} new = ${newTotalCredits} total) exceeds standard maximum (${effectiveMaxCredits}). Permission may be required.`)
       }
 
       // Fetch student's completed enrollments with grade components for GPA points (for both prerequisites and co-requisites)
@@ -741,19 +704,36 @@ export default function CreateEnrollment() {
     }
   }
 
+  const fetchAcademicYears = async () => {
+    if (!collegeId) return
+    try {
+      let query = supabase
+        .from('academic_years')
+        .select('id, name_en, name_ar, code, start_date, end_date')
+        .order('start_date', { ascending: false })
+
+      // Include college's academic years OR university-wide academic years
+      query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+
+      const { data, error } = await query
+      if (error) throw error
+      setAcademicYears(data || [])
+    } catch (err) {
+      console.error('Error fetching academic years:', err)
+    }
+  }
+
   const fetchSemesters = async () => {
     if (!collegeId) return
     
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date, is_current')
+        .select('id, name_en, code, start_date, end_date, is_current, academic_year_id')
         .order('start_date', { ascending: false })
 
-      // Filter by college for college admins and instructors
-      if (collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      }
+      // Filter by college: college's semesters OR university-wide semesters
+      query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
 
       const { data, error } = await query
       if (error) throw error
@@ -1164,9 +1144,28 @@ export default function CreateEnrollment() {
 
       {/* Step Content */}
       <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-8 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-        {/* Step 1: Select Semester */}
+        {/* Step 1: Select Academic Year and Semester */}
         {currentStep === 1 && (
           <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.selectAcademicYear')}</label>
+              <select
+                value={formData.academic_year_id}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, academic_year_id: e.target.value, semester_id: '', student_id: '', class_ids: [] }))
+                  setError('')
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">{t('enrollments.allAcademicYears') || 'All Academic Years'}</option>
+                {academicYears.map(year => (
+                  <option key={year.id} value={year.id}>
+                    {year.name_en} ({year.code})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">{t('enrollments.academicYearHint') || 'Includes college and university-wide academic years'}</p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">{t('enrollments.semesterLabel')}</label>
               <select
@@ -1178,7 +1177,10 @@ export default function CreateEnrollment() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">{t('enrollments.semesterHint')}</option>
-                {semesters.map(semester => (
+                {(formData.academic_year_id
+                  ? semesters.filter(s => s.academic_year_id === parseInt(formData.academic_year_id))
+                  : semesters
+                ).map(semester => (
                   <option key={semester.id} value={semester.id}>
                     {semester.name_en} ({semester.code}) {semester.is_current ? '[Current]' : ''}
                   </option>
@@ -1263,35 +1265,23 @@ export default function CreateEnrollment() {
         {/* Step 3: Select Class */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            {/* Current Semester Credit Hours Display */}
+            {/* Current Semester Credit Hours Display - From University Settings */}
             {selectedStudent && currentSemester && (() => {
-              const semesterMin = parseInt(currentSemester.min_credit_hours) || 0
-              const semesterMax = parseInt(currentSemester.max_credit_hours) || 999
-              const semesterMaxWithPermission = parseInt(currentSemester.max_credit_hours_with_permission) || semesterMax
-              const majorSheetMin = studentMajorSheet?.major_sheet?.min_credits_per_semester 
-                ? parseInt(studentMajorSheet.major_sheet.min_credits_per_semester) 
-                : null
-              const majorSheetMax = studentMajorSheet?.major_sheet?.max_credits_per_semester 
-                ? parseInt(studentMajorSheet.major_sheet.max_credits_per_semester) 
-                : null
-              
-              const effectiveMin = majorSheetMin !== null && majorSheetMin > semesterMin ? majorSheetMin : semesterMin
-              const effectiveMax = majorSheetMax !== null && majorSheetMax < semesterMax ? majorSheetMax : semesterMax
-              const effectiveMaxWithPermission = majorSheetMax !== null && majorSheetMax < semesterMaxWithPermission 
-                ? majorSheetMax 
-                : semesterMaxWithPermission
+              const effectiveMin = semesterCreditsFromUni.min_credit_hours
+              const effectiveMax = semesterCreditsFromUni.max_credit_hours
+              const effectiveMaxWithPermission = semesterCreditsFromUni.max_credit_hours_with_permission
               
               return (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold text-blue-900">Semester Credit Hours</h4>
+                    <h4 className="text-sm font-semibold text-blue-900">Semester Credit Hours (University Settings)</h4>
                     <span className="text-lg font-bold text-blue-700">
                       {(() => {
                         const selectedCredits = selectedClassObjs.reduce((sum, c) => sum + (parseInt(c.subjects?.credit_hours) || 0), 0)
                         const total = currentSemesterCredits + selectedCredits
                         return selectedCredits > 0 
-                          ? `${currentSemesterCredits} (current) + ${selectedCredits} (new) = ${total} / ${effectiveMax}`
-                          : `${currentSemesterCredits} / ${effectiveMax}`
+                          ? `${currentSemesterCredits} (current) + ${selectedCredits} (new) = ${total} / ${effectiveMaxWithPermission}`
+                          : `${currentSemesterCredits} / ${effectiveMaxWithPermission}`
                       })()}
                     </span>
                   </div>
@@ -1307,19 +1297,11 @@ export default function CreateEnrollment() {
                         </>
                       )
                     })()}
-                    <p className="font-semibold text-blue-900 mb-1 mt-2">Effective Limits (Applied):</p>
+                    <p className="font-semibold text-blue-900 mb-1 mt-2">University Policy:</p>
                     <p>• Minimum Required: <span className="font-medium">{effectiveMin}</span> credits</p>
                     <p>• Maximum Allowed: <span className="font-medium">{effectiveMax}</span> credits</p>
                     {effectiveMaxWithPermission > effectiveMax && (
                       <p>• Maximum with Permission: <span className="font-medium">{effectiveMaxWithPermission}</span> credits</p>
-                    )}
-                    {(majorSheetMin !== null || majorSheetMax !== null) && (
-                      <div className="mt-2 pt-2 border-t border-blue-300 text-xs text-blue-600">
-                        <p className="font-semibold mb-1">Source Limits:</p>
-                        <p>• Semester Policy: {semesterMin}-{semesterMax} credits {semesterMaxWithPermission > semesterMax && `(${semesterMaxWithPermission} with permission)`}</p>
-                        <p>• Program Requirement: {majorSheetMin ?? 'Not set'}-{majorSheetMax ?? 'Not set'} credits</p>
-                        <p className="mt-1 italic">System applies the stricter limits</p>
-                      </div>
                     )}
                   </div>
                 </div>
@@ -1352,11 +1334,11 @@ export default function CreateEnrollment() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Classes * (You can select multiple classes)
+                {t('academic.semesters.selectClasses')} *
               </label>
               {classes.length === 0 ? (
                 <div className="p-4 text-center text-gray-500 border border-gray-200 rounded-lg">
-                  No classes available for this semester
+                  {t('enrollments.noSessionsAvailable')}
                 </div>
               ) : (
                 <div className={`border rounded-lg max-h-96 overflow-y-auto ${
@@ -1464,11 +1446,7 @@ export default function CreateEnrollment() {
                       <span className="text-sm text-gray-600">Total Credits After Enrollment:</span>
                       <span className={`text-lg font-bold ${
                         (() => {
-                          const semesterMax = parseInt(currentSemester?.max_credit_hours) || 999
-                          const majorSheetMax = studentMajorSheet?.major_sheet?.max_credits_per_semester 
-                            ? parseInt(studentMajorSheet.major_sheet.max_credits_per_semester) 
-                            : null
-                          const effectiveMax = majorSheetMax !== null && majorSheetMax < semesterMax ? majorSheetMax : semesterMax
+                          const effectiveMax = semesterCreditsFromUni.max_credit_hours_with_permission
                           const selectedCredits = selectedClassObjs.reduce((sum, c) => sum + (parseInt(c.subjects?.credit_hours) || 0), 0)
                           return (currentSemesterCredits + selectedCredits) > effectiveMax
                         })()
@@ -1476,11 +1454,7 @@ export default function CreateEnrollment() {
                           : 'text-green-600'
                       }`}>
                         {(() => {
-                          const semesterMax = parseInt(currentSemester?.max_credit_hours) || 999
-                          const majorSheetMax = studentMajorSheet?.major_sheet?.max_credits_per_semester 
-                            ? parseInt(studentMajorSheet.major_sheet.max_credits_per_semester) 
-                            : null
-                          const effectiveMax = majorSheetMax !== null && majorSheetMax < semesterMax ? majorSheetMax : semesterMax
+                          const effectiveMax = semesterCreditsFromUni.max_credit_hours_with_permission
                           const selectedCredits = selectedClassObjs.reduce((sum, c) => sum + (parseInt(c.subjects?.credit_hours) || 0), 0)
                           return `${currentSemesterCredits + selectedCredits} / ${effectiveMax}`
                         })()}
@@ -1561,34 +1535,7 @@ export default function CreateEnrollment() {
                   <p className="border-t pt-2">Total After Enrollment: <span className="font-bold text-primary-600">
                     {currentSemesterCredits + (selectedClassObjs?.reduce((sum, c) => sum + (parseInt(c.subjects?.credit_hours) || 0), 0) || 0)}
                   </span></p>
-                  {currentSemester && (
-                    <>
-                      {(() => {
-                        const semesterMin = parseInt(currentSemester.min_credit_hours) || 0
-                        const semesterMax = parseInt(currentSemester.max_credit_hours) || 999
-                        const majorSheetMin = studentMajorSheet?.major_sheet?.min_credits_per_semester 
-                          ? parseInt(studentMajorSheet.major_sheet.min_credits_per_semester) 
-                          : null
-                        const majorSheetMax = studentMajorSheet?.major_sheet?.max_credits_per_semester 
-                          ? parseInt(studentMajorSheet.major_sheet.max_credits_per_semester) 
-                          : null
-                        
-                        const effectiveMin = majorSheetMin !== null && majorSheetMin > semesterMin ? majorSheetMin : semesterMin
-                        const effectiveMax = majorSheetMax !== null && majorSheetMax < semesterMax ? majorSheetMax : semesterMax
-                        
-                        return (
-                          <>
-                            <p className="text-xs font-medium text-gray-700">Effective Limits: Min {effectiveMin} / Max {effectiveMax}</p>
-                            {(majorSheetMin !== null || majorSheetMax !== null) && (
-                              <p className="text-xs text-gray-500">
-                                (Semester: {semesterMin}-{semesterMax} | Program: {majorSheetMin ?? 'N/A'}-{majorSheetMax ?? 'N/A'})
-                              </p>
-                            )}
-                          </>
-                        )
-                      })()}
-                    </>
-                  )}
+                  <p className="text-xs font-medium text-gray-700">University Policy: Min {semesterCreditsFromUni.min_credit_hours} / Max {semesterCreditsFromUni.max_credit_hours} ({semesterCreditsFromUni.max_credit_hours_with_permission} with permission)</p>
                 </div>
               </div>
               <div>

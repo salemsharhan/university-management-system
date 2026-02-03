@@ -2,15 +2,15 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import MaterialsManagement from '../../components/subject/MaterialsManagement'
 
-export default function CreateMaterial() {
-  const { id } = useParams()
+export default function EditMaterial() {
+  const { id, materialId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const classId = searchParams.get('classId') ? parseInt(searchParams.get('classId')) : null
   const isClassMaterial = !!classId
 
   const handleClose = () => {
-    navigate(`/instructor/subjects/${id}`)
+    navigate(`/instructor/subjects/${id}?tab=materials`)
   }
 
   const handleSave = () => {
@@ -27,13 +27,9 @@ export default function CreateMaterial() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isClassMaterial ? 'Add Class Material' : 'Create Material'}
-          </h1>
+          <h1 className="text-2xl font-bold text-gray-900">Edit Material</h1>
           <p className="text-gray-600">
-            {isClassMaterial
-              ? 'Add a material for your class (students in this section only)'
-              : 'Add a new learning material for this subject'}
+            {isClassMaterial ? 'Edit class material' : 'Edit subject material'}
           </p>
         </div>
       </div>
@@ -41,6 +37,7 @@ export default function CreateMaterial() {
       <MaterialsManagement
         subjectId={parseInt(id)}
         classId={classId}
+        materialId={parseInt(materialId)}
         isClassMaterial={isClassMaterial}
         onClose={handleClose}
         onSave={handleSave}
@@ -48,9 +45,3 @@ export default function CreateMaterial() {
     </div>
   )
 }
-
-
-
-
-
-

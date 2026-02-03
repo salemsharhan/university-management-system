@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Plus, Library, Search, Eye, Edit } from 'lucide-react'
@@ -24,7 +25,7 @@ export default function Classes() {
       setLoading(true)
       let query = supabase
         .from('classes')
-        .select('*, subjects(name_en, code), semesters(name_en, code)')
+        .select('*, subjects(name_en, name_ar, code), semesters(name_en, name_ar, code)')
         .eq('status', 'active')
         .order('code')
 
@@ -42,10 +43,11 @@ export default function Classes() {
     }
   }
 
-  const filteredClasses = classes.filter(cls =>
-    cls.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    cls.subjects?.name_en.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredClasses = classes.filter(cls => {
+    const subjectName = getLocalizedName(cls.subjects, isRTL)
+    return cls.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (subjectName && subjectName.toLowerCase().includes(searchQuery.toLowerCase()))
+  })
 
   return (
     <div className="space-y-6">
@@ -93,12 +95,12 @@ export default function Classes() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">{cls.code}</h3>
-                  <p className="text-sm text-gray-500">{cls.subjects?.name_en}</p>
+                  <p className="text-sm text-gray-500">{getLocalizedName(cls.subjects, isRTL)}</p>
                 </div>
               </div>
               <div className="space-y-2 text-sm text-gray-600">
-                <p><strong>{t('classes.subject')}:</strong> {cls.subjects?.code} - {cls.subjects?.name_en}</p>
-                <p><strong>{t('classes.semester')}:</strong> {cls.semesters?.name_en}</p>
+                <p><strong>{t('classes.subject')}:</strong> {cls.subjects?.code} - {getLocalizedName(cls.subjects, isRTL)}</p>
+                <p><strong>{t('classes.semester')}:</strong> {getLocalizedName(cls.semesters, isRTL)}</p>
                 <p><strong>{t('classes.section')}:</strong> {cls.section}</p>
                 <p><strong>{t('classes.capacity')}:</strong> {cls.enrolled || 0}/{cls.capacity}</p>
                 {cls.is_university_wide && (

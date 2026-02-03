@@ -7,15 +7,31 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
   const [editingIndex, setEditingIndex] = useState(null)
-  const [newType, setNewType] = useState({ name_en: '', name_ar: '', code: '' })
+  const [newType, setNewType] = useState({
+    name_en: '',
+    name_ar: '',
+    code: '',
+    maximum: 100,
+    minimum: 0,
+    pass_score: 60,
+    fail_score: 50,
+  })
 
   const handleAdd = () => {
     if (!newType.name_en || !newType.code) {
       return
     }
-    const updated = [...gradeTypes, { ...newType, id: Date.now() }]
+    const typeWithDefaults = {
+      ...newType,
+      id: Date.now(),
+      maximum: newType.maximum != null && newType.maximum !== '' ? parseFloat(newType.maximum) : 100,
+      minimum: newType.minimum != null && newType.minimum !== '' ? parseFloat(newType.minimum) : 0,
+      pass_score: newType.pass_score != null && newType.pass_score !== '' ? parseFloat(newType.pass_score) : 60,
+      fail_score: newType.fail_score != null && newType.fail_score !== '' ? parseFloat(newType.fail_score) : 50,
+    }
+    const updated = [...gradeTypes, typeWithDefaults]
     onGradeTypesChange(updated)
-    setNewType({ name_en: '', name_ar: '', code: '' })
+    setNewType({ name_en: '', name_ar: '', code: '', maximum: 100, minimum: 0, pass_score: 60, fail_score: 50 })
   }
 
   const handleEdit = (index) => {
@@ -28,10 +44,17 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
       return
     }
     const updated = [...gradeTypes]
-    updated[editingIndex] = { ...newType }
+    updated[editingIndex] = {
+      ...gradeTypes[editingIndex],
+      ...newType,
+      maximum: newType.maximum != null && newType.maximum !== '' ? parseFloat(newType.maximum) : 100,
+      minimum: newType.minimum != null && newType.minimum !== '' ? parseFloat(newType.minimum) : 0,
+      pass_score: newType.pass_score != null && newType.pass_score !== '' ? parseFloat(newType.pass_score) : 60,
+      fail_score: newType.fail_score != null && newType.fail_score !== '' ? parseFloat(newType.fail_score) : 50,
+    }
     onGradeTypesChange(updated)
     setEditingIndex(null)
-    setNewType({ name_en: '', name_ar: '', code: '' })
+    setNewType({ name_en: '', name_ar: '', code: '', maximum: 100, minimum: 0, pass_score: 60, fail_score: 50 })
   }
 
   const handleDelete = (index) => {
@@ -43,7 +66,7 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
 
   const handleCancel = () => {
     setEditingIndex(null)
-    setNewType({ name_en: '', name_ar: '', code: '' })
+    setNewType({ name_en: '', name_ar: '', code: '', maximum: 100, minimum: 0, pass_score: 60, fail_score: 50 })
   }
 
   return (
@@ -58,7 +81,7 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
 
         {/* Add/Edit Form */}
         <div className="bg-gray-50 p-4 rounded-lg mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 {t('universitySettings.gradeTypes.nameEn')} *
@@ -80,6 +103,58 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
                 value={newType.name_ar}
                 onChange={(e) => setNewType({ ...newType, name_ar: e.target.value })}
                 placeholder={t('universitySettings.gradeTypes.nameArPlaceholder')}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('universitySettings.gradeTypes.maximum')} *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={newType.maximum ?? ''}
+                onChange={(e) => setNewType({ ...newType, maximum: e.target.value })}
+                placeholder="100"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('universitySettings.gradeTypes.minimum')}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={newType.minimum ?? ''}
+                onChange={(e) => setNewType({ ...newType, minimum: e.target.value })}
+                placeholder="0"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('universitySettings.gradeTypes.passScore')} *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={newType.pass_score ?? ''}
+                onChange={(e) => setNewType({ ...newType, pass_score: e.target.value })}
+                placeholder="60"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t('universitySettings.gradeTypes.failScore')}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={newType.fail_score ?? ''}
+                onChange={(e) => setNewType({ ...newType, fail_score: e.target.value })}
+                placeholder="50"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
@@ -151,6 +226,18 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
                       {t('universitySettings.gradeTypes.nameAr')}
                     </th>
                     <th className={`px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {t('universitySettings.gradeTypes.maximum')}
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {t('universitySettings.gradeTypes.minimum')}
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {t('universitySettings.gradeTypes.passScore')}
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {t('universitySettings.gradeTypes.failScore')}
+                    </th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
                       {t('common.actions')}
                     </th>
                   </tr>
@@ -167,6 +254,10 @@ export default function GradeTypesSettings({ gradeTypes = [], onGradeTypesChange
                       <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>
                         {type.name_ar || '-'}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{type.maximum ?? '-'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{type.minimum ?? '-'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{type.pass_score ?? '-'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{type.fail_score ?? '-'}</td>
                       <td className={`px-4 py-3 whitespace-nowrap text-sm ${isRTL ? 'text-right' : 'text-left'}`}>
                         <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                           <button

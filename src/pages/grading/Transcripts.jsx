@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import {
+  getGradingScaleFromUniversitySettings,
+  getSubjectGpaFromEnrollment,
+  calculateGpaWithScale,
+} from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { FileText, Download, Printer, Calendar } from 'lucide-react'
@@ -11,6 +16,7 @@ export default function Transcripts() {
   const [student, setStudent] = useState(null)
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(false)
+  const [gradingScale, setGradingScale] = useState([])
 
   useEffect(() => {
     if (studentId) {
@@ -18,6 +24,14 @@ export default function Transcripts() {
       fetchEnrollments()
     }
   }, [studentId])
+
+  useEffect(() => {
+    const fetchScale = async () => {
+      const scale = await getGradingScaleFromUniversitySettings()
+      setGradingScale(scale)
+    }
+    fetchScale()
+  }, [])
 
   const fetchStudentData = async () => {
     try {
@@ -67,23 +81,6 @@ export default function Transcripts() {
     }
   }
 
-  const calculateGPA = (enrollments) => {
-    let totalPoints = 0
-    let totalCredits = 0
-
-    enrollments.forEach(enrollment => {
-      const grade = enrollment.grade_components?.[0]
-      const credits = enrollment.classes?.subjects?.credit_hours || 0
-      
-      if (grade?.gpa_points && credits > 0) {
-        totalPoints += grade.gpa_points * credits
-        totalCredits += credits
-      }
-    })
-
-    return totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : '0.00'
-  }
-
   const groupBySemester = (enrollments) => {
     const grouped = {}
     enrollments.forEach(enrollment => {
@@ -117,11 +114,12 @@ export default function Transcripts() {
   }
 
   const semesterGroups = groupBySemester(enrollments)
-  const cumulativeGPA = calculateGPA(enrollments)
+  const cumulativeGpaResult = calculateGpaWithScale(enrollments, gradingScale)
+  const cumulativeGPA = cumulativeGpaResult.gpa
   const totalCreditsAttempted = enrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
   const totalCreditsEarned = enrollments.filter(e => {
-    const grade = e.grade_components?.[0]
-    return grade && grade.gpa_points && grade.gpa_points > 0
+    const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
+    return points != null && points > 0
   }).reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
 
   return (
@@ -170,7 +168,7 @@ export default function Transcripts() {
             <p className="text-lg font-semibold text-gray-900">{student.majors?.name_en || '-'}</p>
           </div>
           <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Cumulative GPA</h3>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Total All Semesters GPA</h3>
             <div className="flex items-center space-x-2">
               <p className="text-2xl font-bold text-gray-900">{cumulativeGPA}</p>
               <button className="text-sm text-primary-600 hover:text-primary-800">Edit</button>
@@ -196,11 +194,12 @@ export default function Transcripts() {
         {Object.values(semesterGroups).map((group, idx) => {
           const semester = group.semester
           const semesterEnrollments = group.enrollments
-          const semesterGPA = calculateGPA(semesterEnrollments)
+          const semesterGpaResult = calculateGpaWithScale(semesterEnrollments, gradingScale, semester.id)
+          const semesterGPA = semesterGpaResult.gpa
           const semesterCredits = semesterEnrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
           const semesterEarned = semesterEnrollments.filter(e => {
-            const grade = e.grade_components?.[0]
-            return grade && grade.gpa_points && grade.gpa_points > 0
+            const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
+            return points != null && points > 0
           }).reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
 
           return (
@@ -210,7 +209,7 @@ export default function Transcripts() {
                 <h3 className="text-xl font-bold text-gray-900">{semester.name_en} - {new Date(semester.start_date).getFullYear()}</h3>
               </div>
               <p className="text-sm text-gray-600 mb-4">
-                Semester GPA: {semesterGPA} Credits: {semesterEarned}/{semesterCredits}
+                Current Semester GPA: {semesterGPA} Credits: {semesterEarned}/{semesterCredits}
               </p>
               
               <div className="overflow-x-auto">
@@ -221,13 +220,14 @@ export default function Transcripts() {
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course Title</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade Points</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject GPA</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {semesterEnrollments.map((enrollment) => {
                       const grade = enrollment.grade_components?.[0]
+                      const { points: subjectGpa } = getSubjectGpaFromEnrollment(enrollment, gradingScale)
                       return (
                         <tr key={enrollment.id}>
                           <td className="px-4 py-3 text-sm text-gray-900">
@@ -243,7 +243,7 @@ export default function Transcripts() {
                             {grade?.letter_grade || '-'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {grade?.gpa_points || '-'}
+                            {subjectGpa != null ? subjectGpa.toFixed(2) : '-'}
                           </td>
                           <td className="px-4 py-3">
                             <span className="w-2 h-2 bg-yellow-400 rounded-full inline-block"></span>
@@ -254,7 +254,7 @@ export default function Transcripts() {
                     <tr className="bg-gray-50 font-semibold">
                       <td colSpan="2" className="px-4 py-3 text-sm text-gray-900">Semester Totals:</td>
                       <td className="px-4 py-3 text-sm text-gray-900">{semesterCredits}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">GPA Calculation: {semesterGPA}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">Current Semester GPA: {semesterGPA}</td>
                       <td className="px-4 py-3 text-sm text-gray-900">Earned: {semesterEarned}</td>
                       <td className="px-4 py-3"></td>
                     </tr>
@@ -277,7 +277,7 @@ export default function Transcripts() {
               <p className="text-lg font-semibold text-gray-900">{totalCreditsEarned}</p>
             </div>
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Cumulative GPA</h3>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Total All Semesters GPA</h3>
               <div className="flex items-center space-x-2">
                 <p className="text-lg font-semibold text-gray-900">{cumulativeGPA}</p>
                 <button className="text-sm text-primary-600 hover:text-primary-800">Edit</button>
@@ -291,6 +291,21 @@ export default function Transcripts() {
             </div>
           </div>
         </div>
+
+        {/* Grading Scale Reference - From University Settings */}
+        {gradingScale.length > 0 && (
+          <div className="border-t pt-6 mt-6">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Grading Scale (University)</h3>
+            <div className="flex flex-wrap gap-2">
+              {gradingScale.map((g, idx) => (
+                <span key={idx} className="text-xs text-gray-600">
+                  {g.letter} ({g.minPercent}-{g.maxPercent}%): {g.points}
+                  {idx < gradingScale.length - 1 ? ',' : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="border-t pt-6 mt-6 text-center text-sm text-gray-500">

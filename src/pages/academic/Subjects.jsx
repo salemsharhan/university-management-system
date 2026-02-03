@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Plus, BookOpen, Search, Eye, Edit } from 'lucide-react'
@@ -24,7 +25,7 @@ export default function Subjects() {
       setLoading(true)
       let query = supabase
         .from('subjects')
-        .select('*, majors(name_en, code)')
+        .select('*, majors(name_en, name_ar, code)')
         .eq('status', 'active')
         .order('code')
 
@@ -42,10 +43,11 @@ export default function Subjects() {
     }
   }
 
-  const filteredSubjects = subjects.filter(subject =>
-    subject.name_en.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    subject.code.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredSubjects = subjects.filter(subject => {
+    const name = getLocalizedName(subject, isRTL)
+    return name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subject.code.toLowerCase().includes(searchQuery.toLowerCase())
+  })
 
   return (
     <div className="space-y-6">
@@ -92,12 +94,12 @@ export default function Subjects() {
                   <BookOpen className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">{subject.name_en}</h3>
+                  <h3 className="text-lg font-bold text-gray-900">{getLocalizedName(subject, isRTL)}</h3>
                   <p className="text-sm text-gray-500">{subject.code}</p>
                 </div>
               </div>
               <div className="space-y-2 text-sm text-gray-600">
-                <p><strong>{t('academic.subjects.major')}:</strong> {subject.majors?.name_en}</p>
+                <p><strong>{t('academic.subjects.major')}:</strong> {getLocalizedName(subject.majors, isRTL)}</p>
                 <p><strong>{t('academic.subjects.creditHours')}:</strong> {subject.credit_hours}</p>
                 <p><strong>{t('academic.subjects.type')}:</strong> {subject.type}</p>
                 <p><strong>{t('academic.subjects.semester')}:</strong> {subject.semester_number}</p>

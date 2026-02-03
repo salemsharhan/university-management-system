@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { 
@@ -23,6 +24,7 @@ export default function InstructorSubjectView() {
   const [subject, setSubject] = useState(null)
   const [instructor, setInstructor] = useState(null)
   const [materials, setMaterials] = useState([])
+  const [classMaterials, setClassMaterials] = useState([])
   const [homework, setHomework] = useState([])
   const [exams, setExams] = useState([])
   const [recordings, setRecordings] = useState([])
@@ -31,6 +33,7 @@ export default function InstructorSubjectView() {
   const [attendance, setAttendance] = useState([])
   const [forumPosts, setForumPosts] = useState([])
   const [questions, setQuestions] = useState([])
+  const [gradeTypes, setGradeTypes] = useState([])
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview')
   const [error, setError] = useState('')
 
@@ -48,13 +51,17 @@ export default function InstructorSubjectView() {
     }
   }, [user, id])
 
+  useEffect(() => {
+    getGradeTypesFromUniversitySettings().then(setGradeTypes)
+  }, [])
+
   const fetchAllData = async () => {
     setLoading(true)
     try {
       // Fetch instructor
       const { data: instructorData, error: instructorError } = await supabase
         .from('instructors')
-        .select('id, name_en, email, college_id')
+        .select('id, name_en, email, college_id, can_add_materials')
         .eq('email', user.email)
         .eq('status', 'active')
         .single()
@@ -111,7 +118,7 @@ export default function InstructorSubjectView() {
 
       // Fetch all related data filtered by instructor's classes
       await Promise.all([
-        fetchMaterials(),
+        fetchMaterials(instructorClassIds),
         fetchHomework(instructorClassIds),
         fetchExams(instructorClassIds),
         fetchRecordings(),
@@ -127,16 +134,26 @@ export default function InstructorSubjectView() {
     }
   }
 
-  const fetchMaterials = async () => {
+  const fetchMaterials = async (instructorClassIds = []) => {
     try {
-      const { data, error } = await supabase
-        .from('subject_materials')
-        .select('*, subject_content_types(code, name_en, name_ar, icon)')
-        .eq('subject_id', id)
-        .order('display_order')
-
-      if (error) throw error
-      setMaterials(data || [])
+      const [subjectRes, classRes] = await Promise.all([
+        supabase
+          .from('subject_materials')
+          .select('*, subject_content_types(code, name_en, name_ar, icon)')
+          .eq('subject_id', id)
+          .order('display_order'),
+        instructorClassIds?.length > 0
+          ? supabase
+              .from('class_materials')
+              .select('*, subject_content_types(code, name_en, name_ar, icon), classes(id, code, section)')
+              .eq('subject_id', id)
+              .in('class_id', instructorClassIds)
+              .order('display_order')
+          : Promise.resolve({ data: [] }),
+      ])
+      if (subjectRes.error) throw subjectRes.error
+      setMaterials(subjectRes.data || [])
+      setClassMaterials(classRes.data || [])
     } catch (err) {
       console.error('Error fetching materials:', err)
     }
@@ -432,6 +449,8 @@ export default function InstructorSubjectView() {
     }
   }
 
+  const refetchMaterials = () => fetchMaterials(classes.map(c => c.id))
+
   const handleDeleteMaterial = async (materialId) => {
     if (!confirm('Are you sure you want to delete this material?')) return
 
@@ -442,9 +461,26 @@ export default function InstructorSubjectView() {
         .eq('id', materialId)
 
       if (error) throw error
-      fetchMaterials()
+      refetchMaterials()
     } catch (err) {
       console.error('Error deleting material:', err)
+      alert('Failed to delete material')
+    }
+  }
+
+  const handleDeleteClassMaterial = async (materialId) => {
+    if (!confirm('Are you sure you want to delete this material?')) return
+
+    try {
+      const { error } = await supabase
+        .from('class_materials')
+        .delete()
+        .eq('id', materialId)
+
+      if (error) throw error
+      refetchMaterials()
+    } catch (err) {
+      console.error('Error deleting class material:', err)
       alert('Failed to delete material')
     }
   }
@@ -543,7 +579,7 @@ export default function InstructorSubjectView() {
           <div className="mt-4 flex space-x-1 border-b border-gray-200 overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview', icon: BookOpen },
-              { id: 'classes', label: 'Classes', icon: Users },
+              { id: 'classes', label: 'Sessions', icon: Users },
               { id: 'teams', label: 'Teams Meetings', icon: Video },
               { id: 'materials', label: 'Materials', icon: FolderOpen },
               { id: 'homework', label: 'Homework', icon: FileText },
@@ -724,25 +760,15 @@ export default function InstructorSubjectView() {
 
         {/* Materials Tab */}
         {activeTab === 'materials' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Subject materials (default) */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Learning Materials</h2>
-                <button
-                  onClick={() => {
-                    // TODO: Open add material modal
-                    navigate(`/instructor/subjects/${id}/materials/create`)
-                  }}
-                  className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Material</span>
-                </button>
-              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Subject materials (default)</h2>
+              <p className="text-sm text-gray-500 mb-4">Default materials for this subject, visible to all students.</p>
               {materials.length > 0 ? (
                 <div className="space-y-3">
                   {materials.map(material => (
-                    <div key={material.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div key={`s-${material.id}`} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                       <div className="flex items-center space-x-4">
                         {getContentTypeIcon(material.content_type_code)}
                         <div>
@@ -755,10 +781,7 @@ export default function InstructorSubjectView() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => {
-                            // TODO: Open edit material modal
-                            navigate(`/instructor/subjects/${id}/materials/${material.id}/edit`)
-                          }}
+                          onClick={() => navigate(`/instructor/subjects/${id}/materials/${material.id}/edit`)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                         >
                           <Edit className="w-4 h-4" />
@@ -774,9 +797,70 @@ export default function InstructorSubjectView() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">No materials added yet</p>
+                <p className="text-gray-500 text-center py-6">No subject materials yet</p>
               )}
             </div>
+
+            {/* Class materials (instructor-added) */}
+            {instructor?.can_add_materials && classes.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Class materials</h2>
+                    <p className="text-sm text-gray-500">Materials you added for your classes.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {classes.map(cls => (
+                      <button
+                        key={cls.id}
+                        onClick={() => navigate(`/instructor/subjects/${id}/materials/create?classId=${cls.id}`)}
+                        className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm flex items-center gap-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add for {cls.code || `Section ${cls.section}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {classMaterials.length > 0 ? (
+                  <div className="space-y-3">
+                    {classMaterials.map(material => (
+                      <div key={`c-${material.id}`} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
+                        <div className="flex items-center space-x-4">
+                          {getContentTypeIcon(material.content_type_code)}
+                          <div>
+                            <p className="font-medium text-gray-900">{material.title}</p>
+                            <p className="text-sm text-gray-600">
+                              {material.subject_content_types?.name_en || material.content_type_code}
+                              {material.classes && (
+                                <span className="text-primary-600"> — {material.classes.code || `Section ${material.classes.section}`}</span>
+                              )}
+                              {!material.is_published && ' (Draft)'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => navigate(`/instructor/subjects/${id}/materials/${material.id}/edit?classId=${material.class_id}`)}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClassMaterial(material.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-6">No class materials yet. Click above to add.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1124,23 +1208,23 @@ export default function InstructorSubjectView() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Grade Configuration</h3>
                   {subject.grade_configuration && Array.isArray(subject.grade_configuration) && subject.grade_configuration.length > 0 ? (
                     <div className="space-y-3">
-                      {subject.grade_configuration.map((config, idx) => (
+                      {mergeGradeConfigWithTypes(subject.grade_configuration, gradeTypes).map((config, idx) => (
                         <div key={idx} className="p-4 bg-gray-50 rounded-lg">
                           <h4 className="font-medium text-gray-900 mb-2">
                             {config.grade_type_name_en} ({config.grade_type_code})
                           </h4>
                           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                             <div>
-                              <span className="text-gray-600">Max:</span> {config.maximum || 'N/A'}
+                              <span className="text-gray-600">Max:</span> {config.maximum ?? 'N/A'}
                             </div>
                             <div>
-                              <span className="text-gray-600">Min:</span> {config.minimum || 'N/A'}
+                              <span className="text-gray-600">Min:</span> {config.minimum ?? 'N/A'}
                             </div>
                             <div>
-                              <span className="text-gray-600">Pass:</span> {config.pass_score || 'N/A'}
+                              <span className="text-gray-600">Pass:</span> {config.pass_score ?? 'N/A'}
                             </div>
                             <div>
-                              <span className="text-gray-600">Fail:</span> {config.fail_score || 'N/A'}
+                              <span className="text-gray-600">Fail:</span> {config.fail_score ?? 'N/A'}
                             </div>
                             <div>
                               <span className="text-gray-600">Weight:</span> {config.weight ? `${config.weight}%` : 'N/A'}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { Save, X, Upload, AlertCircle, Link as LinkIcon } from 'lucide-react'
 
-export default function MaterialsManagement({ subjectId, materialId, onClose, onSave }) {
+export default function MaterialsManagement({ subjectId, classId, materialId, onClose, onSave, isClassMaterial = false }) {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -42,10 +42,11 @@ export default function MaterialsManagement({ subjectId, materialId, onClose, on
     }
   }
 
+  const tableName = isClassMaterial ? 'class_materials' : 'subject_materials'
   const fetchMaterial = async () => {
     try {
       const { data, error: fetchError } = await supabase
-        .from('subject_materials')
+        .from(tableName)
         .select('*')
         .eq('id', materialId)
         .single()
@@ -76,7 +77,8 @@ export default function MaterialsManagement({ subjectId, materialId, onClose, on
     setUploading(true)
     try {
       const fileExt = file.name.split('.').pop()
-      const fileName = `${subjectId}_${Date.now()}.${fileExt}`
+      const prefix = isClassMaterial && classId ? `class_${classId}` : subjectId
+      const fileName = `${prefix}_${Date.now()}.${fileExt}`
       const filePath = `materials/${subjectId}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
@@ -112,7 +114,7 @@ export default function MaterialsManagement({ subjectId, materialId, onClose, on
       }
 
       const submitData = {
-        subject_id: subjectId,
+        ...(isClassMaterial && classId ? { class_id: classId, subject_id: subjectId } : { subject_id: subjectId }),
         content_type_code: formData.content_type_code,
         title: formData.title.trim(),
         title_ar: formData.title_ar.trim() || null,
@@ -125,16 +127,12 @@ export default function MaterialsManagement({ subjectId, materialId, onClose, on
         access_level: formData.access_level,
       }
 
-      if (materialId) {
-        const { data: { user } } = await supabase.auth.getUser()
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .single()
+      const { data: { user } } = await supabase.auth.getUser()
+      const { data: userData } = await supabase.from('users').select('id').eq('email', user?.email).single()
 
+      if (materialId) {
         const { error: updateError } = await supabase
-          .from('subject_materials')
+          .from(tableName)
           .update({
             ...submitData,
             updated_at: new Date().toISOString(),
@@ -143,18 +141,11 @@ export default function MaterialsManagement({ subjectId, materialId, onClose, on
 
         if (updateError) throw updateError
       } else {
-        const { data: { user } } = await supabase.auth.getUser()
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .single()
-
         const { error: insertError } = await supabase
-          .from('subject_materials')
+          .from(tableName)
           .insert({
             ...submitData,
-            created_by: userData.id,
+            created_by: userData?.id,
           })
 
         if (insertError) throw insertError
