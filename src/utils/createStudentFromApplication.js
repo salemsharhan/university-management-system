@@ -20,20 +20,18 @@ export async function generateStudentId(collegeId) {
     const year = new Date().getFullYear()
     const format = college.student_id_format || '{prefix}{year}{sequence:D4}'
     
-    // Get existing student IDs for this college and year (more efficient than fetching all)
+    // student_id is globally unique (students_student_id_unique), so we must avoid any existing ID across all colleges
     const yearPrefix = `${prefix}${year}`
     const { data: existingStudents, error: studentError } = await supabase
       .from('students')
       .select('student_id')
-      .eq('college_id', collegeId)
-      .ilike('student_id', `${yearPrefix}%`) // Filter by year prefix to reduce query size
+      .ilike('student_id', `${yearPrefix}%`)
       .limit(10000) // Safety limit
-    
-    // Handle case where no students exist yet (not an error)
+
     if (studentError && studentError.code !== 'PGRST116') {
       console.error('Error fetching existing students:', studentError)
     }
-    
+
     const existingIds = new Set(existingStudents?.map(s => s.student_id).filter(Boolean) || [])
     
     // Start from the configured starting number or 1

@@ -119,7 +119,17 @@ const navigation = [
       { name: 'Bulk Enrollment', translationKey: 'navigation.bulkEnrollment', href: '/enrollments/bulk' },
     ]
   },
-  { name: 'Students', translationKey: 'navigation.students', href: '/students', icon: GraduationCap, roles: ['admin', 'user', 'instructor'] },
+  {
+    name: 'Students',
+    translationKey: 'navigation.students',
+    href: '/students',
+    icon: GraduationCap,
+    roles: ['admin', 'user', 'instructor'],
+    submenu: [
+      { name: 'All Students', translationKey: 'navigation.allStudents', href: '/students' },
+      { name: 'Upload from Excel', translationKey: 'navigation.uploadStudents', href: '/students/upload' },
+    ]
+  },
   { name: 'Instructors', translationKey: 'navigation.instructors', href: '/instructors', icon: Users, roles: ['admin', 'user'] },
   { name: 'Enroll in Sessions', translationKey: 'navigation.enroll', href: '/student/enroll', icon: GraduationCap, roles: ['student'] },
   { name: 'Schedule', translationKey: 'navigation.schedule', href: '/schedule', icon: Calendar, roles: ['admin', 'user', 'instructor', 'student'] },

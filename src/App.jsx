@@ -14,6 +14,7 @@ import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import Students from './pages/Students'
 import CreateStudent from './pages/CreateStudent'
+import UploadStudents from './pages/UploadStudents'
 import Instructors from './pages/Instructors'
 import Courses from './pages/Courses'
 import Schedule from './pages/Schedule'
@@ -143,6 +144,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <CreateStudent />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/students/upload"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <UploadStudents />
                 </Layout>
               </ProtectedRoute>
             }
