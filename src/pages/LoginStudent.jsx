@@ -58,15 +58,14 @@ export default function LoginStudent() {
         return
       }
 
-      // Check if student has at least one active semester with PM10+ milestone for login
-      const { data: semesterStatuses, error: statusError } = await supabase
+      // Check if student has at least one active semester with PM10+ milestone for login (from student_semester_financial_status only)
+      const { data: semesterStatuses } = await supabase
         .from('student_semester_financial_status')
         .select('financial_milestone_code')
         .eq('student_id', studentData.id)
         .in('financial_milestone_code', ['PM10', 'PM30', 'PM60', 'PM90', 'PM100'])
         .limit(1)
 
-      // If no semester status found, default to PM00 (no payment)
       const hasLoginAccess = semesterStatuses && semesterStatuses.length > 0
       const loginMilestone = hasLoginAccess ? semesterStatuses[0].financial_milestone_code : 'PM00'
 
@@ -78,7 +77,7 @@ export default function LoginStudent() {
       )
 
       if (!permission.allowed) {
-        // Sign out the user since they don't have permission
+        // Intentionally sign out so the user is not left in a half-logged-in state (auth session exists but portal access denied)
         if (signOut) {
           await signOut()
         }

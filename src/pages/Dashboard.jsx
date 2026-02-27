@@ -51,105 +51,112 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchKPIData()
-  }, [])
+  }, [userRole])
 
   const fetchKPIData = async () => {
     try {
       setLoading(true)
 
-      // Fetch total students
-      const { count: studentsCount } = await supabase
-        .from('students')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+      const isAdminOrCollege = userRole === 'admin' || userRole === 'user'
 
-      // Fetch total instructors
-      const { count: instructorsCount } = await supabase
-        .from('instructors')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+      let studentsCount = 0
+      let instructorsCount = 0
+      let coursesCount = 0
+      let totalRevenue = 0
+      let collectedAmount = 0
+      let pendingAmount = 0
+      let totalInvoiced = 0
+      let feeCollectionRate = 0
+      let avgGPA = 0
+      let honorRollCount = 0
+      let applicationsReceived = 0
+      let applicationsAccepted = 0
+      let applicationsPending = 0
+      let applicationsRejected = 0
+      let applicationsEnrolled = 0
+      let yieldRate = 0
+      let collegePerformance = []
 
-      // Fetch active courses (classes)
-      const { count: coursesCount } = await supabase
-        .from('classes')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
+      if (isAdminOrCollege) {
+        // Only fetch university-wide KPIs for admin and college admin (not for students/instructors)
+        const [{ count: studentsCountRes }, { count: instructorsCountRes }, { count: coursesCountRes }] = await Promise.all([
+          supabase.from('students').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+          supabase.from('instructors').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+          supabase.from('classes').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+        ])
+        studentsCount = studentsCountRes || 0
+        instructorsCount = instructorsCountRes || 0
+        coursesCount = coursesCountRes || 0
 
-      // Fetch total revenue from invoices
-      const { data: invoicesData } = await supabase
-        .from('invoices')
-        .select('total_amount, paid_amount, pending_amount, status')
-      
-      const totalRevenue = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.paid_amount || 0), 0) || 0
-      const collectedAmount = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.paid_amount || 0), 0) || 0
-      const pendingAmount = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.pending_amount || 0), 0) || 0
-      const totalInvoiced = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0) || 0
-      const feeCollectionRate = totalInvoiced > 0 ? (collectedAmount / totalInvoiced) * 100 : 0
+        const { data: invoicesData } = await supabase
+          .from('invoices')
+          .select('total_amount, paid_amount, pending_amount, status')
 
-      // Fetch average GPA from students
-      const { data: studentsData } = await supabase
-        .from('students')
-        .select('gpa')
-        .not('gpa', 'is', null)
-      
-      const avgGPA = studentsData && studentsData.length > 0
-        ? studentsData.reduce((sum, s) => sum + parseFloat(s.gpa || 0), 0) / studentsData.length
-        : 0
+        totalRevenue = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.paid_amount || 0), 0) || 0
+        collectedAmount = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.paid_amount || 0), 0) || 0
+        pendingAmount = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.pending_amount || 0), 0) || 0
+        totalInvoiced = invoicesData?.reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0) || 0
+        feeCollectionRate = totalInvoiced > 0 ? (collectedAmount / totalInvoiced) * 100 : 0
 
-      // Fetch honor roll students (GPA >= 3.5)
-      const { count: honorRollCount } = await supabase
-        .from('students')
-        .select('*', { count: 'exact', head: true })
-        .gte('gpa', 3.5)
-        .eq('status', 'active')
+        const { data: studentsData } = await supabase
+          .from('students')
+          .select('gpa')
+          .not('gpa', 'is', null)
 
-      // Fetch applications data
-      const { data: applicationsData } = await supabase
-        .from('applications')
-        .select('status_code')
-      
-      const applicationsReceived = applicationsData?.length || 0
-      const applicationsAccepted = applicationsData?.filter(a => ['DCFA', 'DCCA', 'ENCF', 'ENAC'].includes(a.status_code)).length || 0
-      const applicationsPending = applicationsData?.filter(a => ['APSB', 'APPN', 'RVQU', 'RVIN', 'DCPN', 'ENPN'].includes(a.status_code)).length || 0
-      const applicationsRejected = applicationsData?.filter(a => a.status_code === 'DCRJ').length || 0
-      const applicationsEnrolled = applicationsData?.filter(a => ['ENCF', 'ENAC'].includes(a.status_code)).length || 0
-      const yieldRate = applicationsAccepted > 0 ? (applicationsEnrolled / applicationsAccepted) * 100 : 0
+        avgGPA = studentsData && studentsData.length > 0
+          ? studentsData.reduce((sum, s) => sum + parseFloat(s.gpa || 0), 0) / studentsData.length
+          : 0
 
-      // Fetch college performance data
-      const { data: collegesData } = await supabase
-        .from('colleges')
-        .select('id, name_en, name_ar')
-        .eq('status', 'active')
+        const { count: honorRollCountRes } = await supabase
+          .from('students')
+          .select('*', { count: 'exact', head: true })
+          .gte('gpa', 3.5)
+          .eq('status', 'active')
+        honorRollCount = honorRollCountRes || 0
 
-      const collegePerformance = await Promise.all(
-        (collegesData || []).map(async (college) => {
-          const { count: collegeStudents } = await supabase
-            .from('students')
-            .select('*', { count: 'exact', head: true })
-            .eq('college_id', college.id)
-            .eq('status', 'active')
+        const { data: applicationsData } = await supabase
+          .from('applications')
+          .select('status_code')
 
-          const { data: collegeStudentsData } = await supabase
-            .from('students')
-            .select('gpa')
-            .eq('college_id', college.id)
-            .not('gpa', 'is', null)
+        applicationsReceived = applicationsData?.length || 0
+        applicationsAccepted = applicationsData?.filter(a => ['DCFA', 'DCCA', 'ENCF', 'ENAC'].includes(a.status_code)).length || 0
+        applicationsPending = applicationsData?.filter(a => ['APSB', 'APPN', 'RVQU', 'RVIN', 'DCPN', 'ENPN'].includes(a.status_code)).length || 0
+        applicationsRejected = applicationsData?.filter(a => a.status_code === 'DCRJ').length || 0
+        applicationsEnrolled = applicationsData?.filter(a => ['ENCF', 'ENAC'].includes(a.status_code)).length || 0
+        yieldRate = applicationsAccepted > 0 ? (applicationsEnrolled / applicationsAccepted) * 100 : 0
 
-          const collegeAvgGPA = collegeStudentsData && collegeStudentsData.length > 0
-            ? collegeStudentsData.reduce((sum, s) => sum + parseFloat(s.gpa || 0), 0) / collegeStudentsData.length
-            : 0
+        const { data: collegesData } = await supabase
+          .from('colleges')
+          .select('id, name_en, name_ar')
+          .eq('status', 'active')
 
-          // Calculate attendance rate (simplified - would need actual attendance data)
-          const attendanceRate = 92 // Placeholder - would need actual attendance calculations
+        collegePerformance = await Promise.all(
+          (collegesData || []).map(async (college) => {
+            const { count: collegeStudents } = await supabase
+              .from('students')
+              .select('*', { count: 'exact', head: true })
+              .eq('college_id', college.id)
+              .eq('status', 'active')
 
-          return {
-            name: getLocalizedName(college, isRTL),
-            students: collegeStudents || 0,
-            avgGPA: collegeAvgGPA,
-            attendance: attendanceRate,
-          }
-        })
-      )
+            const { data: collegeStudentsData } = await supabase
+              .from('students')
+              .select('gpa')
+              .eq('college_id', college.id)
+              .not('gpa', 'is', null)
+
+            const collegeAvgGPA = collegeStudentsData && collegeStudentsData.length > 0
+              ? collegeStudentsData.reduce((sum, s) => sum + parseFloat(s.gpa || 0), 0) / collegeStudentsData.length
+              : 0
+
+            return {
+              name: getLocalizedName(college, isRTL),
+              students: collegeStudents || 0,
+              avgGPA: collegeAvgGPA,
+              attendance: 92,
+            }
+          })
+        )
+      }
 
       // Calculate graduation rate (simplified - would need actual graduation data)
       const graduationRate = 87 // Placeholder

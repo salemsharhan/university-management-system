@@ -195,7 +195,7 @@ export default function ViewInvoice() {
 
       if (invoicesError) {
         console.error('Error fetching invoices for milestone calculation:', invoicesError)
-        return
+        throw new Error(invoicesError.message || 'Failed to fetch invoices for milestone')
       }
 
       let totalDue = 0
@@ -218,7 +218,7 @@ export default function ViewInvoice() {
         .maybeSingle()
 
       if (existingRecord) {
-        await supabase
+        const { error: updateErr } = await supabase
           .from('student_semester_financial_status')
           .update({
             financial_milestone_code: newMilestone,
@@ -227,8 +227,9 @@ export default function ViewInvoice() {
             updated_at: new Date().toISOString()
           })
           .eq('id', existingRecord.id)
+        if (updateErr) throw new Error(updateErr.message || 'Failed to update financial status')
       } else {
-        await supabase
+        const { error: insertErr } = await supabase
           .from('student_semester_financial_status')
           .insert({
             student_id: studentId,
@@ -237,6 +238,7 @@ export default function ViewInvoice() {
             total_due: totalDue,
             total_paid: totalPaid
           })
+        if (insertErr) throw new Error(insertErr.message || 'Failed to create financial status')
       }
 
       // PM10 → ENAC (Initial payment activates enrollment)
@@ -347,12 +349,17 @@ export default function ViewInvoice() {
 
       if (paymentError) throw paymentError
 
-      // Update student financial milestone if semester exists
+      // Update student_semester_financial_status so login and permissions use correct milestone (trigger has already updated invoice.paid_amount)
+      let milestoneError = null
       if (invoice.semester_id && invoice.invoice_type !== 'admission_fee') {
-        await updateStudentFinancialMilestone(invoice.student_id, invoice.semester_id)
+        try {
+          await updateStudentFinancialMilestone(invoice.student_id, invoice.semester_id)
+        } catch (err) {
+          console.error('Error updating student financial status:', err)
+          milestoneError = err
+        }
       }
 
-      setSuccess('Payment recorded successfully!')
       setShowPaymentForm(false)
       setPaymentForm({
         payment_date: new Date().toISOString().split('T')[0],
@@ -362,7 +369,13 @@ export default function ViewInvoice() {
         notes: ''
       })
 
-      // Refresh invoice and payments
+      if (milestoneError) {
+        setError(`Payment recorded, but financial status update failed: ${milestoneError.message}. Update status manually if needed.`)
+      } else {
+        setSuccess('Payment recorded successfully!')
+      }
+
+      // Refresh invoice and payments in UI
       await fetchInvoice()
 
     } catch (err) {

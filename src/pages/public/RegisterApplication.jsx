@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
-import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload } from 'lucide-react'
 
 const steps = [
   { id: 1, name: 'Personal Information', icon: User },
@@ -13,11 +13,17 @@ const steps = [
   { id: 5, name: 'Test Scores', icon: FileText },
   { id: 6, name: 'Transfer Information', icon: BookOpen },
   { id: 7, name: 'Additional Information', icon: FileText },
+  { id: 8, name: 'Documents', icon: Upload },
+]
+
+const REGISTER_DOCUMENT_TYPES = [
+  { key: 'id_photo', label: 'ID photo', accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+  { key: 'transcript', label: 'Transcript / Grades', accept: 'image/jpeg,image/png,application/pdf' },
 ]
 
 export default function RegisterApplication() {
   const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { isRTL, language, changeLanguage } = useLanguage()
   const navigate = useNavigate()
   const [colleges, setColleges] = useState([])
   const [selectedCollegeId, setSelectedCollegeId] = useState('')
@@ -29,6 +35,7 @@ export default function RegisterApplication() {
   const [error, setError] = useState('')
   const [applicationNumber, setApplicationNumber] = useState(null)
   const [submittedApplication, setSubmittedApplication] = useState(null)
+  const [documentFiles, setDocumentFiles] = useState({ id_photo: null, transcript: null })
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -421,6 +428,38 @@ export default function RegisterApplication() {
           })
       }
 
+      // Upload document files if provided (optional at registration; same types as track page)
+      for (const { key } of REGISTER_DOCUMENT_TYPES) {
+        const file = documentFiles[key]
+        if (file && application?.id) {
+          try {
+            const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+            const storagePath = `${application.id}/${key}/${safeName}`
+            const { error: uploadError } = await supabase.storage
+              .from('qalam')
+              .upload(storagePath, file, { upsert: true, contentType: file.type })
+            if (uploadError) {
+              console.error('Document storage upload failed:', key, uploadError)
+              continue
+            }
+            const { error: insertError } = await supabase.from('application_documents').upsert(
+              {
+                application_id: application.id,
+                document_type: key,
+                file_path: storagePath,
+                file_name: file.name,
+                file_size: file.size,
+                content_type: file.type,
+              },
+              { onConflict: 'application_id,document_type' }
+            )
+            if (insertError) console.error('Application document record failed:', key, insertError)
+          } catch (docErr) {
+            console.error('Document upload failed (applicant can upload on track page):', docErr)
+          }
+        }
+      }
+
       setApplicationNumber(application.application_number)
       setSubmittedApplication(application)
     } catch (err) {
@@ -502,6 +541,7 @@ export default function RegisterApplication() {
                 onClick={() => {
                   setApplicationNumber(null)
                   setSubmittedApplication(null)
+                  setDocumentFiles({ id_photo: null, transcript: null })
                   setFormData({
                     first_name: '',
                     middle_name: '',
@@ -562,8 +602,28 @@ export default function RegisterApplication() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="max-w-6xl mx-auto">
+        {/* Language switcher */}
+        <div className={`flex justify-end mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white/80 shadow-sm p-0.5">
+            <button
+              type="button"
+              onClick={() => changeLanguage('en')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'en' ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              onClick={() => changeLanguage('ar')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${language === 'ar' ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              العربية
+            </button>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Student Application</h1>
@@ -1509,6 +1569,33 @@ export default function RegisterApplication() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Step 8: Documents (optional; can upload on track page if not filled here) */}
+          {currentStep === 8 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Documents</h2>
+              <p className="text-sm text-gray-600 mb-6">
+                You can upload these now or later on the track page after submitting.
+              </p>
+              {REGISTER_DOCUMENT_TYPES.map(({ key, label, accept }) => (
+                <div key={key} className="border border-gray-200 rounded-xl p-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                  <input
+                    type="file"
+                    accept={accept}
+                    className="text-sm text-gray-600 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary-100 file:text-primary-700"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      setDocumentFiles((prev) => ({ ...prev, [key]: f || null }))
+                    }}
+                  />
+                  {documentFiles[key] && (
+                    <p className="text-sm text-green-600 mt-1">{documentFiles[key].name}</p>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

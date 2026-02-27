@@ -374,6 +374,34 @@ export async function createStudentFromApplication(application, customPassword =
           }
         }
 
+        // Copy application documents to student_documents so they appear on the student profile
+        try {
+          const { data: appDocs, error: appDocsError } = await supabase
+            .from('application_documents')
+            .select('document_type, file_path, file_name, file_size, content_type, uploaded_at')
+            .eq('application_id', application.id)
+          if (!appDocsError && appDocs && appDocs.length > 0) {
+            for (const doc of appDocs) {
+              await supabase.from('student_documents').upsert(
+                {
+                  student_id: createdStudent.id,
+                  document_type: doc.document_type,
+                  file_path: doc.file_path,
+                  file_name: doc.file_name,
+                  file_size: doc.file_size,
+                  content_type: doc.content_type,
+                  uploaded_at: doc.uploaded_at || new Date().toISOString(),
+                },
+                { onConflict: 'student_id,document_type' }
+              )
+            }
+            console.log(`✅ Copied ${appDocs.length} application document(s) to student profile`)
+          }
+        } catch (docsErr) {
+          console.error('Error copying application documents to student:', docsErr)
+          // Don't throw - student is created successfully
+        }
+
         return {
           success: true,
           student: createdStudent,

@@ -1,10 +1,30 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getLocalizedName } from '../utils/localizedName'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Search, Plus, MoreVertical, Edit, Trash2, Eye } from 'lucide-react'
+import { Search, Plus, MoreVertical, Edit, Trash2, Eye, GraduationCap, ChevronRight } from 'lucide-react'
+
+function getInitials(s, isRTL) {
+  if (!s) return '?'
+  const nameForInitials = isRTL ? (s.name_ar || s.name_en) : (s.name_en || s.name_ar)
+  const first = (s.first_name || s.name_en || '').trim().charAt(0)
+  const last = (s.last_name || '').trim().charAt(0)
+  if (first && last) return `${first}${last}`.toUpperCase()
+  const name = (nameForInitials || '').trim()
+  return name.length >= 2 ? name.slice(0, 2).toUpperCase() : (first || name.charAt(0) || '?').toUpperCase()
+}
+
+function getStudentDisplayName(student, isRTL) {
+  if (!student) return '—'
+  const localized = getLocalizedName(student, isRTL)
+  if (localized) return localized
+  const en = [student.first_name, student.middle_name, student.last_name].filter(Boolean).join(' ')
+  const ar = [student.first_name_ar, student.middle_name_ar, student.last_name_ar].filter(Boolean).join(' ')
+  return isRTL ? (ar || en) : (en || ar) || '—'
+}
 export default function Students() {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
@@ -52,7 +72,7 @@ export default function Students() {
       setLoading(true)
       let query = supabase
         .from('students')
-        .select('*, majors(name_en, code)')
+        .select('*, majors(name_en, name_ar, code)')
         .eq('status', 'active') // Only fetch active students
 
       // Filter by college for college admins
@@ -154,10 +174,15 @@ export default function Students() {
         </div>
       </div>
 
-      {/* Students Table */}
+      {/* Students list */}
       {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+        <div className="text-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary-500 border-t-transparent mx-auto" />
+        </div>
+      ) : filteredStudents.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
+          <GraduationCap className="w-14 h-14 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">{t('students.noStudentsFound')}</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -165,106 +190,107 @@ export default function Students() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
-                    {t('students.studentId')}
-                  </th>
-                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-semibold text-gray-500 uppercase tracking-wider w-12`} />
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-semibold text-gray-500 uppercase tracking-wider`}>
                     {t('students.name')}
                   </th>
-                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell`}>
+                    {t('students.studentId')}
+                  </th>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell`}>
                     {t('students.email')}
                   </th>
-                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell`}>
                     {t('students.major')}
                   </th>
-                  <th className={`px-6 py-4 ${isRTL ? 'text-right' : 'text-left'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'} text-xs font-semibold text-gray-500 uppercase tracking-wider`}>
                     {t('students.status')}
                   </th>
-                  <th className={`px-6 py-4 ${isRTL ? 'text-left' : 'text-right'} text-xs font-medium text-gray-500 uppercase tracking-wider`}>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-left' : 'text-right'} text-xs font-semibold text-gray-500 uppercase tracking-wider w-24`}>
                     {t('students.actions')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                      {t('students.noStudentsFound')}
+              <tbody className="bg-white divide-y divide-gray-100">
+                {filteredStudents.map((student) => (
+                  <tr key={student.id} className="hover:bg-gray-50/80 transition-colors group">
+                    <td className={`px-4 py-3 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white text-sm font-bold shadow-sm">
+                        {getInitials(student, isRTL)}
+                      </div>
+                    </td>
+                    <td className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <Link
+                        to={`/students/${student.id}`}
+                        className="font-semibold text-gray-900 hover:text-primary-600 transition-colors inline-flex items-center gap-1"
+                      >
+                        {getStudentDisplayName(student, isRTL)}
+                        <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-primary-500" />
+                      </Link>
+                    </td>
+                    <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden sm:table-cell ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {student.student_id || '—'}
+                    </td>
+                    <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell max-w-[180px] truncate ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {student.email || '—'}
+                    </td>
+                    <td className={`px-4 py-3 whitespace-nowrap text-sm text-gray-600 hidden lg:table-cell ${isRTL ? 'text-right' : 'text-left'}`}>
+                      {student.majors ? getLocalizedName(student.majors, isRTL) : '—'}
+                    </td>
+                    <td className={`px-4 py-3 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium ${getStatusColor(student.status || 'active')}`}>
+                        {(student.status || 'active').replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className={`px-4 py-3 whitespace-nowrap ${isRTL ? 'text-left' : 'text-right'}`}>
+                      <div className="relative inline-flex items-center gap-1">
+                        <Link
+                          to={`/students/${student.id}`}
+                          className="p-2 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                          title={t('common.view')}
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Link>
+                        <button
+                          onClick={() => navigate(`/students/${student.id}/edit`)}
+                          className="p-2 rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                          title={t('common.edit')}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setShowActions(showActions === student.id ? null : student.id)}
+                          className="p-2 rounded-lg text-gray-400 hover:text-gray-600"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                        {showActions === student.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setShowActions(null)} />
+                            <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-20`}>
+                              <Link
+                                to={`/students/${student.id}`}
+                                onClick={() => setShowActions(null)}
+                                className={`flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isRTL ? 'flex-row-reverse' : ''}`}
+                              >
+                                <Eye className="w-4 h-4" /> {t('common.view')}
+                              </Link>
+                              <button
+                                onClick={() => { navigate(`/students/${student.id}/edit`); setShowActions(null); }}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isRTL ? 'flex-row-reverse' : ''}`}
+                              >
+                                <Edit className="w-4 h-4" /> {t('common.edit')}
+                              </button>
+                              <button className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                                <Trash2 className="w-4 h-4" /> {t('common.delete')}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  filteredStudents.map((student) => (
-                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
-                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
-                        <span className="text-sm font-medium text-gray-900">{student.student_id || 'N/A'}</span>
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
-                        <span className="text-sm font-medium text-gray-900">
-                          {student.first_name} {student.last_name}
-                        </span>
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
-                        <span className="text-sm text-gray-600">{student.email || 'N/A'}</span>
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
-                        <span className="text-sm text-gray-600">{student.majors?.name_en || 'N/A'}</span>
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-right' : 'text-left'}`}>
-                        <span
-                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            student.status || 'active'
-                          )}`}
-                        >
-                          {(student.status || 'active').replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-left' : 'text-right'} text-sm font-medium`}>
-                        <div className="relative inline-block">
-                          <button
-                            onClick={() => setShowActions(showActions === student.id ? null : student.id)}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <MoreVertical className="w-5 h-5" />
-                          </button>
-                          {showActions === student.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-10"
-                                onClick={() => setShowActions(null)}
-                              />
-                              <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-20`}>
-                                <button 
-                                  onClick={() => {
-                                    navigate(`/students/${student.id}`)
-                                    setShowActions(null)
-                                  }}
-                                  className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  <span>{t('common.view')}</span>
-                                </button>
-                                <button 
-                                  onClick={() => {
-                                    navigate(`/students/${student.id}/edit`)
-                                    setShowActions(null)
-                                  }}
-                                  className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  <span>{t('common.edit')}</span>
-                                </button>
-                                <button className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-red-600 hover:bg-red-50`}>
-                                  <Trash2 className="w-4 h-4" />
-                                  <span>{t('common.delete')}</span>
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>

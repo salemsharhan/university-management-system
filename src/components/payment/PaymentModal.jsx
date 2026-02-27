@@ -96,21 +96,23 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
         // Payment for an existing invoice
         const paymentNumber = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
         
-        // Get student_id from invoice if not provided
-        let studentId = student?.id
-        if (!studentId && invoice.student_id) {
-          studentId = invoice.student_id
-        } else if (!studentId) {
-          // Fetch student_id from invoice
+        // Get student_id and college_id (payments.college_id is NOT NULL)
+        let studentId = student?.id || invoice.student_id
+        let collegeId = student?.college_id || invoice.college_id
+
+        if (!studentId || collegeId == null) {
           const { data: invoiceData, error: invError } = await supabase
             .from('invoices')
             .select('student_id, college_id')
             .eq('id', invoice.id)
             .single()
-          
           if (invError) throw invError
-          studentId = invoiceData.student_id
-          invoice.college_id = invoiceData.college_id
+          if (!studentId) studentId = invoiceData.student_id
+          if (collegeId == null) collegeId = invoiceData.college_id
+        }
+
+        if (collegeId == null) {
+          throw new Error('Could not determine college for this invoice. Please try again or contact support.')
         }
         
         const { data: payment, error: paymentError } = await supabase
@@ -119,7 +121,7 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
             payment_number: paymentNumber,
             invoice_id: invoice.id,
             student_id: studentId,
-            college_id: student?.college_id || invoice.college_id,
+            college_id: collegeId,
             payment_date: new Date().toISOString().split('T')[0],
             payment_method: 'online_payment',
             amount: amount,
