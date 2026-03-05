@@ -161,12 +161,16 @@ export function numericGradeToGpaPoints(numericGrade, gradingScale) {
  * @returns {{ points: number|null, credits: number }} - GPA points and credits
  */
 export function getSubjectGpaFromEnrollment(enrollment, gradingScale) {
-  const grade = enrollment.grade_components?.[0]
+  const comp = enrollment.grade_components?.[0]
   const credits = enrollment.classes?.subjects?.credit_hours || 0
-  if (!grade || credits <= 0) return { points: null, credits }
-  const points = numericGradeToGpaPoints(grade.numeric_grade, gradingScale)
-  const effectivePoints = points != null ? points : (grade.gpa_points ?? null)
-  return { points: effectivePoints, credits }
+  const ch = typeof credits === 'number' ? credits : parseInt(credits, 10) || 0
+  if (ch <= 0) return { points: null, credits: ch }
+  // Prefer grade_components; fall back to enrollment.grade_points / numeric_grade
+  const numericGrade = comp?.numeric_grade ?? enrollment.numeric_grade
+  const gpaPoints = comp?.gpa_points ?? enrollment.grade_points
+  const points = numericGrade != null ? numericGradeToGpaPoints(numericGrade, gradingScale) : null
+  const effectivePoints = points != null ? points : (gpaPoints != null ? Number(gpaPoints) : null)
+  return { points: effectivePoints, credits: ch }
 }
 
 /**

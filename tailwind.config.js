@@ -29,6 +29,7 @@ export default {
         },
         sidebar: '#9F9F9F',
         'sidebar-bg': '#EBEBEB',
+        'student-portal': '#1a3a6b',
         accent: {
           DEFAULT: '#76bde5',
           50: '#f0f9fc',

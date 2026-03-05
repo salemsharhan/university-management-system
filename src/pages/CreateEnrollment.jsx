@@ -61,6 +61,21 @@ export default function CreateEnrollment() {
   })
   const [courseGroups, setCourseGroups] = useState([]) // Store course groups for validation
 
+  // When admin has semester in URL but no college selected, fetch that semester and set college so semesters load
+  useEffect(() => {
+    if (semesterIdFromUrl && !collegeId && userRole === 'admin' && setSelectedCollegeId) {
+      const run = async () => {
+        const { data } = await supabase
+          .from('semesters')
+          .select('college_id')
+          .eq('id', parseInt(semesterIdFromUrl, 10))
+          .single()
+        if (data?.college_id) setSelectedCollegeId(data.college_id)
+      }
+      run()
+    }
+  }, [semesterIdFromUrl, collegeId, userRole, setSelectedCollegeId])
+
   useEffect(() => {
     if (collegeId) {
       fetchAcademicYears()

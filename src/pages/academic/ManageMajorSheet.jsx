@@ -285,14 +285,33 @@ export default function ManageMajorSheet() {
   const fetchSubjects = async () => {
     try {
       if (!id) return
-      
+      const majorId = parseInt(id)
       const currentCollegeId = major?.college_id || collegeId
-      
+
+      // Subjects for this major come from: (1) subjects.major_id = this major,
+      // (2) subject_majors (specific majors), (3) university-wide, (4) applies to all majors of this college
+      const { data: subjectMajorRows } = await supabase
+        .from('subject_majors')
+        .select('subject_id')
+        .eq('major_id', majorId)
+      const subjectIdsFromJunction = (subjectMajorRows || []).map((r) => r.subject_id).filter(Boolean)
+
+      const orParts = [
+        `major_id.eq.${majorId}`,
+        'is_university_wide.eq.true',
+      ]
+      if (currentCollegeId) {
+        orParts.push(`and(applies_to_all_majors_of_college.eq.true,college_id.eq.${currentCollegeId})`)
+      }
+      if (subjectIdsFromJunction.length > 0) {
+        orParts.push(`id.in.(${subjectIdsFromJunction.join(',')})`)
+      }
+
       let query = supabase
         .from('subjects')
         .select('id, code, name_en, name_ar, credit_hours, type, major_id')
         .eq('status', 'active')
-        .eq('major_id', parseInt(id)) // Only subjects for this major
+        .or(orParts.join(','))
         .order('code')
 
       if (!isUniversityWide && currentCollegeId) {
@@ -445,18 +464,9 @@ export default function ManageMajorSheet() {
         throw new Error(t('academic.majors.degreePlanSheet.versionRequired', 'Version is required'))
       }
 
-      // Deactivate existing major sheet if updating
-      if (existingMajorSheet) {
-        await supabase
-          .from('major_sheets')
-          .update({ is_active: false })
-          .eq('id', existingMajorSheet.id)
-      }
-
-      // Create new major sheet
       const majorSheetData = {
         major_id: parseInt(id),
-        version: majorSheet.version,
+        version: majorSheet.version.trim(),
         academic_year: majorSheet.academic_year,
         effective_from: majorSheet.effective_from,
         effective_to: majorSheet.effective_to || null,
@@ -469,33 +479,63 @@ export default function ManageMajorSheet() {
         is_active: true
       }
 
-      const { data: sheetData, error: sheetError } = await supabase
-        .from('major_sheets')
-        .insert(majorSheetData)
-        .select()
-        .single()
+      const isSameVersion = existingMajorSheet && String(existingMajorSheet.version) === String(majorSheetData.version)
+      let sheetData
 
-      if (sheetError) throw sheetError
-
-      // Delete old course groups and courses if updating
-      if (existingMajorSheet) {
-        const { data: oldGroups } = await supabase
-          .from('course_groups')
-          .select('id')
-          .eq('major_sheet_id', existingMajorSheet.id)
-
-        if (oldGroups && oldGroups.length > 0) {
-          const groupIds = oldGroups.map(g => g.id)
+      if (existingMajorSheet && isSameVersion) {
+        // Update existing row in place to avoid (major_id, version) duplicate
+        const { data: updated, error: updateError } = await supabase
+          .from('major_sheets')
+          .update({
+            academic_year: majorSheetData.academic_year,
+            effective_from: majorSheetData.effective_from,
+            effective_to: majorSheetData.effective_to,
+            sheet_type: majorSheetData.sheet_type,
+            total_credits_required: majorSheetData.total_credits_required,
+            min_credits_per_semester: majorSheetData.min_credits_per_semester,
+            max_credits_per_semester: majorSheetData.max_credits_per_semester,
+            min_gpa_for_graduation: majorSheetData.min_gpa_for_graduation,
+            description: majorSheetData.description,
+            is_active: true
+          })
+          .eq('id', existingMajorSheet.id)
+          .select()
+          .single()
+        if (updateError) throw updateError
+        sheetData = updated
+      } else {
+        // New version: deactivate existing then insert
+        if (existingMajorSheet) {
           await supabase
-            .from('major_sheet_courses')
-            .delete()
-            .in('course_group_id', groupIds)
-          
-          await supabase
-            .from('course_groups')
-            .delete()
-            .in('id', groupIds)
+            .from('major_sheets')
+            .update({ is_active: false })
+            .eq('id', existingMajorSheet.id)
         }
+        const { data: inserted, error: sheetError } = await supabase
+          .from('major_sheets')
+          .insert(majorSheetData)
+          .select()
+          .single()
+        if (sheetError) throw sheetError
+        sheetData = inserted
+      }
+
+      // Delete existing course groups and courses for this sheet (we replace them)
+      const { data: oldGroups } = await supabase
+        .from('course_groups')
+        .select('id')
+        .eq('major_sheet_id', sheetData.id)
+
+      if (oldGroups && oldGroups.length > 0) {
+        const groupIds = oldGroups.map(g => g.id)
+        await supabase
+          .from('major_sheet_courses')
+          .delete()
+          .in('course_group_id', groupIds)
+        await supabase
+          .from('course_groups')
+          .delete()
+          .in('id', groupIds)
       }
 
       // Create course groups

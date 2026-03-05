@@ -5,6 +5,7 @@ import { LanguageProvider } from './contexts/LanguageContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import './i18n'
 import Layout from './components/Layout'
+import RoleBasedLayout from './components/RoleBasedLayout'
 import RoleSelection from './pages/RoleSelection'
 import LoginAdmin from './pages/LoginAdmin'
 import LoginCollege from './pages/LoginCollege'
@@ -81,6 +82,11 @@ import StudentMyAttendance from './pages/student/StudentMyAttendance'
 import StudentPayments from './pages/student/StudentPayments'
 import StudentSubjectView from './pages/student/StudentSubjectView'
 import StudentEnrollment from './pages/student/StudentEnrollment'
+import StudentProfile from './pages/student/StudentProfile'
+import StudentSchedule from './pages/student/StudentSchedule'
+import StudentGraduationPath from './pages/student/StudentGraduationPath'
+import StudentCourseGuide from './pages/student/StudentCourseGuide'
+import StudentComingSoon from './pages/student/StudentComingSoon'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
 import CreateMaterial from './pages/instructor/CreateMaterial'
 import EditMaterial from './pages/instructor/EditMaterial'
@@ -122,9 +128,9 @@ function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Dashboard />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -132,9 +138,9 @@ function App() {
             path="/students"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Students />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -142,9 +148,9 @@ function App() {
             path="/students/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateStudent />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -152,9 +158,9 @@ function App() {
             path="/students/upload"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <UploadStudents />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -162,9 +168,9 @@ function App() {
             path="/instructors"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Instructors />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -172,9 +178,9 @@ function App() {
             path="/enrollments"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Enrollments />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -182,9 +188,9 @@ function App() {
             path="/enrollments/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateEnrollment />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -192,9 +198,9 @@ function App() {
             path="/enrollments/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewEnrollment />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -202,9 +208,9 @@ function App() {
             path="/enrollments/bulk"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <BulkEnrollment />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -212,9 +218,9 @@ function App() {
             path="/courses"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Courses />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -222,9 +228,9 @@ function App() {
             path="/schedule"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Schedule />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -232,9 +238,9 @@ function App() {
             path="/examinations"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Examinations />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -242,9 +248,9 @@ function App() {
             path="/examinations/dashboard"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ExaminationDashboard />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -252,9 +258,9 @@ function App() {
             path="/examinations/statistics"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ExaminationStatistics />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -262,9 +268,9 @@ function App() {
             path="/examinations/conflicts"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ExaminationConflicts />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -272,9 +278,9 @@ function App() {
             path="/examinations/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateExamination />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -282,9 +288,9 @@ function App() {
             path="/admissions/applications"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Applications />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -292,9 +298,9 @@ function App() {
             path="/admissions/applications/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateApplication />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -302,9 +308,9 @@ function App() {
             path="/admissions/applications/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewApplication />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -312,9 +318,9 @@ function App() {
             path="/settings"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Settings />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -322,9 +328,9 @@ function App() {
             path="/attendance"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <AttendanceDashboard />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -332,9 +338,9 @@ function App() {
             path="/attendance/sessions"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ClassSessions />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -342,9 +348,9 @@ function App() {
             path="/attendance/take"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <TakeAttendance />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -352,9 +358,9 @@ function App() {
             path="/attendance/sessions/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateSession />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -362,9 +368,9 @@ function App() {
             path="/admin/colleges"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Colleges />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -372,9 +378,9 @@ function App() {
             path="/admin/colleges/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateCollege />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -382,9 +388,9 @@ function App() {
             path="/admin/university-settings"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <UniversitySettings />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -392,9 +398,9 @@ function App() {
             path="/admin/colleges/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateCollege />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -402,9 +408,9 @@ function App() {
             path="/admin/colleges/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CollegeProfile />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -412,9 +418,9 @@ function App() {
             path="/admin/colleges/:id/kpis"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CollegeKPIs />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -422,9 +428,9 @@ function App() {
             path="/college/kpis"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CollegeKPIs />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -432,9 +438,9 @@ function App() {
             path="/instructors/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateInstructor />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -442,9 +448,9 @@ function App() {
             path="/academic/years/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateAcademicYear />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -452,9 +458,9 @@ function App() {
             path="/academic/semesters/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateSemester />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -462,9 +468,9 @@ function App() {
             path="/academic/departments/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateDepartment />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -472,9 +478,9 @@ function App() {
             path="/academic/majors/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateMajor />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -482,9 +488,9 @@ function App() {
             path="/academic/subjects/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateSubject />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -492,9 +498,9 @@ function App() {
             path="/academic/classes/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateClass />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -502,9 +508,9 @@ function App() {
             path="/academic/years"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <AcademicYears />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -512,9 +518,9 @@ function App() {
             path="/academic/semesters"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Semesters />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -522,9 +528,9 @@ function App() {
             path="/academic/departments"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Departments />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -532,9 +538,9 @@ function App() {
             path="/academic/majors"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Majors />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -542,9 +548,9 @@ function App() {
             path="/academic/subjects"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Subjects />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -552,9 +558,9 @@ function App() {
             path="/academic/classes"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Classes />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -562,9 +568,9 @@ function App() {
             path="/academic/years/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewAcademicYear />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -572,9 +578,9 @@ function App() {
             path="/academic/years/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditAcademicYear />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -582,9 +588,9 @@ function App() {
             path="/academic/semesters/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewSemester />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -592,9 +598,9 @@ function App() {
             path="/academic/semesters/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditSemester />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -602,9 +608,9 @@ function App() {
             path="/academic/departments/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewDepartment />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -612,9 +618,9 @@ function App() {
             path="/academic/departments/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditDepartment />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -622,9 +628,9 @@ function App() {
             path="/academic/majors/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewMajor />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -632,9 +638,9 @@ function App() {
             path="/academic/majors/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditMajor />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -642,9 +648,9 @@ function App() {
             path="/academic/majors/:id/degree-plan"
             element={
               <ProtectedRoute allowedRoles={['admin', 'user']}>
-                <Layout>
+                <RoleBasedLayout>
                   <ManageMajorSheet />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -652,9 +658,9 @@ function App() {
             path="/academic/subjects/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewSubject />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -662,9 +668,9 @@ function App() {
             path="/academic/subjects/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditSubject />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -672,9 +678,9 @@ function App() {
             path="/academic/classes/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewClass />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -682,9 +688,9 @@ function App() {
             path="/academic/classes/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditClass />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -692,9 +698,9 @@ function App() {
             path="/instructors/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewInstructor />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -702,9 +708,9 @@ function App() {
             path="/instructors/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditInstructor />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -712,9 +718,9 @@ function App() {
             path="/students/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewStudent />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -722,9 +728,9 @@ function App() {
             path="/students/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <EditStudent />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -732,9 +738,9 @@ function App() {
             path="/grading"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <GradeManagement />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -742,9 +748,9 @@ function App() {
             path="/grading/classes/:classId/grades"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ClassGrades />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -752,9 +758,9 @@ function App() {
             path="/grading/students"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <StudentGrades />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -762,9 +768,9 @@ function App() {
             path="/grading/students/:studentId/report"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Transcripts />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -772,9 +778,9 @@ function App() {
             path="/grading/transcripts"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Transcripts />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -782,9 +788,9 @@ function App() {
             path="/grading/analytics"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <GradeAnalytics />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -793,9 +799,9 @@ function App() {
             path="/student/grades"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <StudentMyGrades />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -803,9 +809,9 @@ function App() {
             path="/student/attendance"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <StudentMyAttendance />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -813,9 +819,9 @@ function App() {
             path="/student/subjects/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <StudentSubjectView />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -823,9 +829,9 @@ function App() {
             path="/student/payments"
             element={
               <ProtectedRoute allowedRoles={['student']}>
-                <Layout>
+                <RoleBasedLayout>
                   <StudentPayments />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -833,9 +839,59 @@ function App() {
             path="/student/enroll"
             element={
               <ProtectedRoute allowedRoles={['student']}>
-                <Layout>
+                <RoleBasedLayout>
                   <StudentEnrollment />
-                </Layout>
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/profile"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentProfile />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/schedule"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentSchedule />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/graduation-path"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentGraduationPath />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/course-guide"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentCourseGuide />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/coming-soon"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentComingSoon />
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -844,9 +900,9 @@ function App() {
             path="/instructor/subjects/:id/homework/:homeworkId/edit"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
-                <Layout>
+                <RoleBasedLayout>
                   <EditHomework />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -854,9 +910,9 @@ function App() {
             path="/instructor/subjects/:id/materials/create"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateMaterial />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -864,9 +920,9 @@ function App() {
             path="/instructor/subjects/:id/materials/:materialId/edit"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
-                <Layout>
+                <RoleBasedLayout>
                   <EditMaterial />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -874,9 +930,9 @@ function App() {
             path="/instructor/subjects/:id/homework/create"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateHomework />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -884,9 +940,9 @@ function App() {
             path="/instructor/subjects/:id/exams/create"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateExam />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -894,9 +950,9 @@ function App() {
             path="/instructor/subjects/:id"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
-                <Layout>
+                <RoleBasedLayout>
                   <InstructorSubjectView />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -905,9 +961,9 @@ function App() {
             path="/finance/invoices"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <InvoiceManagement />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -915,9 +971,9 @@ function App() {
             path="/finance/invoices/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateInvoice />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -925,9 +981,9 @@ function App() {
             path="/finance/invoices/:id"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <ViewInvoice />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -935,9 +991,9 @@ function App() {
             path="/finance/wallet"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreditWallet />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -945,9 +1001,9 @@ function App() {
             path="/finance/reports"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <FinanceReports />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -955,9 +1011,9 @@ function App() {
             path="/finance/donations"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <Donations />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -965,9 +1021,9 @@ function App() {
             path="/finance/installments"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <InstallmentPlans />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -975,9 +1031,9 @@ function App() {
             path="/finance/configuration"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <FinanceConfiguration />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -985,9 +1041,9 @@ function App() {
             path="/finance/configuration/create"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateFeeStructure />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -995,9 +1051,9 @@ function App() {
             path="/finance/configuration/:id/edit"
             element={
               <ProtectedRoute>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateFeeStructure />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -1005,9 +1061,9 @@ function App() {
             path="/finance/configuration/types/create"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateFeeType />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />
@@ -1015,9 +1071,9 @@ function App() {
             path="/finance/configuration/types/:id/edit"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <Layout>
+                <RoleBasedLayout>
                   <CreateFeeType />
-                </Layout>
+                </RoleBasedLayout>
               </ProtectedRoute>
             }
           />

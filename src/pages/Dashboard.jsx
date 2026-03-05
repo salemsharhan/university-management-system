@@ -18,12 +18,17 @@ import {
   Clock,
   BarChart3
 } from 'lucide-react'
+import StudentDashboard from './student/StudentDashboard'
 
 export default function Dashboard() {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
+
+  if (userRole === 'student') {
+    return <StudentDashboard />
+  }
   const [loading, setLoading] = useState(true)
   const [kpiData, setKpiData] = useState({
     totalStudents: 0,

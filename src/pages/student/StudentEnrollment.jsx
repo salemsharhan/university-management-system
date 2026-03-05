@@ -130,39 +130,17 @@ export default function StudentEnrollment() {
     if (!student?.college_id) return
 
     try {
-      const today = new Date().toISOString().split('T')[0]
-      
+      // Load all semesters for the college (any status) so dropdown always shows available semesters.
+      // Registration allowed/blocked is enforced by checkRegistrationDeadline when user selects a semester.
       const { data, error } = await supabase
         .from('semesters')
         .select('id, name_en, code, start_date, end_date, registration_start_date, registration_end_date, late_registration_end_date, status, college_id, is_university_wide')
         .or(`college_id.eq.${student.college_id},is_university_wide.eq.true`)
-        .in('status', ['active', 'registration_open'])
         .order('start_date', { ascending: false })
 
       if (error) throw error
 
-      // Filter semesters that are within registration period or have registration_open status
-      const availableSemesters = (data || []).filter(semester => {
-        // If status is registration_open, allow it
-        if (semester.status === 'registration_open') return true
-        
-        // Check registration dates
-        if (semester.registration_start_date && semester.registration_end_date) {
-          return today >= semester.registration_start_date && today <= semester.registration_end_date
-        }
-        
-        // Check late registration
-        if (semester.late_registration_end_date && today <= semester.late_registration_end_date) {
-          return true
-        }
-        
-        // If no dates set but status is active, allow it
-        if (semester.status === 'active') return true
-        
-        return false
-      })
-
-      setSemesters(availableSemesters)
+      setSemesters(data || [])
     } catch (err) {
       console.error('Error fetching semesters:', err)
       setError(err.message || 'Failed to load semesters')
@@ -388,7 +366,7 @@ export default function StudentEnrollment() {
             id, name_en, code, credit_hours
           ),
           instructors (
-            id, name_en, first_name, last_name
+            id, name_en, name_ar
           )
         `)
         .eq('semester_id', parseInt(formData.semester_id))
@@ -816,7 +794,7 @@ export default function StudentEnrollment() {
                                 Section: {cls.section} • {cls.subjects?.credit_hours || 0} credits
                               </p>
                               <p className="text-sm text-gray-500">
-                                Instructor: {cls.instructors?.name_en || cls.instructors?.first_name + ' ' + cls.instructors?.last_name || 'TBA'}
+                                Instructor: {cls.instructors ? ((isRTL && cls.instructors.name_ar) ? cls.instructors.name_ar : cls.instructors.name_en) || 'TBA' : 'TBA'}
                               </p>
                             </div>
                             <div className="text-right">

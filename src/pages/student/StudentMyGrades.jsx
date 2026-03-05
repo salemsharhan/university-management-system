@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import {
   getGradingScaleFromUniversitySettings,
   getSubjectGpaFromEnrollment,
@@ -8,7 +9,29 @@ import {
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { GraduationCap, FileText, Calendar } from 'lucide-react'
+import { GraduationCap, FileText, Calendar, Info } from 'lucide-react'
+
+const PORTAL_BG = '#1a3a6b'
+const TOTAL_HOURS_DEFAULT = 120
+
+function getLetterGradeColor(letter) {
+  if (!letter) return 'text-gray-600'
+  const g = String(letter).toUpperCase()
+  if (g.startsWith('A')) return 'text-green-600 font-semibold'
+  if (g.startsWith('B')) return 'text-blue-600 font-medium'
+  if (g.startsWith('C')) return 'text-amber-600'
+  if (g.startsWith('D')) return 'text-orange-600'
+  return 'text-red-600'
+}
+
+function getGeneralAssessment(gpa) {
+  const n = parseFloat(gpa)
+  if (n >= 3.7) return 'excellent'
+  if (n >= 3.3) return 'very good'
+  if (n >= 2.7) return 'good'
+  if (n >= 2.0) return 'pass'
+  return 'conditional'
+}
 
 export default function StudentMyGrades() {
   const { t } = useTranslation()
@@ -18,32 +41,33 @@ export default function StudentMyGrades() {
   const [student, setStudent] = useState(null)
   const [enrollments, setEnrollments] = useState([])
   const [gradingScale, setGradingScale] = useState([])
+  const [activeSemesterId, setActiveSemesterId] = useState(null)
 
   useEffect(() => {
-    if (user?.email) {
-      fetchStudentData()
-    }
-  }, [user])
+    if (user?.email) fetchStudentData()
+  }, [user?.email])
 
   useEffect(() => {
     getGradingScaleFromUniversitySettings().then(setGradingScale)
   }, [])
 
   const fetchStudentData = async () => {
+    if (!user?.email) return
     try {
       setLoading(true)
-      // Get student ID from email
       const { data: studentData, error: studentError } = await supabase
         .from('students')
         .select(`
           id,
           student_id,
           name_en,
+          name_ar,
           first_name,
           last_name,
           email,
-          majors(id, name_en),
-          colleges(id, name_en)
+          gpa,
+          majors(id, name_en, name_ar),
+          colleges(id, name_en, name_ar)
         `)
         .eq('email', user.email)
         .eq('status', 'active')
@@ -52,47 +76,47 @@ export default function StudentMyGrades() {
       if (studentError) throw studentError
       setStudent(studentData)
 
-      // Fetch enrollments with grades for this student
+      const { data: activeSem } = await supabase
+        .from('semesters')
+        .select('id')
+        .in('status', ['active', 'registration_open'])
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setActiveSemesterId(activeSem?.id ?? null)
+
       const { data: enrollmentsData, error: enrollmentsError } = await supabase
         .from('enrollments')
         .select(`
-          *,
+          id,
+          status,
+          grade,
+          numeric_grade,
+          grade_points,
+          semester_id,
           classes(
             id,
             code,
             section,
-            subjects(id, name_en, code, credit_hours)
+            subjects(id, name_en, name_ar, code, credit_hours)
           ),
-          semesters(id, name_en, code, start_date, end_date),
-          grade_components(
-            numeric_grade,
-            letter_grade,
-            gpa_points,
-            midterm,
-            final,
-            assignments,
-            quizzes,
-            class_participation,
-            status
-          )
+          semesters(id, name_en, name_ar, code, start_date, end_date, status)
         `)
         .eq('student_id', studentData.id)
-        .eq('status', 'enrolled')
-        .order('semesters(start_date)', { ascending: false })
+        .order('semester_id', { ascending: false })
 
       if (enrollmentsError) throw enrollmentsError
       setEnrollments(enrollmentsData || [])
     } catch (err) {
-      console.error('Error fetching student data:', err)
+      console.error('Error fetching student grades:', err)
     } finally {
       setLoading(false)
     }
   }
 
-
-  const groupBySemester = (enrollments) => {
+  const groupBySemester = (list) => {
     const grouped = {}
-    enrollments.forEach(enrollment => {
+    ;(list || []).forEach((enrollment) => {
       const semesterId = enrollment.semester_id
       if (!grouped[semesterId]) {
         grouped[semesterId] = {
@@ -102,22 +126,26 @@ export default function StudentMyGrades() {
       }
       grouped[semesterId].enrollments.push(enrollment)
     })
-    return grouped
+    return Object.values(grouped).sort((a, b) => {
+      const d1 = a.semester?.start_date || ''
+      const d2 = b.semester?.start_date || ''
+      return d2.localeCompare(d1)
+    })
   }
 
-  if (loading) {
+  if (loading && !student) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-600 border-t-transparent" />
       </div>
     )
   }
 
   if (!student) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <GraduationCap className="w-16 h-16 mx-auto mb-4 opacity-50" />
-        <p>{t('student.myGrades.studentNotFound')}</p>
+      <div className="rounded-xl bg-amber-50 border border-amber-200 p-6 text-center">
+        <GraduationCap className="w-12 h-12 mx-auto mb-3 text-amber-600" />
+        <p className="text-amber-800">{t('student.myGrades.studentNotFound', 'Student record not found')}</p>
       </div>
     )
   }
@@ -125,148 +153,202 @@ export default function StudentMyGrades() {
   const semesterGroups = groupBySemester(enrollments)
   const totalGpaResult = calculateGpaWithScale(enrollments, gradingScale)
   const totalCreditsAttempted = enrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
-  const totalCreditsEarned = enrollments.filter(e => {
+  const totalCreditsEarned = enrollments.filter((e) => {
     const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
     return points != null && points > 0
   }).reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
+  const displayGpa = totalGpaResult.gpa
+  const totalPointsSum = enrollments.reduce((sum, e) => {
+    const { points, credits } = getSubjectGpaFromEnrollment(e, gradingScale)
+    return sum + (points != null && credits > 0 ? points * credits : 0)
+  }, 0)
+
+  const lastCompletedGroup = semesterGroups.find((g) => g.semester?.id !== activeSemesterId)
+  const lastSemesterGpa = lastCompletedGroup
+    ? calculateGpaWithScale(lastCompletedGroup.enrollments, gradingScale, lastCompletedGroup.semester?.id).gpa
+    : '—'
+  const currentSemesterEnrollments = enrollments.filter((e) => e.semester_id === activeSemesterId)
+  const currentHours = currentSemesterEnrollments.reduce((s, e) => s + (e.classes?.subjects?.credit_hours || 0), 0)
+
+  const studentName = getLocalizedName(student, isRTL) || `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.student_id
+  const specialization = getLocalizedName(student.majors, isRTL) || '—'
+  const college = getLocalizedName(student.colleges, isRTL) || '—'
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('student.myGrades.title')}</h1>
-          <p className="text-gray-600 mt-1">{t('student.myGrades.subtitle')}</p>
-        </div>
-      </div>
+    <div className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`}>
+      {/* Page title — Academic record only */}
+      <h1 className="text-2xl font-bold text-slate-900">
+        {t('studentPortal.academicRecord', 'Academic record')}
+      </h1>
 
-      {/* Student Info Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Student details card — light gray, Major, College, Completed hours, Cumulative GPA (GPA in green) */}
+      <div className="bg-slate-100 rounded-xl border border-slate-200 p-5">
+        <div className={`flex flex-wrap gap-x-8 gap-y-3 text-sm ${isRTL ? 'flex-row-reverse justify-end' : ''}`}>
           <div>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.studentName')}</h3>
-            <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-              {student.name_en || `${student.first_name} ${student.last_name}`}
-            </p>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 mt-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.studentId')}</h3>
-            <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{student.student_id}</p>
+            <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('studentPortal.specialization', 'Specialization')}</span>
+            <span className="font-medium text-slate-900">{specialization}</span>
           </div>
           <div>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.program')}</h3>
-            <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{student.majors?.name_en || '-'}</p>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 mt-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.college')}</h3>
-            <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{student.colleges?.name_en || '-'}</p>
+            <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('studentPortal.college', 'College')}</span>
+            <span className="font-medium text-slate-900">{college}</span>
           </div>
           <div>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.totalGpa')}</h3>
-            <p className={`text-2xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{totalGpaResult.gpa}</p>
-            <h3 className={`text-sm font-medium text-gray-500 mb-2 mt-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('student.myGrades.totalCredits')}</h3>
-            <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-              {totalCreditsEarned} / {totalCreditsAttempted}
-            </p>
+            <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('studentPortal.completedHours', 'Completed hours')}</span>
+            <span className="font-medium text-slate-900">{totalCreditsEarned}/{TOTAL_HOURS_DEFAULT} {t('studentPortal.hours', 'hours')}</span>
+          </div>
+          <div>
+            <span className="text-slate-500 block text-xs uppercase tracking-wide">{t('studentPortal.cumulativeGpa', 'Cumulative GPA')}</span>
+            <span className="font-semibold text-green-600">{typeof displayGpa === 'number' ? displayGpa.toFixed(2) : displayGpa}</span>
+            <span className="text-slate-600"> / 4.00</span>
           </div>
         </div>
       </div>
 
-      {/* Semester Grades */}
-      {enrollments.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-500">
-          <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-          <p>{t('student.myGrades.noGrades')}</p>
+      {/* Current semester — grades not published yet; column order: points | Appreciation | Degree | Hours | Course Name | Course code */}
+      {activeSemesterId && currentSemesterEnrollments.length > 0 && (
+        <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+          <div
+            className={`px-4 py-3 flex items-center justify-between text-white text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}
+            style={{ backgroundColor: PORTAL_BG }}
+          >
+            <span>{t('studentPortal.gpa', 'GPA')}: —</span>
+            <span>
+              {semesterGroups.find((g) => g.semester?.id === activeSemesterId)?.semester
+                ? getLocalizedName(semesterGroups.find((g) => g.semester?.id === activeSemesterId).semester, isRTL)
+                : t('studentPortal.currentSemester', 'Current semester')}{' '}
+              — {t('studentPortal.current', 'Current')}
+            </span>
+          </div>
+          <div className="px-4 py-3 bg-sky-50 border-b border-sky-100 flex items-start gap-2">
+            <Info className="w-5 h-5 text-sky-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-sky-800">
+              {t('studentPortal.gradesPublishedAfter', 'Grades will be published after the end of the semester according to university policy.')}
+            </p>
+          </div>
+          <div className="overflow-x-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+            <table className="w-full">
+              <thead>
+                <tr className="text-white text-sm font-medium" style={{ backgroundColor: '#152a4a' }}>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.points', 'points')}</th>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.appreciation', 'Appreciation')}</th>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.degree', 'Degree')}</th>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.hours', 'Hours')}</th>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.courseName', 'Course Name')}</th>
+                  <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.courseCode', 'Course code')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {currentSemesterEnrollments.map((e) => (
+                  <tr key={e.id} className="hover:bg-slate-50">
+                    <td className={`px-4 py-3 text-sm text-slate-500 ${isRTL ? 'text-right' : 'text-left'}`}>—</td>
+                    <td className={`px-4 py-3 text-sm text-slate-500 ${isRTL ? 'text-right' : 'text-left'}`}>—</td>
+                    <td className={`px-4 py-3 text-sm text-slate-500 ${isRTL ? 'text-right' : 'text-left'}`}>—</td>
+                    <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{e.classes?.subjects?.credit_hours ?? '—'}</td>
+                    <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{getLocalizedName(e.classes?.subjects, isRTL) || '—'}</td>
+                    <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{e.classes?.subjects?.code || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-6">
-          {Object.values(semesterGroups).map((group) => {
-            const semester = group.semester
-            const semesterEnrollments = group.enrollments
-            const semesterGpaResult = calculateGpaWithScale(semesterEnrollments, gradingScale, semester.id)
-            const semesterGPA = semesterGpaResult.gpa
-            const semesterCredits = semesterEnrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
+      )}
 
-            return (
-              <div key={semester.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
-                  <Calendar className="w-5 h-5 text-primary-600" />
-                  <h3 className="text-xl font-bold text-gray-900">{semester.name_en}</h3>
-                  <span className={`text-sm text-gray-600 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>
-                    {t('student.myGrades.currentSemesterGpa')}: {semesterGPA} | {t('student.myGrades.credits')}: {semesterCredits}
-                  </span>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.courseCode')}
-                        </th>
-                        <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.courseTitle')}
-                        </th>
-                        <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.credits')}
-                        </th>
-                        <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.grade')}
-                        </th>
-                        <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.subjectGpa')}
-                        </th>
-                        <th className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isRTL ? 'text-right' : 'text-left'}`}>
-                          {t('student.myGrades.status')}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {semesterEnrollments.map((enrollment) => {
-                        const grade = enrollment.grade_components?.[0]
-                        const { points: subjectGpa } = getSubjectGpaFromEnrollment(enrollment, gradingScale)
-                        return (
-                          <tr key={enrollment.id} className="hover:bg-gray-50">
-                            <td className={`px-4 py-3 text-sm text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              {enrollment.classes?.subjects?.code || '-'}
-                            </td>
-                            <td className={`px-4 py-3 text-sm text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              {enrollment.classes?.subjects?.name_en || '-'}
-                            </td>
-                            <td className={`px-4 py-3 text-sm text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              {enrollment.classes?.subjects?.credit_hours || 0}
-                            </td>
-                            <td className={`px-4 py-3 text-sm font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              {grade?.letter_grade || '-'}
-                            </td>
-                            <td className={`px-4 py-3 text-sm text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              {subjectGpa != null ? subjectGpa.toFixed(2) : '-'}
-                            </td>
-                            <td className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                grade?.status === 'final' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : grade?.status === 'approved' 
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                                {grade?.status || 'draft'}
-                              </span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+      {/* Past semesters — column order: points | Appreciation | Degree | Hours | Course Name | Course code; dark blue header, summary row */}
+      {semesterGroups
+        .filter((g) => g.semester?.id !== activeSemesterId)
+        .map((group) => {
+          const semester = group.semester
+          const list = group.enrollments
+          const result = calculateGpaWithScale(list, gradingScale, semester?.id)
+          const semesterGpa = result.gpa
+          const semesterPoints = result.totalPoints
+          const semesterCredits = list.reduce((s, e) => s + (e.classes?.subjects?.credit_hours || 0), 0)
+          return (
+            <div key={semester?.id} className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+              <div
+                className={`px-4 py-3 flex items-center justify-between text-white text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}
+                style={{ backgroundColor: PORTAL_BG }}
+              >
+                <span>{t('studentPortal.gpa', 'GPA')}: {semesterGpa}</span>
+                <span>{getLocalizedName(semester, isRTL) || semester?.name_en || '—'}</span>
               </div>
-            )
-          })}
+              <div className="overflow-x-auto" dir={isRTL ? 'rtl' : 'ltr'}>
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-white text-sm font-medium" style={{ backgroundColor: '#152a4a' }}>
+                      <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.points', 'points')}</th>
+                      <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.appreciation', 'Appreciation')}</th>
+                      <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.degree', 'Degree')}</th>
+                      <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.hours', 'Hours')}</th>
+                      <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.courseName', 'Course Name')}</th>
+                      <th className={`px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.courseCode', 'Course code')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {list.map((e) => {
+                      const { points, credits } = getSubjectGpaFromEnrollment(e, gradingScale)
+                      const letterGrade = e.grade || '—'
+                      const numericGrade = e.numeric_grade != null ? Math.round(Number(e.numeric_grade)) : '—'
+                      const pts = points != null && credits > 0 ? (points * credits).toFixed(2) : '—'
+                      return (
+                        <tr key={e.id} className="hover:bg-slate-50">
+                          <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{pts}</td>
+                          <td className={`px-4 py-3 text-sm ${getLetterGradeColor(letterGrade)} ${isRTL ? 'text-right' : 'text-left'}`}>{letterGrade}</td>
+                          <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{numericGrade}</td>
+                          <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{e.classes?.subjects?.credit_hours ?? '—'}</td>
+                          <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{getLocalizedName(e.classes?.subjects, isRTL) || '—'}</td>
+                          <td className={`px-4 py-3 text-sm text-slate-900 ${isRTL ? 'text-right' : 'text-left'}`}>{e.classes?.subjects?.code || '—'}</td>
+                        </tr>
+                      )
+                    })}
+                    <tr className="bg-slate-100 font-medium">
+                      <td className={`px-4 py-3 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>{typeof semesterPoints === 'number' ? semesterPoints.toFixed(2) : '—'}</td>
+                      <td className={`px-4 py-3 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>{t('studentPortal.gpa', 'GPA')}: {semesterGpa}</td>
+                      <td className={`px-4 py-3 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>—</td>
+                      <td className={`px-4 py-3 text-sm ${isRTL ? 'text-right' : 'text-left'}`}>{semesterCredits}</td>
+                      <td className={`px-4 py-3 text-sm ${isRTL ? 'text-right' : 'text-left'}`} colSpan={2}>{t('studentPortal.totalChapter', 'Total Chapter')}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })}
+
+      {enrollments.length === 0 && (
+        <div className="bg-white rounded-xl shadow border border-slate-200 p-12 text-center text-slate-500">
+          <FileText className="w-14 h-14 mx-auto mb-3 opacity-50" />
+          <p>{t('student.myGrades.noGrades', 'No grades available')}</p>
+        </div>
+      )}
+
+      {/* General assessment card */}
+      {enrollments.length > 0 && (
+        <div
+          className="rounded-xl p-6 text-white"
+          style={{ backgroundColor: PORTAL_BG }}
+        >
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <div>
+              <p className="text-white/80 text-sm">{t('studentPortal.generalAssessment', 'General assessment')}</p>
+              <p className="text-xl font-bold text-amber-300 mt-1">{getGeneralAssessment(displayGpa)}</p>
+            </div>
+            <div>
+              <p className="text-white/80 text-sm">{t('studentPortal.cumulativeGpa', 'Cumulative GPA')}</p>
+              <p className="text-xl font-bold text-amber-300 mt-1">{displayGpa}</p>
+            </div>
+            <div>
+              <p className="text-white/80 text-sm">{t('studentPortal.totalPoints', 'Total points')}</p>
+              <p className="text-xl font-bold mt-1">{totalPointsSum.toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-white/80 text-sm">{t('studentPortal.completedHours', 'Completed hours')}</p>
+              <p className="text-xl font-bold mt-1">{totalCreditsEarned}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
   )
 }
-
-
-
-
-
-
-
