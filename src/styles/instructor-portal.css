@@ -333,6 +333,41 @@
   margin-top: 2px;
 }
 
+/* Tabs */
+.instructor-portal .tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--bdr);
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.instructor-portal .tab {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.2s, border-color 0.2s;
+  background: transparent;
+  font-family: var(--font);
+}
+
+.instructor-portal .tab:hover {
+  color: var(--p);
+  text-decoration: none;
+}
+
+.instructor-portal .tab.active {
+  color: var(--p);
+  border-bottom-color: var(--p);
+}
+
 /* Stats grid */
 .instructor-portal .sg {
   display: grid;
@@ -568,6 +603,60 @@
 }
 .instructor-portal [data-status='closed'],
 .instructor-portal [data-status='locked'] {
+  background: var(--neu-bg);
+  color: var(--neu);
+}
+
+.instructor-portal [data-status='grade-a'],
+.instructor-portal [data-status='grade-a+'] {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.instructor-portal [data-status='grade-b'],
+.instructor-portal [data-status='grade-b+'] {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.instructor-portal [data-status='grade-c'],
+.instructor-portal [data-status='grade-c+'] {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.instructor-portal [data-status='grade-d'],
+.instructor-portal [data-status='grade-d+'] {
+  background: var(--err-bg);
+  color: var(--err);
+}
+.instructor-portal [data-status='at-risk'],
+.instructor-portal [data-status='grade-f'] {
+  background: var(--neu-bg);
+  color: var(--neu);
+}
+
+.instructor-portal .gb-cell {
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--rs);
+}
+.instructor-portal .gb-cell.gb-a {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.instructor-portal .gb-cell.gb-b {
+  background: var(--info-bg);
+  color: var(--info);
+}
+.instructor-portal .gb-cell.gb-c {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.instructor-portal .gb-cell.gb-d {
+  background: var(--err-bg);
+  color: var(--err);
+}
+.instructor-portal .gb-cell.gb-f {
   background: var(--neu-bg);
   color: var(--neu);
 }

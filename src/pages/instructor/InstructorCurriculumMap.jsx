@@ -1,71 +1,230 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 
-const DEFAULT_CLOS = [
-  { id: '1', code: 'CLO-1', descKey: 'clo1Desc', bloomKey: 'bloomApply', difficultyKey: 'difficultyMedium', borderColor: 'var(--ok)' },
-  { id: '2', code: 'CLO-2', descKey: 'clo2Desc', bloomKey: 'bloomAnalyze', difficultyKey: 'difficultyHigh', borderColor: 'var(--info)' },
-  { id: '3', code: 'CLO-3', descKey: 'clo3Desc', bloomKey: 'bloomApply', difficultyKey: 'difficultyLow', borderColor: 'var(--warn)' },
-  { id: '4', code: 'CLO-4', descKey: 'clo4Desc', bloomKey: 'bloomCreate', difficultyKey: 'difficultyHigh', borderColor: 'var(--purple)' },
-]
-
-const COVERAGE_KEYS = ['coverageClo1', 'coverageClo2', 'coverageClo3', 'coverageClo4']
-const COVERAGE = [
-  { count: 4, pct: 90, fillClass: 'ok' },
-  { count: 3, pct: 75, fillClass: 'ok' },
-  { count: 1, pct: 30, fillClass: 'warn' },
-  { count: 0, pct: 5, fillClass: 'err' },
-]
-
-const MATRIX_KEYS = ['matrixUnit1', 'matrixUnit2', 'matrixUnit3', 'matrixUnit4']
-const MATRIX = [
-  { clos: [true, false, false, false] },
-  { clos: [true, true, false, false] },
-  { clos: [false, false, true, true] },
-  { clos: [true, true, false, false] },
-]
-
 export default function InstructorCurriculumMap() {
   const { t } = useTranslation()
+  const { language } = useLanguage()
   const { user } = useAuth()
-  const [subjects, setSubjects] = useState([])
-  const [selectedSubjectId, setSelectedSubjectId] = useState(null)
-  const [selectedSubject, setSelectedSubject] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const [loading, setLoading] = useState(true)
+  const [instructorId, setInstructorId] = useState(null)
+  const [classes, setClasses] = useState([])
+  const [selectedClassId, setSelectedClassId] = useState(null)
+  const [clos, setClos] = useState([])
+  const [lessons, setLessons] = useState([])
+
+  const [editingClo, setEditingClo] = useState(null)
+  const [form, setForm] = useState({ code: '', description: '', bloom_level: 'apply', difficulty_level: 'medium' })
+  const [saving, setSaving] = useState(false)
+
+  const selectedClass = useMemo(
+    () => classes.find((c) => c.id === selectedClassId) || null,
+    [classes, selectedClassId]
+  )
 
   useEffect(() => {
     if (!user?.email) return
-    supabase
-      .from('instructors')
-      .select('id')
-      .eq('email', user.email)
-      .eq('status', 'active')
-      .single()
-      .then(({ data }) => {
-        if (data) {
-          supabase
-            .from('classes')
-            .select('id, subject_id, subjects(id, code, name_en, name_ar)')
-            .eq('instructor_id', data.id)
-            .eq('status', 'active')
-            .then(({ data: classesData }) => {
-              const list = (classesData || []).map((c) => c.subjects).filter(Boolean)
-              const unique = list.filter((s, i, a) => a.findIndex((x) => x?.id === s?.id) === i)
-              setSubjects(unique)
-              if (unique.length && !selectedSubjectId) setSelectedSubjectId(unique[0].id)
-            })
-        }
-      })
+    loadInstructorClasses()
   }, [user?.email])
 
   useEffect(() => {
-    const sub = subjects.find((s) => s.id === selectedSubjectId)
-    setSelectedSubject(sub || null)
-  }, [subjects, selectedSubjectId])
+    if (!selectedClassId) return
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('classId', String(selectedClassId))
+      return next
+    })
+    loadCurriculumData(selectedClassId)
+  }, [selectedClassId])
 
-  const subjectCode = selectedSubject?.code || 'ENG101'
+  const loadInstructorClasses = async () => {
+    setLoading(true)
+    try {
+      const { data: instructor } = await supabase
+        .from('instructors')
+        .select('id')
+        .eq('email', user.email)
+        .eq('status', 'active')
+        .single()
+
+      if (!instructor) {
+        setLoading(false)
+        return
+      }
+
+      setInstructorId(instructor.id)
+
+      const { data: cls } = await supabase
+        .from('classes')
+        .select(`
+          id,
+          code,
+          section,
+          subject_id,
+          subjects(id, code, name_en, name_ar),
+          semesters(id, name_en, name_ar, code)
+        `)
+        .eq('instructor_id', instructor.id)
+        .eq('status', 'active')
+        .order('id', { ascending: false })
+
+      const list = cls || []
+      setClasses(list)
+
+      const fromQuery = Number(searchParams.get('classId'))
+      const initialClassId = list.find((c) => c.id === fromQuery)?.id || list[0]?.id || null
+      setSelectedClassId(initialClassId)
+
+      if (!initialClassId) setLoading(false)
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
+  }
+
+  const loadCurriculumData = async (classId) => {
+    try {
+      const currentClass = classes.find((c) => c.id === classId)
+      const subjectId = currentClass?.subject_id
+
+      if (!subjectId) {
+        setClos([])
+        setLessons([])
+        setLoading(false)
+        return
+      }
+
+      const [{ data: closData }, { data: lessonsData }] = await Promise.all([
+        supabase
+          .from('subject_learning_outcomes')
+          .select('id, code, description, bloom_level, difficulty_level, display_order')
+          .eq('subject_id', subjectId)
+          .eq('is_active', true)
+          .order('display_order', { ascending: true })
+          .order('id', { ascending: true }),
+        supabase
+          .from('class_lessons')
+          .select('id, title, unit_number, lesson_number, class_lesson_clos(clo_id)')
+          .eq('class_id', classId)
+          .order('unit_number', { ascending: true })
+          .order('lesson_number', { ascending: true }),
+      ])
+
+      setClos(closData || [])
+      setLessons(lessonsData || [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const resetForm = () => {
+    setEditingClo(null)
+    setForm({ code: '', description: '', bloom_level: 'apply', difficulty_level: 'medium' })
+  }
+
+  const onEdit = (clo) => {
+    setEditingClo(clo)
+    setForm({
+      code: clo.code || '',
+      description: clo.description || '',
+      bloom_level: clo.bloom_level || 'apply',
+      difficulty_level: clo.difficulty_level || 'medium',
+    })
+  }
+
+  const saveClo = async () => {
+    if (!selectedClass?.subject_id || !form.code.trim() || !form.description.trim()) return
+
+    setSaving(true)
+    try {
+      if (editingClo?.id) {
+        await supabase
+          .from('subject_learning_outcomes')
+          .update({
+            code: form.code.trim(),
+            description: form.description.trim(),
+            bloom_level: form.bloom_level,
+            difficulty_level: form.difficulty_level,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingClo.id)
+      } else {
+        await supabase
+          .from('subject_learning_outcomes')
+          .insert({
+            subject_id: selectedClass.subject_id,
+            code: form.code.trim(),
+            description: form.description.trim(),
+            bloom_level: form.bloom_level,
+            difficulty_level: form.difficulty_level,
+            display_order: clos.length + 1,
+          })
+      }
+
+      resetForm()
+      await loadCurriculumData(selectedClassId)
+    } catch (err) {
+      console.error(err)
+      alert(t('common.error', 'Error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const coverageRows = useMemo(() => {
+    const totalLessons = lessons.length || 0
+
+    return clos.map((clo) => {
+      let linked = 0
+      for (const lesson of lessons) {
+        const isMapped = (lesson.class_lesson_clos || []).some((x) => x.clo_id === clo.id)
+        if (isMapped) linked += 1
+      }
+      const pct = totalLessons ? Math.round((linked / totalLessons) * 100) : 0
+      return { ...clo, linked, pct }
+    })
+  }, [clos, lessons])
+
+  const matrixRows = useMemo(() => {
+    const grouped = {}
+    for (const lesson of lessons) {
+      if (!grouped[lesson.unit_number]) grouped[lesson.unit_number] = []
+      grouped[lesson.unit_number].push(lesson)
+    }
+
+    return Object.keys(grouped)
+      .map((unitKey) => {
+        const unit = Number(unitKey)
+        const unitLessons = grouped[unit]
+        const cloMap = {}
+        for (const clo of clos) {
+          cloMap[clo.id] = unitLessons.some((lesson) =>
+            (lesson.class_lesson_clos || []).some((m) => m.clo_id === clo.id)
+          )
+        }
+        return { unit, cloMap }
+      })
+      .sort((a, b) => a.unit - b.unit)
+  }, [lessons, clos])
+
+  const uncovered = coverageRows.filter((r) => r.linked === 0)
+  const subjectCode = selectedClass?.subjects?.code || '-'
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--bdr)', borderTopColor: 'var(--p)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    )
+  }
 
   return (
     <>
@@ -73,8 +232,6 @@ export default function InstructorCurriculumMap() {
         <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
         <span className="bc-sep">›</span>
         <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to="/instructor/courses">{subjectCode}</Link>
         <span className="bc-sep">›</span>
         <span>{t('instructorPortal.curriculumMap')}</span>
       </nav>
@@ -85,8 +242,19 @@ export default function InstructorCurriculumMap() {
           <p className="ph-sub">{subjectCode} — {t('instructorPortal.curriculumMapSubtitle')}</p>
         </div>
         <div className="ph-acts">
-          <a href="#" className="btn btn-gh">📥 {t('instructorPortal.exportReport')}</a>
-          <a href="#" className="btn btn-p">+ {t('instructorPortal.addLearningOutcome')}</a>
+          <select
+            className="fc"
+            style={{ width: 'auto' }}
+            value={selectedClassId || ''}
+            onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+          >
+            {classes.map((cls) => (
+              <option key={cls.id} value={cls.id}>
+                {cls.subjects?.code} - {getLocalizedName(cls.subjects, language === 'ar')} ({t('instructorPortal.section')} {cls.section})
+              </option>
+            ))}
+          </select>
+          <Link to={`/instructor/build-lessons?classId=${selectedClassId || ''}`} className="btn btn-p">+ {t('instructorPortal.buildLesson')}</Link>
         </div>
       </div>
 
@@ -94,43 +262,65 @@ export default function InstructorCurriculumMap() {
         <div>
           <div className="card">
             <div className="card-hd">
-              <div className="card-title">🎯 {t('instructorPortal.learningOutcomesClos')}</div>
-              <a href="#" className="btn btn-p btn-sm">+ {t('instructorPortal.add')}</a>
+              <div className="card-title">{t('instructorPortal.learningOutcomesClos')}</div>
             </div>
+
+            <div className="fg">
+              <label className="fl">Code</label>
+              <input className="fc" value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} placeholder="CLO-1" />
+            </div>
+            <div className="fg">
+              <label className="fl">{t('common.description', 'Description')}</label>
+              <textarea className="fc" rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="fr">
+              <div className="fg">
+                <label className="fl">{t('instructorPortal.bloomLevel')}</label>
+                <select className="fc" value={form.bloom_level} onChange={(e) => setForm((p) => ({ ...p, bloom_level: e.target.value }))}>
+                  <option value="remember">Remember</option>
+                  <option value="understand">Understand</option>
+                  <option value="apply">Apply</option>
+                  <option value="analyze">Analyze</option>
+                  <option value="evaluate">Evaluate</option>
+                  <option value="create">Create</option>
+                </select>
+              </div>
+              <div className="fg">
+                <label className="fl">{t('instructorPortal.difficulty')}</label>
+                <select className="fc" value={form.difficulty_level} onChange={(e) => setForm((p) => ({ ...p, difficulty_level: e.target.value }))}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <button type="button" className="btn btn-p" onClick={saveClo} disabled={saving}>
+                {editingClo ? t('common.update', 'Update') : t('common.add', 'Add')}
+              </button>
+              {editingClo && (
+                <button type="button" className="btn btn-gh" onClick={resetForm}>{t('common.cancel', 'Cancel')}</button>
+              )}
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {DEFAULT_CLOS.map((clo) => (
-                <div
-                  key={clo.id}
-                  style={{
-                    background: 'var(--bg)',
-                    borderRadius: 'var(--rs)',
-                    padding: 14,
-                    borderRight: `3px solid ${clo.borderColor}`,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              {clos.map((clo) => (
+                <div key={clo.id} style={{ background: 'var(--bg)', borderRadius: 'var(--rs)', padding: 14, borderRight: '3px solid var(--ok)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: clo.borderColor,
-                          background: clo.borderColor === 'var(--ok)' ? 'var(--ok-bg)' : clo.borderColor === 'var(--info)' ? 'var(--info-bg)' : clo.borderColor === 'var(--warn)' ? 'var(--warn-bg)' : 'var(--purple-bg)',
-                          padding: '2px 8px',
-                          borderRadius: 20,
-                        }}
-                      >
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ok)', background: 'var(--ok-bg)', padding: '2px 8px', borderRadius: 20 }}>
                         {clo.code}
                       </span>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>{t(`instructorPortal.${clo.descKey}`)}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>{clo.description}</div>
                     </div>
-                    <a href="#" className="btn btn-gh btn-sm">{t('instructorPortal.edit')}</a>
+                    <button type="button" className="btn btn-gh btn-sm" onClick={() => onEdit(clo)}>{t('instructorPortal.edit')}</button>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                    {t('instructorPortal.bloomLevel')}: {t(`instructorPortal.${clo.bloomKey}`)} | {t('instructorPortal.difficulty')}: {t(`instructorPortal.${clo.difficultyKey}`)}
+                    {t('instructorPortal.bloomLevel')}: {clo.bloom_level} | {t('instructorPortal.difficulty')}: {clo.difficulty_level}
                   </div>
                 </div>
               ))}
+              {clos.length === 0 && <div style={{ color: 'var(--muted)' }}>{t('instructorPortal.noData', 'No data available')}</div>}
             </div>
           </div>
         </div>
@@ -138,52 +328,63 @@ export default function InstructorCurriculumMap() {
         <div>
           <div className="card">
             <div className="card-hd">
-              <div className="card-title">📊 {t('instructorPortal.outcomeCoverageReport')}</div>
+              <div className="card-title">{t('instructorPortal.outcomeCoverageReport')}</div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {COVERAGE.map((row, idx) => (
-                <div key={COVERAGE_KEYS[idx]}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
-                    <span>{t(`instructorPortal.${COVERAGE_KEYS[idx]}`)}</span>
-                    <span style={{ fontWeight: 700, color: row.fillClass === 'ok' ? 'var(--ok)' : row.fillClass === 'warn' ? 'var(--warn)' : 'var(--err)' }}>
-                      {row.count} {t('instructorPortal.assessmentsCount')}
-                    </span>
+              {coverageRows.map((row) => {
+                const fillClass = row.pct >= 70 ? 'ok' : row.pct >= 40 ? 'warn' : 'err'
+                return (
+                  <div key={row.id}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                      <span>{row.code}</span>
+                      <span style={{ fontWeight: 700 }}>{row.linked} {t('instructorPortal.assessmentsCount')}</span>
+                    </div>
+                    <div className="prog-bar">
+                      <div className={`prog-fill ${fillClass}`} style={{ width: `${row.pct}%` }} />
+                    </div>
                   </div>
-                  <div className="prog-bar">
-                    <div className={`prog-fill ${row.fillClass}`} style={{ width: `${row.pct}%` }} />
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-            <div className="alert alert-warn" style={{ marginTop: 16 }}>
-              ⚠️ {t('instructorPortal.clo4NoAssessment')}
-            </div>
+            {uncovered.length > 0 && (
+              <div className="alert alert-warn" style={{ marginTop: 16 }}>
+                ? {uncovered.map((r) => r.code).join(', ')} {t('instructorPortal.clo4NoAssessment')}
+              </div>
+            )}
           </div>
 
           <div className="card">
             <div className="card-hd">
-              <div className="card-title">🗺️ {t('instructorPortal.mappingMatrix')}</div>
+              <div className="card-title">{t('instructorPortal.mappingMatrix')}</div>
             </div>
             <div className="tw">
               <table>
                 <thead>
                   <tr>
                     <th>{t('instructorPortal.unit')}</th>
-                    <th>CLO-1</th>
-                    <th>CLO-2</th>
-                    <th>CLO-3</th>
-                    <th>CLO-4</th>
+                    {clos.map((clo) => (
+                      <th key={clo.id}>{clo.code}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {MATRIX.map((row, i) => (
-                    <tr key={i}>
-                      <td>{t(`instructorPortal.${MATRIX_KEYS[i]}`)}</td>
-                      {row.clos.map((v, j) => (
-                        <td key={j} style={{ textAlign: 'center' }}>{v ? '✅' : '—'}</td>
+                  {matrixRows.map((row) => (
+                    <tr key={row.unit}>
+                      <td>{t('instructorPortal.unit')} {row.unit}</td>
+                      {clos.map((clo) => (
+                        <td key={clo.id} style={{ textAlign: 'center' }}>
+                          {row.cloMap[clo.id] ? '?' : '—'}
+                        </td>
                       ))}
                     </tr>
                   ))}
+                  {matrixRows.length === 0 && (
+                    <tr>
+                      <td colSpan={Math.max(2, clos.length + 1)} style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                        {t('instructorPortal.noData', 'No data available')}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -193,3 +394,4 @@ export default function InstructorCurriculumMap() {
     </>
   )
 }
+

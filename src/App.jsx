@@ -94,6 +94,10 @@ import InstructorCurriculumMap from './pages/instructor/InstructorCurriculumMap'
 import InstructorBuildLesson from './pages/instructor/InstructorBuildLesson'
 import InstructorLessonPreview from './pages/instructor/InstructorLessonPreview'
 import InstructorContentRelease from './pages/instructor/InstructorContentRelease'
+import InstructorAssessmentAuthoring from './pages/instructor/InstructorAssessmentAuthoring'
+import InstructorQuestionBank from './pages/instructor/InstructorQuestionBank'
+import InstructorGradebook from './pages/instructor/InstructorGradebook'
+import InstructorGradeSubmission from './pages/instructor/InstructorGradeSubmission'
 import InstructorComingSoon from './pages/instructor/InstructorComingSoon'
 import CreateMaterial from './pages/instructor/CreateMaterial'
 import EditMaterial from './pages/instructor/EditMaterial'
@@ -978,7 +982,7 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
                 <RoleBasedLayout>
-                  <InstructorComingSoon />
+                  <InstructorQuestionBank />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }
@@ -988,7 +992,7 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
                 <RoleBasedLayout>
-                  <InstructorComingSoon />
+                  <InstructorAssessmentAuthoring />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }
@@ -1029,6 +1033,26 @@ function App() {
               <ProtectedRoute allowedRoles={['instructor']}>
                 <RoleBasedLayout>
                   <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/gradebook"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorGradebook />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/grade-submission"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorGradeSubmission />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

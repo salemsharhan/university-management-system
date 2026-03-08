@@ -253,25 +253,62 @@ export async function getGradeTypesFromUniversitySettings() {
   }
 }
 
+/** Actual column names in grade_components table (no dynamic columns like grade_002) */
+export const GRADE_COMPONENT_DB_COLUMNS = [
+  'midterm',
+  'final',
+  'assignments',
+  'quizzes',
+  'class_participation',
+  'project',
+  'lab',
+  'other',
+]
+
+/** Maps grade_type_code (or id) to a valid grade_components column name */
+function gradeTypeCodeToDbColumn(code) {
+  if (!code || typeof code !== 'string') return null
+  const normalized = code.toLowerCase().trim().replace(/\s+/g, '_')
+  if (GRADE_COMPONENT_DB_COLUMNS.includes(normalized)) return normalized
+  // Common aliases
+  const alias = {
+    assignment: 'assignments',
+    quiz: 'quizzes',
+    participation: 'class_participation',
+    'class_participation': 'class_participation',
+  }[normalized]
+  if (alias) return alias
+  // Numeric or unknown codes (e.g. "002") map to "other" to avoid invalid column names
+  return 'other'
+}
+
 /**
  * Merges subject grade_configuration with grade type definitions from university settings.
  * Maximum, minimum, pass_score, fail_score are taken from university settings ONLY (grade type).
  * Subject config only contributes weight and grade type reference.
+ * Adds dbColumn: the actual grade_components table column name for this type.
  *
  * @param {Array} gradeConfiguration - Subject's grade_configuration (weight, grade_type_code, etc.)
  * @param {Array} gradeTypes - From getGradeTypesFromUniversitySettings()
- * @returns {Array} - Config with effective max/min/pass/fail from university settings only
+ * @returns {Array} - Config with effective max/min/pass/fail and dbColumn
  */
 export function mergeGradeConfigWithTypes(gradeConfiguration, gradeTypes) {
   if (!Array.isArray(gradeConfiguration)) return []
+  const usedColumns = new Set()
   return gradeConfiguration.map((config) => {
     const gt = gradeTypes.find((t) => t.code === config.grade_type_code)
+    let dbColumn = gradeTypeCodeToDbColumn(config.grade_type_code)
+    if (dbColumn && usedColumns.has(dbColumn)) {
+      dbColumn = GRADE_COMPONENT_DB_COLUMNS.find((c) => !usedColumns.has(c)) || 'other'
+    }
+    if (dbColumn) usedColumns.add(dbColumn)
     return {
       ...config,
       maximum: gt?.maximum ?? 100,
       minimum: gt?.minimum ?? 0,
       pass_score: gt?.pass_score ?? 60,
       fail_score: gt?.fail_score ?? 50,
+      dbColumn: dbColumn || 'other',
     }
   })
 }

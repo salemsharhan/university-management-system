@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -19,6 +19,8 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.previewExamPage', href: '/instructor/preview-exam', icon: '👁️' },
   { translationKey: 'instructorPortal.monitorExam', href: '/instructor/monitor-exam', icon: '📡' },
   { translationKey: 'instructorPortal.integritySettings', href: '/instructor/integrity-settings', icon: '🔒' },
+  { translationKey: 'instructorPortal.gradebook', href: '/instructor/gradebook', icon: '📊' },
+  { translationKey: 'instructorPortal.submitFinalGrades', href: '/instructor/grade-submission', icon: '✅' },
 ]
 
 export default function InstructorLayout({ children }) {
@@ -27,8 +29,14 @@ export default function InstructorLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [langDropdownOpen, setLangDropdownOpen] = useState(false)
   const langDropdownRef = useRef(null)
-  const { user } = useAuth()
+  const { user, signOut } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await signOut?.()
+    navigate('/login/instructor', { replace: true })
+  }
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -209,9 +217,17 @@ export default function InstructorLayout({ children }) {
                   3
                 </span>
               </Link>
-              <div className="topbar-user">
+              <div className="topbar-user" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div className="avatar" aria-hidden>{avatarInitials}</div>
                 <span>{displayName}</span>
+                <button
+                  type="button"
+                  className="btn btn-gh btn-sm"
+                  onClick={handleLogout}
+                  aria-label={t('instructorPortal.logout')}
+                >
+                  {t('instructorPortal.logout')}
+                </button>
               </div>
             </div>
           </header>

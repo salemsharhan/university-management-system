@@ -1,12 +1,31 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-const AuthContext = createContext({})
+const defaultAuthValue = {
+  user: null,
+  session: null,
+  userRole: null,
+  collegeId: null,
+  departmentId: null,
+  loading: true,
+  signIn: async () => {
+    throw new Error('useAuth must be used within an AuthProvider')
+  },
+  signUp: async () => {
+    throw new Error('useAuth must be used within an AuthProvider')
+  },
+  signOut: async () => {},
+}
+
+const AuthContext = createContext(defaultAuthValue)
 
 export const useAuth = () => {
   const context = useContext(AuthContext)
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider')
+  }
+  if (typeof context.signIn !== 'function') {
+    throw new Error('useAuth: signIn is not available. Ensure you are inside AuthProvider.')
   }
   return context
 }
@@ -244,7 +263,8 @@ export const AuthProvider = ({ children }) => {
           setCollegeId(null)
           setDepartmentId(null)
         } else {
-          // We have a session
+          // We have a session — sync users.openId with auth.uid() so RLS policies pass
+          supabase.rpc('sync_user_openid').then(() => {}, () => {})
           setSession(session)
           setUser(session?.user ?? null)
           
@@ -289,6 +309,13 @@ export const AuthProvider = ({ children }) => {
     
     if (error) {
       return { data, error }
+    }
+
+    // Sync users.openId with auth.uid() so grade_components and other RLS policies pass
+    try {
+      await supabase.rpc('sync_user_openid')
+    } catch (_) {
+      // ignore if RPC missing or fails
     }
 
     // If role is specified, verify user has that role
@@ -359,6 +386,7 @@ export const AuthProvider = ({ children }) => {
     session,
     userRole,
     collegeId,
+    departmentId,
     loading,
     signIn,
     signUp,

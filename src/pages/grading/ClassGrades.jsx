@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
-import { getGradingScaleFromUniversitySettings, getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
+import { getGradingScaleFromUniversitySettings, getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes, GRADE_COMPONENT_DB_COLUMNS } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, FileText, Users } from 'lucide-react'
@@ -11,6 +11,9 @@ export default function ClassGrades() {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
   const { classId } = useParams()
+  const [searchParams] = useSearchParams()
+  const enrollmentIdParam = searchParams.get('enrollmentId')
+  const singleEnrollmentId = enrollmentIdParam ? Number(enrollmentIdParam) : null
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const [loading, setLoading] = useState(false)
@@ -125,8 +128,8 @@ export default function ClassGrades() {
     let totalWeight = 0
 
     gradeConfiguration.forEach(config => {
-      const fieldName = `grade_${config.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
-      const score = gradeData[fieldName] || 0
+      const fieldName = config.dbColumn || `grade_${(config.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`
+      const score = gradeData[fieldName] ?? gradeData[config.dbColumn] ?? 0
       const weight = config.weight || 0
 
       if (score > 0 && weight > 0) {
@@ -176,15 +179,10 @@ export default function ClassGrades() {
       
       // Validate against grade configuration if it exists
       if (gradeConfiguration.length > 0 && parsedValue !== null && !isNaN(parsedValue)) {
-        const gradeConfigFields = gradeConfiguration.map(gc => 
-          `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
-        )
+        const gradeConfigFields = gradeConfiguration.map(gc => gc.dbColumn || `grade_${(gc.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`)
         
         if (gradeConfigFields.includes(field)) {
-          // Find the matching grade configuration
-          const config = gradeConfiguration.find(gc => 
-            `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}` === field
-          )
+          const config = gradeConfiguration.find(gc => (gc.dbColumn || `grade_${(gc.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`) === field)
           
           if (config) {
             const validationError = validateGradeValue(value, config)
@@ -209,9 +207,7 @@ export default function ClassGrades() {
       }
       
       // Recalculate numeric grade if components changed
-      const gradeConfigFields = gradeConfiguration.map(gc => 
-        `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
-      )
+      const gradeConfigFields = gradeConfiguration.map(gc => gc.dbColumn || `grade_${(gc.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`)
       const allGradeFields = ['midterm', 'final', 'assignments', 'quizzes', 'class_participation', 'project', 'lab', 'other', ...gradeConfigFields]
       
       if (allGradeFields.includes(field)) {
@@ -230,16 +226,11 @@ export default function ClassGrades() {
   }
 
   const handleGradeBlur = (enrollmentId, field, value) => {
-    // Validate on blur for better UX
     if (gradeConfiguration.length > 0 && value) {
-      const gradeConfigFields = gradeConfiguration.map(gc => 
-        `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
-      )
+      const gradeConfigFields = gradeConfiguration.map(gc => gc.dbColumn || `grade_${(gc.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`)
       
       if (gradeConfigFields.includes(field)) {
-        const config = gradeConfiguration.find(gc => 
-          `grade_${gc.grade_type_code.toLowerCase().replace(/\s+/g, '_')}` === field
-        )
+        const config = gradeConfiguration.find(gc => (gc.dbColumn || `grade_${(gc.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`) === field)
         
         if (config) {
           const validationError = validateGradeValue(value, config)
@@ -271,17 +262,35 @@ export default function ClassGrades() {
     try {
       const gradesToSave = Object.values(grades).filter(g => g.enrollment_id)
       
+      const allowedKeys = new Set([
+        'enrollment_id', 'class_id', 'student_id', 'semester_id', 'college_id',
+        ...GRADE_COMPONENT_DB_COLUMNS,
+        'numeric_grade', 'letter_grade', 'gpa_points', 'status', 'notes',
+        'graded_by', 'graded_at', 'approved_by', 'approved_at', 'updated_at',
+      ])
       for (const grade of gradesToSave) {
-        const { enrollment_id, ...gradeData } = grade
-        
-        // Upsert grade component
+        const { enrollment_id, ...rest } = grade
+        const gradeData = {}
+        Object.keys(rest).forEach((key) => {
+          const dbKey = key.startsWith('grade_') && GRADE_COMPONENT_DB_COLUMNS.includes(key.slice(7))
+            ? key.slice(7)
+            : key
+          if (allowedKeys.has(dbKey) && rest[key] !== undefined) gradeData[dbKey] = rest[key]
+        })
+        gradeData.enrollment_id = enrollment_id
+        gradeData.updated_at = new Date().toISOString()
+        // RLS requires class_id, student_id, semester_id, college_id — ensure they are set
+        const enrollment = enrollments.find((e) => e.id === enrollment_id)
+        if (classData) {
+          if (gradeData.class_id == null) gradeData.class_id = classData.id
+          if (gradeData.semester_id == null) gradeData.semester_id = classData.semester_id
+          if (gradeData.college_id == null) gradeData.college_id = classData.college_id
+        }
+        if (enrollment && gradeData.student_id == null) gradeData.student_id = enrollment.student_id
+
         const { error: upsertError } = await supabase
           .from('grade_components')
-          .upsert({
-            ...gradeData,
-            enrollment_id,
-            updated_at: new Date().toISOString(),
-          }, {
+          .upsert(gradeData, {
             onConflict: 'enrollment_id',
           })
 
@@ -308,11 +317,25 @@ export default function ClassGrades() {
     )
   }
 
+  const backTo = userRole === 'instructor' && classId
+    ? `/instructor/gradebook?classId=${classId}`
+    : '/grading'
+
+  // When instructor opens grade entry for one student, show only that enrollment
+  const displayEnrollments =
+    userRole === 'instructor' && singleEnrollmentId
+      ? enrollments.filter((e) => e.id === singleEnrollmentId)
+      : enrollments
+  const singleStudentMode = userRole === 'instructor' && singleEnrollmentId && displayEnrollments.length === 1
+  const singleStudentName = singleStudentMode && displayEnrollments[0]?.students
+    ? (displayEnrollments[0].students.name_en || `${displayEnrollments[0].students.first_name || ''} ${displayEnrollments[0].students.last_name || ''}`).trim() || displayEnrollments[0].students.student_id
+    : ''
+
   return (
     <div className="space-y-6">
       <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <button
-          onClick={() => navigate('/grading')}
+          onClick={() => navigate(backTo)}
           className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
           <ArrowLeft className="w-5 h-5" />
@@ -374,14 +397,32 @@ export default function ClassGrades() {
         </div>
       )}
 
+      {/* Single-student mode: show who we're grading and link back to gradebook */}
+      {singleStudentMode && (
+        <div className={`flex flex-wrap items-center gap-3 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <span className="text-sm font-medium text-blue-900">
+            {t('grading.classGrades.enteringGradesFor')}: <strong>{singleStudentName}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate(backTo)}
+            className="text-sm font-medium text-blue-700 hover:text-blue-900 underline"
+          >
+            {t('grading.classGrades.backToGradebook')}
+          </button>
+        </div>
+      )}
+
       {/* Grade Entry Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradeEntry')}</h2>
-          <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradeEntryDesc')}</p>
+          <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+            {singleStudentMode ? t('grading.classGrades.gradeEntrySingleStudent') : t('grading.classGrades.gradeEntryDesc')}
+          </p>
         </div>
 
-        {enrollments.length === 0 ? (
+        {displayEnrollments.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-4 text-gray-400" />
             <p>{t('grading.classGrades.noEnrolledStudents')}</p>
@@ -415,7 +456,7 @@ export default function ClassGrades() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {enrollments.map((enrollment) => {
+                {displayEnrollments.map((enrollment) => {
                   const grade = grades[enrollment.id] || {}
                   const student = enrollment.students
                   return (
@@ -452,9 +493,10 @@ export default function ClassGrades() {
                       </td>
                       {gradeConfiguration.length > 0 ? (
                         gradeConfiguration.map((config) => {
-                          const fieldName = `grade_${config.grade_type_code.toLowerCase().replace(/\s+/g, '_')}`
+                          const fieldName = config.dbColumn || `grade_${(config.grade_type_code || '').toLowerCase().replace(/\s+/g, '_')}`
                           const maxValue = config.maximum || 100
                           const minValue = config.minimum || 0
+                          const value = grade[fieldName] ?? grade[config.dbColumn] ?? ''
                           return (
                             <td key={config.grade_type_id} className="px-6 py-4 whitespace-nowrap">
                               <input
@@ -462,7 +504,7 @@ export default function ClassGrades() {
                                 step="0.01"
                                 min={minValue}
                                 max={maxValue}
-                                value={grade[fieldName] || ''}
+                                value={value || ''}
                                 onChange={(e) => handleGradeChange(enrollment.id, fieldName, e.target.value)}
                                 onBlur={(e) => handleGradeBlur(enrollment.id, fieldName, e.target.value)}
                                 className="w-20 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"

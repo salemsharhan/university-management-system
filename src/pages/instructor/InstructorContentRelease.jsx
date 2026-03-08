@@ -1,24 +1,262 @@
-import { useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { Settings, Calendar, Download } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
 
 const PORTAL_BG = '#1a3a6b'
 
-const defaultSchedule = [
-  { lesson: 'مقدمة في مهارات الكتابة', lessonEn: 'Introduction to Writing Skills', unit: '1', mode: 'immediate', modeAr: 'فوري', date: null, condition: null, status: 'published', statusAr: 'منشور' },
-  { lesson: 'القراءة النقدية - المستوى 1', lessonEn: 'Critical Reading - Level 1', unit: '2', mode: 'scheduled', modeAr: 'مجدول', date: '10 مارس 2025 - 08:00 ص', condition: null, status: 'upcoming', statusAr: 'قادم' },
-  { lesson: 'مهارات الاستماع الفعّال', lessonEn: 'Effective Listening Skills', unit: '3', mode: 'conditional', modeAr: 'مشروط', date: null, condition: 'إتمام الوحدة 2', conditionEn: 'Completion of Unit 2', status: 'draft', statusAr: 'مسودة' },
-  { lesson: 'الكتابة الأكاديمية المتقدمة', lessonEn: 'Advanced Academic Writing', unit: '4', mode: 'conditional', modeAr: 'مشروط', date: null, condition: 'إتمام الوحدة 3 + اختبار الوحدة 3', conditionEn: 'Completion of Unit 3 + Unit 3 Test', status: 'draft', statusAr: 'مسودة' },
-]
+const defaultSettings = {
+  default_release_mode: 'scheduled',
+  completion_tracking: true,
+  show_progress_to_students: true,
+}
 
 export default function InstructorContentRelease() {
   const { t } = useTranslation()
   const { isRTL, language } = useLanguage()
-  const [releaseMode, setReleaseMode] = useState('specific')
-  const [completionTracking, setCompletionTracking] = useState('enabled')
-  const [showProgress, setShowProgress] = useState('yes')
-  const [schedule] = useState(defaultSchedule)
+  const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const [loading, setLoading] = useState(true)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [classes, setClasses] = useState([])
+  const [selectedClassId, setSelectedClassId] = useState(null)
+  const [instructorId, setInstructorId] = useState(null)
+  const [settingsId, setSettingsId] = useState(null)
+  const [settings, setSettings] = useState(defaultSettings)
+  const [schedule, setSchedule] = useState([])
+  const [students, setStudents] = useState([])
+  const [progressRows, setProgressRows] = useState([])
+
+  const selectedClass = useMemo(
+    () => classes.find((c) => c.id === selectedClassId) || null,
+    [classes, selectedClassId]
+  )
+
+  useEffect(() => {
+    if (!user?.email) return
+    loadInstructorClasses()
+  }, [user?.email])
+
+  useEffect(() => {
+    if (!selectedClassId || !instructorId) return
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      next.set('classId', String(selectedClassId))
+      return next
+    })
+    loadClassData(selectedClassId, instructorId)
+  }, [selectedClassId, instructorId])
+
+  const loadInstructorClasses = async () => {
+    setLoading(true)
+    try {
+      const { data: instructor } = await supabase
+        .from('instructors')
+        .select('id')
+        .eq('email', user.email)
+        .eq('status', 'active')
+        .single()
+
+      if (!instructor) {
+        setLoading(false)
+        return
+      }
+
+      setInstructorId(instructor.id)
+
+      const { data: cls } = await supabase
+        .from('classes')
+        .select('id, section, subject_id, subjects(id, code, name_en, name_ar)')
+        .eq('instructor_id', instructor.id)
+        .eq('status', 'active')
+        .order('id', { ascending: false })
+
+      const list = cls || []
+      setClasses(list)
+
+      const fromQuery = Number(searchParams.get('classId'))
+      const initialClassId = list.find((c) => c.id === fromQuery)?.id || list[0]?.id || null
+      setSelectedClassId(initialClassId)
+
+      if (!initialClassId) setLoading(false)
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
+  }
+
+  const loadClassData = async (classId, insId) => {
+    try {
+      const [{ data: settingsData }, { data: lessonData }, { data: enrollmentData }, { data: progressData }] = await Promise.all([
+        supabase
+          .from('instructor_course_settings')
+          .select('id, default_release_mode, completion_tracking, show_progress_to_students')
+          .eq('class_id', classId)
+          .eq('instructor_id', insId)
+          .maybeSingle(),
+        supabase
+          .from('class_lessons')
+          .select('id, title, unit_number, lesson_number, release_mode, release_at, release_condition, status')
+          .eq('class_id', classId)
+          .order('unit_number', { ascending: true })
+          .order('lesson_number', { ascending: true }),
+        supabase
+          .from('enrollments')
+          .select('id, student_id, students(id, name_en, name_ar)')
+          .eq('class_id', classId)
+          .eq('status', 'enrolled'),
+        supabase
+          .from('class_lesson_progress')
+          .select('lesson_id, student_id, progress_percent, status')
+          .eq('class_id', classId),
+      ])
+
+      if (settingsData) {
+        setSettingsId(settingsData.id)
+        setSettings({
+          default_release_mode: settingsData.default_release_mode,
+          completion_tracking: settingsData.completion_tracking,
+          show_progress_to_students: settingsData.show_progress_to_students,
+        })
+      } else {
+        setSettingsId(null)
+        setSettings(defaultSettings)
+      }
+
+      setSchedule(
+        (lessonData || []).map((l) => ({
+          ...l,
+          release_at_input: l.release_at ? l.release_at.slice(0, 16) : '',
+          saving: false,
+        }))
+      )
+      setStudents(enrollmentData || [])
+      setProgressRows(progressData || [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const saveCourseSettings = async () => {
+    if (!selectedClassId || !instructorId) return
+
+    setSavingSettings(true)
+    try {
+      if (settingsId) {
+        await supabase
+          .from('instructor_course_settings')
+          .update({
+            ...settings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', settingsId)
+      } else {
+        const { data } = await supabase
+          .from('instructor_course_settings')
+          .insert({
+            class_id: selectedClassId,
+            instructor_id: instructorId,
+            ...settings,
+          })
+          .select('id')
+          .single()
+        if (data) setSettingsId(data.id)
+      }
+    } catch (err) {
+      console.error(err)
+      alert(t('common.error', 'Error'))
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  const updateScheduleField = (lessonId, patch) => {
+    setSchedule((prev) => prev.map((row) => (row.id === lessonId ? { ...row, ...patch } : row)))
+  }
+
+  const saveLessonSchedule = async (lessonId) => {
+    const lesson = schedule.find((x) => x.id === lessonId)
+    if (!lesson) return
+
+    updateScheduleField(lessonId, { saving: true })
+    try {
+      await supabase
+        .from('class_lessons')
+        .update({
+          release_mode: lesson.release_mode,
+          release_at: lesson.release_at_input ? new Date(lesson.release_at_input).toISOString() : null,
+          release_condition: lesson.release_condition || null,
+          status: lesson.status,
+          published_at: lesson.status === 'published' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', lessonId)
+
+      updateScheduleField(lessonId, { saving: false })
+    } catch (err) {
+      console.error(err)
+      updateScheduleField(lessonId, { saving: false })
+      alert(t('common.error', 'Error'))
+    }
+  }
+
+  const unitNumbers = useMemo(() => {
+    const units = [...new Set(schedule.map((l) => l.unit_number))]
+    return units.sort((a, b) => a - b)
+  }, [schedule])
+
+  const completionTable = useMemo(() => {
+    if (!students.length) return []
+
+    const unitLessons = {}
+    for (const lesson of schedule) {
+      if (!unitLessons[lesson.unit_number]) unitLessons[lesson.unit_number] = []
+      unitLessons[lesson.unit_number].push(lesson.id)
+    }
+
+    const progressMap = {}
+    for (const row of progressRows) {
+      progressMap[`${row.student_id}:${row.lesson_id}`] = Number(row.progress_percent || 0)
+    }
+
+    return students.map((enrollment) => {
+      const studentId = enrollment.student_id
+      let totalPct = 0
+      let unitCount = 0
+      const byUnit = {}
+
+      for (const unit of unitNumbers) {
+        const lessonIds = unitLessons[unit] || []
+        const sum = lessonIds.reduce((acc, lessonId) => acc + (progressMap[`${studentId}:${lessonId}`] || 0), 0)
+        const pct = lessonIds.length ? Math.round(sum / lessonIds.length) : 0
+        byUnit[unit] = pct
+        totalPct += pct
+        unitCount += 1
+      }
+
+      return {
+        studentId,
+        name: getLocalizedName(enrollment.students, language === 'ar'),
+        byUnit,
+        total: unitCount ? Math.round(totalPct / unitCount) : 0,
+      }
+    })
+  }, [students, progressRows, schedule, language, unitNumbers])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--bdr)', borderTopColor: 'var(--p)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -26,43 +264,75 @@ export default function InstructorContentRelease() {
         {t('instructorPortal.breadcrumbMain')} › {t('instructorPortal.dashboard')} › {t('instructorPortal.contentRelease')}
       </p>
 
-      <h1 className="text-2xl font-bold text-slate-800">
-        {t('instructorPortal.contentReleaseScheduling', 'Content Release and Scheduling')}
-      </h1>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">{t('instructorPortal.contentReleaseScheduling', 'Content Release and Scheduling')}</h1>
+        <select
+          value={selectedClassId || ''}
+          onChange={(e) => setSelectedClassId(Number(e.target.value))}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+        >
+          {classes.map((cls) => (
+            <option key={cls.id} value={cls.id}>
+              {cls.subjects?.code} - {getLocalizedName(cls.subjects, language === 'ar')} ({t('instructorPortal.section')} {cls.section})
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {/* Default Release Settings */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className={`flex items-center gap-2 px-4 py-3 border-b border-slate-200 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <Settings className="w-5 h-5 text-slate-600" />
-          <h3 className="font-semibold text-slate-800">{t('instructorPortal.defaultReleaseSettings', 'Default Release Settings for the Course')}</h3>
+        <div className={`flex items-center justify-between px-4 py-3 border-b border-slate-200 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+            <Settings className="w-5 h-5 text-slate-600" />
+            <h3 className="font-semibold text-slate-800">{t('instructorPortal.defaultReleaseSettings', 'Default Release Settings for the Course')}</h3>
+          </div>
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90"
+            style={{ backgroundColor: PORTAL_BG }}
+            onClick={saveCourseSettings}
+            disabled={savingSettings}
+          >
+            {t('common.save', 'Save')}
+          </button>
         </div>
         <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('instructorPortal.defaultReleaseMode', 'Default Release Mode')}</label>
-            <select value={releaseMode} onChange={(e) => setReleaseMode(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white flex items-center">
-              <option value="specific">{language === 'ar' ? 'بتاريخ ووقت محدد' : 'Specific Date and Time'}</option>
-              <option value="immediate">{language === 'ar' ? 'فوري' : 'Immediate'}</option>
-              <option value="conditional">{language === 'ar' ? 'مشروط' : 'Conditional'}</option>
+            <select
+              value={settings.default_release_mode}
+              onChange={(e) => setSettings((p) => ({ ...p, default_release_mode: e.target.value }))}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+            >
+              <option value="scheduled">Scheduled</option>
+              <option value="immediate">Immediate</option>
+              <option value="conditional">Conditional</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('instructorPortal.completionTracking', 'Completion Tracking')}</label>
-            <select value={completionTracking} onChange={(e) => setCompletionTracking(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
-              <option value="enabled">{language === 'ar' ? 'مفعل' : 'Enabled'}</option>
-              <option value="disabled">{language === 'ar' ? 'معطل' : 'Disabled'}</option>
+            <select
+              value={settings.completion_tracking ? 'enabled' : 'disabled'}
+              onChange={(e) => setSettings((p) => ({ ...p, completion_tracking: e.target.value === 'enabled' }))}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+            >
+              <option value="enabled">Enabled</option>
+              <option value="disabled">Disabled</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">{t('instructorPortal.showProgressToStudents', 'Show Progress to Students')}</label>
-            <select value={showProgress} onChange={(e) => setShowProgress(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white">
-              <option value="yes">{language === 'ar' ? 'نعم' : 'Yes'}</option>
-              <option value="no">{language === 'ar' ? 'لا' : 'No'}</option>
+            <select
+              value={settings.show_progress_to_students ? 'yes' : 'no'}
+              onChange={(e) => setSettings((p) => ({ ...p, show_progress_to_students: e.target.value === 'yes' }))}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white"
+            >
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Lessons Release Schedule */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className={`flex items-center gap-2 px-4 py-3 border-b border-slate-200 ${isRTL ? 'flex-row-reverse' : ''}`}>
           <Calendar className="w-5 h-5 text-slate-600" />
@@ -82,41 +352,70 @@ export default function InstructorContentRelease() {
               </tr>
             </thead>
             <tbody>
-              {schedule.map((row, i) => (
-                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className={`py-3 px-4 text-slate-800 ${isRTL ? 'text-right' : 'text-left'}`}>{language === 'ar' ? row.lesson : row.lessonEn}</td>
-                  <td className={`py-3 px-4 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} {row.unit}</td>
+              {schedule.map((row) => (
+                <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                  <td className={`py-3 px-4 text-slate-800 ${isRTL ? 'text-right' : 'text-left'}`}>{row.title}</td>
+                  <td className={`py-3 px-4 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} {row.unit_number}</td>
                   <td className={`py-3 px-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                      row.mode === 'immediate' ? 'bg-green-100 text-green-800' :
-                      row.mode === 'scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
-                    }`}>
-                      {language === 'ar' ? row.modeAr : row.mode}
-                    </span>
+                    <select
+                      className="rounded border border-slate-300 px-2 py-1"
+                      value={row.release_mode}
+                      onChange={(e) => updateScheduleField(row.id, { release_mode: e.target.value })}
+                    >
+                      <option value="immediate">Immediate</option>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="conditional">Conditional</option>
+                    </select>
                   </td>
-                  <td className={`py-3 px-4 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>{row.date || '—'}</td>
-                  <td className={`py-3 px-4 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>{row.condition ? (language === 'ar' ? row.condition : row.conditionEn) : '—'}</td>
-                  <td className={`py-3 px-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                      row.status === 'published' ? 'bg-green-100 text-green-800' :
-                      row.status === 'upcoming' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
-                    }`}>
-                      {language === 'ar' ? row.statusAr : row.status}
-                    </span>
+                  <td className={`py-3 px-4 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    <input
+                      type="datetime-local"
+                      className="rounded border border-slate-300 px-2 py-1"
+                      value={row.release_at_input || ''}
+                      onChange={(e) => updateScheduleField(row.id, { release_at_input: e.target.value })}
+                    />
+                  </td>
+                  <td className={`py-3 px-4 text-slate-600 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    <input
+                      className="rounded border border-slate-300 px-2 py-1"
+                      value={row.release_condition || ''}
+                      onChange={(e) => updateScheduleField(row.id, { release_condition: e.target.value })}
+                    />
                   </td>
                   <td className={`py-3 px-4 ${isRTL ? 'text-right' : 'text-left'}`}>
-                    <button type="button" className="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90" style={{ backgroundColor: PORTAL_BG }}>
-                      {t('common.edit')}
+                    <select
+                      className="rounded border border-slate-300 px-2 py-1"
+                      value={row.status}
+                      onChange={(e) => updateScheduleField(row.id, { status: e.target.value })}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </td>
+                  <td className={`py-3 px-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90"
+                      style={{ backgroundColor: PORTAL_BG }}
+                      onClick={() => saveLessonSchedule(row.id)}
+                      disabled={row.saving}
+                    >
+                      {row.saving ? '...' : t('common.save', 'Save')}
                     </button>
                   </td>
                 </tr>
               ))}
+              {schedule.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-slate-500">{t('instructorPortal.noData', 'No data available')}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Content Completion Report */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className={`flex items-center justify-between px-4 py-3 border-b border-slate-200 ${isRTL ? 'flex-row-reverse' : ''}`}>
           <h3 className="font-semibold text-slate-800">{t('instructorPortal.contentCompletionReport', 'Content Completion Report')}</h3>
@@ -126,31 +425,24 @@ export default function InstructorContentRelease() {
           </button>
         </div>
         <div className="overflow-x-auto p-4">
-          <p className="text-slate-500 text-sm mb-4">{t('instructorPortal.contentCompletionReportDesc', 'Student progress across units.')}</p>
+          <p className="text-slate-500 text-sm mb-4">{selectedClass ? `${selectedClass.subjects?.code} - ${getLocalizedName(selectedClass.subjects, language === 'ar')}` : ''}</p>
           <table className="w-full border-collapse text-sm" dir={isRTL ? 'rtl' : 'ltr'}>
             <thead>
               <tr className="bg-slate-100 border-b border-slate-200">
                 <th className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.student', 'Student')}</th>
-                <th className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} 1</th>
-                <th className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} 2</th>
-                <th className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} 3</th>
-                <th className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} 4</th>
+                {unitNumbers.map((unit) => (
+                  <th key={unit} className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.unit')} {unit}</th>
+                ))}
                 <th className={`py-2 px-3 font-medium text-slate-700 ${isRTL ? 'text-right' : 'text-left'}`}>{t('instructorPortal.total', 'Total')}</th>
               </tr>
             </thead>
             <tbody>
-              {[
-                { name: 'أحمد محمد', nameEn: 'Ahmed Mohammed', u1: '100%', u2: '100%', u3: '60%', u4: '—', total: 65 },
-                { name: 'سارة العلي', nameEn: 'Sara Al-Ali', u1: '50%', u2: '75%', u3: '100%', u4: '—', total: 75 },
-                { name: 'خالد الرشيد', nameEn: 'Khalid Al-Rashid', u1: '100%', u2: '—', u3: '—', u4: '—', total: 25 },
-                { name: 'نورة السعد', nameEn: 'Nora Al-Saad', u1: '100%', u2: '100%', u3: '100%', u4: '30%', total: 85 },
-              ].map((row, i) => (
-                <tr key={i} className="border-b border-slate-100">
-                  <td className={`py-2 px-3 text-slate-800 ${isRTL ? 'text-right' : 'text-left'}`}>{language === 'ar' ? row.name : row.nameEn}</td>
-                  <td className={`py-2 px-3 ${isRTL ? 'text-right' : 'text-left'}`}>{row.u1}</td>
-                  <td className={`py-2 px-3 ${isRTL ? 'text-right' : 'text-left'}`}>{row.u2}</td>
-                  <td className={`py-2 px-3 ${isRTL ? 'text-right' : 'text-left'}`}>{row.u3}</td>
-                  <td className={`py-2 px-3 ${isRTL ? 'text-right' : 'text-left'}`}>{row.u4}</td>
+              {completionTable.map((row) => (
+                <tr key={row.studentId} className="border-b border-slate-100">
+                  <td className={`py-2 px-3 text-slate-800 ${isRTL ? 'text-right' : 'text-left'}`}>{row.name}</td>
+                  {unitNumbers.map((unit) => (
+                    <td key={unit} className={`py-2 px-3 ${isRTL ? 'text-right' : 'text-left'}`}>{row.byUnit[unit] || 0}%</td>
+                  ))}
                   <td className={`py-2 px-3 ${isRTL ? 'text-right' : 'text-left'}`}>
                     <div className="w-20 h-2 bg-slate-200 rounded-full overflow-hidden">
                       <div className="h-full bg-green-500 rounded-full" style={{ width: `${row.total}%` }} />
@@ -158,6 +450,11 @@ export default function InstructorContentRelease() {
                   </td>
                 </tr>
               ))}
+              {completionTable.length === 0 && (
+                <tr>
+                  <td colSpan={Math.max(2, unitNumbers.length + 2)} className="py-6 text-center text-slate-500">{t('instructorPortal.noData', 'No data available')}</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -165,3 +462,4 @@ export default function InstructorContentRelease() {
     </div>
   )
 }
+
