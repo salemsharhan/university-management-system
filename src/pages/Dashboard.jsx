@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { getLocalizedName } from '../utils/localizedName'
@@ -28,6 +28,9 @@ export default function Dashboard() {
 
   if (userRole === 'student') {
     return <StudentDashboard />
+  }
+  if (userRole === 'instructor') {
+    return <Navigate to="/instructor/dashboard" replace />
   }
   const [loading, setLoading] = useState(true)
   const [kpiData, setKpiData] = useState({

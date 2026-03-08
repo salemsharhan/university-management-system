@@ -12,10 +12,10 @@ export default function LoginInstructor() {
   const { signIn, user, userRole, loading: authLoading } = useAuth()
   const navigate = useNavigate()
 
-  // Redirect if already logged in
+  // Redirect if already logged in to instructor portal
   useEffect(() => {
     if (!authLoading && user && userRole === 'instructor') {
-      navigate('/dashboard', { replace: true })
+      navigate('/instructor/dashboard', { replace: true })
     }
   }, [user, userRole, authLoading, navigate])
 
@@ -39,7 +39,7 @@ export default function LoginInstructor() {
     try {
       const { data, error: signInError } = await signIn(email, password, 'instructor')
       if (signInError) throw signInError
-      navigate('/dashboard')
+      navigate('/instructor/dashboard')
     } catch (err) {
       setError(err.message || 'Failed to sign in')
     } finally {

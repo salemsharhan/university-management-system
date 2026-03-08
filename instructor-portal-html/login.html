@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل الدخول — بوابة المحاضر | IBU</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap');
+:root{
+  --p:#1a3a6b;--pl:#2a5298;--acc:#c8a84b;
+  --bg:#f4f6fb;--sur:#fff;--bdr:#dde3ef;--txt:#1e2a3a;--muted:#6b7a99;
+  --sb-bg:#1a3a6b;--sb-txt:#cdd8f0;--sb-hov:#2a5298;
+  --ok:#1a7a4a;--ok-bg:#e6f7ef;
+  --warn:#b45309;--warn-bg:#fef3c7;
+  --err:#b91c1c;--err-bg:#fee2e2;
+  --info:#1d4ed8;--info-bg:#dbeafe;
+  --neu:#4b5563;--neu-bg:#f3f4f6;
+  --purple:#7c3aed;--purple-bg:#ede9fe;
+  --teal:#0d9488;--teal-bg:#ccfbf1;
+  --font:'Cairo','Segoe UI',Tahoma,sans-serif;
+  --r:10px;--rs:6px;
+  --sh:0 2px 12px rgba(26,58,107,.10);
+  --shm:0 4px 24px rgba(26,58,107,.14);
+  --sw:268px;--th:64px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font);background:var(--bg);color:var(--txt);line-height:1.7;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--pl);text-decoration:none}
+a:hover{text-decoration:underline;color:var(--acc)}
+img{max-width:100%;display:block}
+/* SHELL */
+.shell{display:flex;min-height:100vh}
+/* SIDEBAR */
+.sb{width:var(--sw);background:var(--sb-bg);color:var(--sb-txt);display:flex;flex-direction:column;position:fixed;top:0;right:0;height:100vh;z-index:100;overflow-y:auto}
+[dir=ltr] .sb{right:auto;left:0}
+.sb-logo{display:flex;align-items:center;gap:12px;padding:20px 18px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-logo img{width:44px;height:44px;object-fit:contain;border-radius:8px;background:#fff;padding:4px}
+.sb-logo-t{font-size:14px;font-weight:700;color:#fff;line-height:1.3}
+.sb-logo-t small{display:block;font-size:11px;font-weight:400;color:var(--acc)}
+.sb-sec{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.35);padding:18px 18px 6px}
+.sb nav ul{list-style:none;padding:0 10px}
+.sb nav ul li a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--rs);color:var(--sb-txt);font-size:14px;font-weight:500;transition:background .2s,color .2s;margin-bottom:2px}
+.sb nav ul li a:hover{background:var(--sb-hov);color:#fff;text-decoration:none}
+.sb nav ul li a[aria-current=page]{background:var(--acc);color:var(--p);font-weight:700}
+.sb nav ul li a .ic{font-size:16px;width:20px;text-align:center;flex-shrink:0}
+.sb-foot{margin-top:auto;padding:16px 18px;border-top:1px solid rgba(255,255,255,.1);font-size:12px;color:rgba(255,255,255,.4)}
+/* MAIN */
+.main{margin-right:var(--sw);flex:1;display:flex;flex-direction:column;min-height:100vh}
+[dir=ltr] .main{margin-right:0;margin-left:var(--sw)}
+/* TOPBAR */
+.topbar{height:var(--th);background:var(--sur);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:90;box-shadow:var(--sh)}
+.topbar-title{font-size:17px;font-weight:700;color:var(--p)}
+.topbar-acts{display:flex;align-items:center;gap:14px}
+.topbar-user{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--p);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+/* BODY */
+.body{padding:28px 32px;flex:1}
+/* BREADCRUMB */
+.bc{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-bottom:20px;flex-wrap:wrap}
+.bc a{color:var(--muted)}.bc a:hover{color:var(--p)}.bc-sep{color:var(--bdr)}.bc span{color:var(--p);font-weight:600}
+/* PAGE HEADER */
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+.ph h1{font-size:24px;font-weight:800;color:var(--p);margin-bottom:4px}
+.ph-sub{font-size:14px;color:var(--muted)}
+.ph-acts{display:flex;gap:10px;flex-wrap:wrap}
+/* CARD */
+.card{background:var(--sur);border-radius:var(--r);border:1px solid var(--bdr);box-shadow:var(--sh);padding:24px;margin-bottom:24px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--bdr)}
+.card-title{font-size:16px;font-weight:700;color:var(--p)}
+.card-sub{font-size:13px;color:var(--muted);margin-top:2px}
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin-bottom:28px}
+.sc{background:var(--sur);border-radius:var(--r);border:1px solid var(--bdr);box-shadow:var(--sh);padding:20px 22px;display:flex;flex-direction:column;gap:6px}
+.sc-lbl{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.sc-val{font-size:28px;font-weight:800;color:var(--p)}
+.sc-sub{font-size:12px;color:var(--muted)}
+.sc.acc{border-top:3px solid var(--acc)}.sc.ok{border-top:3px solid var(--ok)}.sc.warn{border-top:3px solid var(--warn)}.sc.err{border-top:3px solid var(--err)}.sc.info{border-top:3px solid var(--info)}.sc.purple{border-top:3px solid var(--purple)}
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:var(--rs);font-family:var(--font);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .2s;text-decoration:none;white-space:nowrap}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.15);text-decoration:none}
+.btn:active{transform:translateY(0)}
+.btn-p{background:var(--p);color:#fff}.btn-p:hover{background:var(--pl);color:#fff}
+.btn-a{background:var(--acc);color:var(--p)}.btn-a:hover{background:#b8942e;color:#fff}
+.btn-ok{background:var(--ok);color:#fff}.btn-err{background:var(--err);color:#fff}.btn-warn{background:#d97706;color:#fff}
+.btn-out{background:transparent;color:var(--p);border:1.5px solid var(--p)}.btn-out:hover{background:var(--p);color:#fff}
+.btn-gh{background:var(--bg);color:var(--txt);border:1px solid var(--bdr)}.btn-gh:hover{background:var(--bdr)}
+.btn-purple{background:var(--purple);color:#fff}.btn-teal{background:var(--teal);color:#fff}
+.btn-sm{padding:6px 14px;font-size:13px}.btn-lg{padding:12px 28px;font-size:16px}.btn-bl{width:100%;justify-content:center}
+/* FORMS */
+.fg{margin-bottom:18px}
+.fl{display:block;font-size:14px;font-weight:600;color:var(--txt);margin-bottom:6px}
+.fl .req{color:var(--err);margin-right:2px}
+.fc{width:100%;padding:10px 14px;border:1.5px solid var(--bdr);border-radius:var(--rs);font-family:var(--font);font-size:14px;color:var(--txt);background:var(--sur);transition:border-color .2s,box-shadow .2s;outline:none}
+.fc:focus{border-color:var(--pl);box-shadow:0 0 0 3px rgba(42,82,152,.12)}
+.fc::placeholder{color:#b0bac9}
+textarea.fc{min-height:100px;resize:vertical}
+select.fc{cursor:pointer}
+.fh{font-size:12px;color:var(--muted);margin-top:4px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+@media(max-width:640px){.fr,.fr3{grid-template-columns:1fr}}
+fieldset.fs{border:1px solid var(--bdr);border-radius:var(--r);padding:20px 22px;margin-bottom:22px}
+fieldset.fs legend{font-size:14px;font-weight:700;color:var(--p);padding:0 10px}
+/* TABLE */
+.tw{overflow-x:auto;border-radius:var(--r);border:1px solid var(--bdr)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead tr{background:var(--p);color:#fff}
+thead th{padding:12px 16px;font-weight:700;font-size:13px;text-align:right;white-space:nowrap}
+[dir=ltr] thead th{text-align:left}
+tbody tr{border-bottom:1px solid var(--bdr);transition:background .15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#f0f4fb}
+tbody td{padding:12px 16px;vertical-align:middle}
+tfoot tr{background:var(--bg);font-weight:700}
+tfoot td,tfoot th{padding:12px 16px}
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap}
+[data-status=pending],[data-status=draft]{background:var(--warn-bg);color:var(--warn)}
+[data-status=in-review],[data-status=upcoming],[data-status=new]{background:var(--info-bg);color:var(--info)}
+[data-status=approved],[data-status=confirmed],[data-status=active],[data-status=open],[data-status=published],[data-status=complete],[data-status=graded],[data-status=paid]{background:var(--ok-bg);color:var(--ok)}
+[data-status=rejected],[data-status=declined],[data-status=failed],[data-status=flagged]{background:var(--err-bg);color:var(--err)}
+[data-status=closed],[data-status=locked]{background:var(--neu-bg);color:var(--neu)}
+[data-status=waitlist],[data-status=processing]{background:var(--warn-bg);color:var(--warn)}
+[data-status=preview]{background:var(--purple-bg);color:var(--purple)}
+[data-status=monitoring]{background:var(--teal-bg);color:var(--teal)}
+/* ALERTS */
+.alert{padding:14px 18px;border-radius:var(--rs);font-size:14px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px;border-right:4px solid}
+[dir=ltr] .alert{border-right:none;border-left:4px solid}
+.alert-info{background:var(--info-bg);color:var(--info);border-color:var(--info)}
+.alert-ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.alert-warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+.alert-err{background:var(--err-bg);color:var(--err);border-color:var(--err)}
+.alert-purple{background:var(--purple-bg);color:var(--purple);border-color:var(--purple)}
+/* PROGRESS BAR */
+.prog-bar{background:var(--bdr);border-radius:20px;height:8px;overflow:hidden;margin-top:6px}
+.prog-fill{height:100%;border-radius:20px;background:linear-gradient(90deg,var(--p),var(--pl))}
+.prog-fill.ok{background:var(--ok)}.prog-fill.warn{background:#d97706}.prog-fill.err{background:var(--err)}.prog-fill.acc{background:var(--acc)}
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--bdr);margin-bottom:24px;overflow-x:auto}
+.tab{padding:10px 20px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;text-decoration:none;transition:color .2s,border-color .2s}
+.tab:hover{color:var(--p);text-decoration:none}
+.tab.active{color:var(--p);border-bottom-color:var(--p)}
+/* UPLOAD ZONE */
+.uz{border:2px dashed var(--bdr);border-radius:var(--r);padding:30px 20px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .2s,background .2s;margin-bottom:12px}
+.uz:hover{border-color:var(--pl);background:#f0f4fb}
+.uz-icon{font-size:36px;margin-bottom:8px}
+.uz-text{font-size:14px;font-weight:600}
+.uz-hint{font-size:12px;margin-top:4px}
+/* COURSE CARD */
+.course-card{background:var(--sur);border-radius:var(--r);border:1px solid var(--bdr);box-shadow:var(--sh);overflow:hidden;transition:box-shadow .2s,transform .2s}
+.course-card:hover{box-shadow:var(--shm);transform:translateY(-3px)}
+.course-top{background:linear-gradient(135deg,var(--p),var(--pl));padding:20px 22px;position:relative}
+.course-top h3{color:#fff;font-size:16px;font-weight:700;margin-bottom:4px}
+.course-top .course-code{color:var(--acc);font-size:12px;font-weight:700;letter-spacing:.5px}
+.course-top .course-term{position:absolute;top:14px;left:14px;background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px}
+[dir=ltr] .course-top .course-term{left:auto;right:14px}
+.course-body{padding:18px 22px}
+.course-meta{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.course-mi{font-size:12px;color:var(--muted)}
+.course-mi strong{color:var(--txt);display:block;font-size:13px}
+.course-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--bdr)}
+/* LESSON BUILDER */
+.lb-block{background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);padding:16px 18px;margin-bottom:12px;position:relative}
+.lb-block-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.lb-block-type{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);background:var(--sur);padding:2px 8px;border-radius:20px;border:1px solid var(--bdr)}
+/* QUESTION CARD */
+.q-card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rs);padding:18px 20px;margin-bottom:12px}
+.q-card-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.q-num{width:28px;height:28px;border-radius:50%;background:var(--p);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.q-text{font-size:14px;font-weight:600;color:var(--txt);flex:1}
+.q-opt{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--rs);border:1.5px solid var(--bdr);margin-bottom:8px;font-size:14px;cursor:pointer;transition:border-color .2s,background .2s}
+.q-opt:hover{border-color:var(--pl);background:#f0f4fb}
+.q-opt.correct{border-color:var(--ok);background:var(--ok-bg)}
+.q-opt input[type=radio],.q-opt input[type=checkbox]{accent-color:var(--p)}
+/* TIMER */
+.timer-box{background:linear-gradient(135deg,var(--p),var(--pl));color:#fff;border-radius:var(--r);padding:20px 28px;text-align:center;margin-bottom:24px}
+.timer-val{font-size:48px;font-weight:800;letter-spacing:4px;font-variant-numeric:tabular-nums}
+.timer-lbl{font-size:13px;opacity:.8;margin-top:4px}
+/* RUBRIC TABLE */
+.rubric-table{width:100%;border-collapse:collapse;font-size:13px}
+.rubric-table th,.rubric-table td{border:1px solid var(--bdr);padding:10px 14px;vertical-align:top}
+.rubric-table thead th{background:var(--p);color:#fff;font-weight:700}
+.rubric-table .criteria-col{background:var(--bg);font-weight:700;color:var(--p)}
+.rubric-table .level-4{background:#e6f7ef}.rubric-table .level-3{background:#fef9e7}.rubric-table .level-2{background:#fef3c7}.rubric-table .level-1{background:#fee2e2}
+/* GRADEBOOK */
+.gb-cell{padding:8px 12px;text-align:center;font-size:13px;font-weight:600;border-radius:var(--rs)}
+.gb-a{background:#e6f7ef;color:var(--ok)}.gb-b{background:#dbeafe;color:var(--info)}.gb-c{background:#fef3c7;color:var(--warn)}.gb-d{background:#fee2e2;color:var(--err)}.gb-f{background:#f3f4f6;color:var(--neu)}
+/* EXAM MONITOR */
+.em-card{background:var(--sur);border-radius:var(--rs);border:1px solid var(--bdr);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.em-student{display:flex;align-items:center;gap:10px}
+.em-avatar{width:32px;height:32px;border-radius:50%;background:var(--p);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+/* UTILS */
+.df{display:flex}.ac{align-items:center}.g8{gap:8px}.g12{gap:12px}.g16{gap:16px}.jb{justify-content:space-between}.fw{flex-wrap:wrap}.tc{text-align:center}.ts{font-size:13px}.txs{font-size:12px}.fw7{font-weight:700}.fw8{font-weight:800}.mt16{margin-top:16px}.mt24{margin-top:24px}.mb16{margin-bottom:16px}.mb24{margin-bottom:24px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+@media(max-width:900px){.sb{transform:translateX(100%)}[dir=ltr] .sb{transform:translateX(-100%)}.main{margin-right:0!important;margin-left:0!important}.body{padding:18px 16px}.grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:640px){.fr,.fr3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div style="min-height:100vh;background:linear-gradient(135deg,var(--p) 0%,var(--pl) 60%,#1e5fa8 100%);display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:440px">
+    <div style="text-align:center;margin-bottom:32px">
+      <img src="assets/IBULogo.png" alt="شعار IBU" style="width:72px;height:72px;object-fit:contain;background:#fff;border-radius:16px;padding:8px;margin:0 auto 16px">
+      <h1 style="color:#fff;font-size:22px;font-weight:800;margin-bottom:4px">بوابة المحاضر</h1>
+      <p style="color:rgba(255,255,255,.7);font-size:14px">Instructor Portal — جامعة IBU</p>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <div class="card-hd"><div><div class="card-title">تسجيل الدخول</div><div class="card-sub">أدخل بيانات حسابك الجامعي</div></div></div>
+      <form action="dashboard.html" method="get">
+        <div class="fg">
+          <label class="fl" for="email"><span class="req">*</span>البريد الإلكتروني الجامعي</label>
+          <input id="email" type="email" class="fc" placeholder="instructor@ibu.edu.sa" data-field="email" required aria-required="true">
+        </div>
+        <div class="fg">
+          <label class="fl" for="pass"><span class="req">*</span>كلمة المرور</label>
+          <input id="pass" type="password" class="fc" placeholder="••••••••" data-field="password" required aria-required="true">
+          <div class="fh"><a href="#">نسيت كلمة المرور؟</a></div>
+        </div>
+        <div class="fg" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="mfa" data-field="mfa_enabled" style="accent-color:var(--p)">
+          <label for="mfa" style="font-size:14px;color:var(--muted)">تفعيل المصادقة الثنائية (MFA)</label>
+        </div>
+        <button type="submit" class="btn btn-p btn-bl btn-lg" style="margin-top:8px">دخول إلى البوابة ←</button>
+      </form>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bdr);text-align:center">
+        <a href="#" class="btn btn-gh btn-bl">🔐 تسجيل الدخول بـ SSO (SAML/OIDC)</a>
+      </div>
+    </div>
+    <p style="text-align:center;color:rgba(255,255,255,.5);font-size:12px;margin-top:20px">جميع الجلسات مسجّلة ومراقبة لأغراض الأمن الأكاديمي</p>
+  </div>
+</div>
+
+</body>
+</html>

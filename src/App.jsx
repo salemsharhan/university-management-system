@@ -88,6 +88,13 @@ import StudentGraduationPath from './pages/student/StudentGraduationPath'
 import StudentCourseGuide from './pages/student/StudentCourseGuide'
 import StudentComingSoon from './pages/student/StudentComingSoon'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
+import InstructorDashboard from './pages/instructor/InstructorDashboard'
+import InstructorMyCourses from './pages/instructor/InstructorMyCourses'
+import InstructorCurriculumMap from './pages/instructor/InstructorCurriculumMap'
+import InstructorBuildLesson from './pages/instructor/InstructorBuildLesson'
+import InstructorLessonPreview from './pages/instructor/InstructorLessonPreview'
+import InstructorContentRelease from './pages/instructor/InstructorContentRelease'
+import InstructorComingSoon from './pages/instructor/InstructorComingSoon'
 import CreateMaterial from './pages/instructor/CreateMaterial'
 import EditMaterial from './pages/instructor/EditMaterial'
 import CreateHomework from './pages/instructor/CreateHomework'
@@ -895,7 +902,138 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Instructor Routes - More specific routes first */}
+          {/* Instructor Portal Routes */}
+          <Route
+            path="/instructor/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorDashboard />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/courses"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorMyCourses />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/curriculum-map"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorCurriculumMap />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/build-lessons"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorBuildLesson />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/lesson-preview"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorLessonPreview />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/content-release"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorContentRelease />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/templates"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/question-bank"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/assessments"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/exam-settings"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/preview-exam"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/monitor-exam"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/integrity-settings"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          {/* Instructor Subject/Class Routes - More specific routes first */}
           <Route
             path="/instructor/subjects/:id/homework/:homeworkId/edit"
             element={
