@@ -493,9 +493,9 @@ export default function BulkEnrollment() {
   const selectedSemester = semesters.find(s => s.id === parseInt(formData.semester_id))
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-none space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+      <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
         <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
           <div className="w-12 h-12 bg-primary-gradient rounded-lg flex items-center justify-center">
             <ShoppingCart className="w-6 h-6 text-white" />
@@ -552,9 +552,9 @@ export default function BulkEnrollment() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${isRTL ? '' : 'lg:grid-cols-3'}`}>
         {/* Left Panel */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`${isRTL ? 'col-span-1' : 'lg:col-span-2'} space-y-6`}>
           {/* Step 1: Select Academic Year and Semester */}
           {currentStep === 1 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
@@ -563,11 +563,13 @@ export default function BulkEnrollment() {
                 <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectSemester')}</h2>
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('academic.semesters.selectAcademicYear')}</label>
+                <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
+                  {t('enrollments.selectAcademicYear', { defaultValue: t('academic.semesters.selectAcademicYear', { defaultValue: 'Select Academic Year...' }) })}
+                </label>
                 <select
                   value={formData.academic_year_id}
                   onChange={(e) => setFormData(prev => ({ ...prev, academic_year_id: e.target.value, semester_id: '' }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isRTL ? 'text-right' : 'text-left'}`}
                 >
                   <option value="">{t('enrollments.allAcademicYears') || 'All Academic Years'}</option>
                   {academicYears.map(year => (
@@ -575,7 +577,7 @@ export default function BulkEnrollment() {
                   ))}
                 </select>
               </div>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="w-full space-y-3 max-h-96 overflow-y-auto">
                 {(formData.academic_year_id
                   ? semesters.filter(s => s.academic_year_id === parseInt(formData.academic_year_id))
                   : semesters

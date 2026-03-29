@@ -617,6 +617,7 @@
     "bulkEnrollmentTitle": "Bulk Enrollment - Add Multiple Sessions",
     "bulkEnrollmentSubtitle": "Manage student course enrollments and registrations",
     "backToList": "Back to List",
+    "selectAcademicYear": "Select Academic Year...",
     "bulkSelectSemester": "Select Semester",
     "bulkSelectStudent": "Select Student",
     "bulkSearchStudent": "Search by name or ID...",

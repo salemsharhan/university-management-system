@@ -1062,16 +1062,16 @@ export default function CreateEnrollment() {
   }, [formData.student_id, selectedStudentObj])
 
   return (
-    <div className="space-y-6">
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
+    <div className="w-full max-w-none space-y-6">
+      <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
         <button
           onClick={() => navigate(-1)}
           className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
         >
-          <ArrowLeft className="w-5 h-5" />
+          {isRTL ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
           <span>{t('enrollments.back')}</span>
         </button>
-        <div>
+        <div className={`flex-1 ${isRTL ? 'text-right pr-4' : 'text-left pl-4'}`}>
           <h1 className="text-3xl font-bold text-gray-900">{t('enrollments.createTitle')}</h1>
           <p className="text-gray-600 mt-1">{t('enrollments.createSubtitle')}</p>
         </div>
@@ -1115,7 +1115,7 @@ export default function CreateEnrollment() {
 
       {/* Progress Steps */}
       <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'}`}>
+        <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
@@ -1210,12 +1210,12 @@ export default function CreateEnrollment() {
 
         {/* Step 2: Select Student */}
         {currentStep === 2 && (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Student *</label>
+          <div className={`space-y-6 ${isRTL ? 'text-right' : 'text-left'}`}>
+            <div className="w-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('enrollments.studentLabel', { defaultValue: 'Student *' })}</label>
               <input
                 type="text"
-                placeholder="-- Search and Select Student --"
+                placeholder={t('enrollments.searchSelectStudent', { defaultValue: '-- Search and Select Student --' })}
                 value={studentSearch}
                 onChange={(e) => {
                   setStudentSearch(e.target.value)
@@ -1223,13 +1223,13 @@ export default function CreateEnrollment() {
                 }}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Start typing to search for a student by name or ID</p>
+              <p className="text-xs text-gray-500 mt-1">{t('enrollments.searchStudentHint', { defaultValue: 'Start typing to search for a student by name or ID' })}</p>
             </div>
 
             {studentSearch && (
-              <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
+              <div className="w-full border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
                 {students.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">No students found</div>
+                  <div className="p-4 text-center text-gray-500">{t('enrollments.noStudentsFound', { defaultValue: 'No students found' })}</div>
                 ) : (
                   students.map(student => (
                     <button
@@ -1240,7 +1240,7 @@ export default function CreateEnrollment() {
                         setStudentSearch(`${student.first_name} ${student.last_name} (${student.student_id})`)
                         setError('')
                       }}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 ${
+                      className={`w-full px-4 py-3 hover:bg-gray-50 border-b border-gray-100 ${isRTL ? 'text-right' : 'text-left'} ${
                         formData.student_id === student.id.toString() ? 'bg-primary-50 border-primary-200' : ''
                       }`}
                     >
@@ -1255,24 +1255,24 @@ export default function CreateEnrollment() {
             )}
 
             {selectedStudent && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="font-medium text-gray-900 mb-3">Student Information</h3>
+              <div className="w-full bg-gray-50 rounded-lg p-4">
+                <h3 className="font-medium text-gray-900 mb-3">{t('enrollments.studentInfo', { defaultValue: 'Student Information' })}</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-gray-500">Name:</span>
-                    <span className="ml-2 font-medium">{selectedStudent.first_name} {selectedStudent.last_name}</span>
+                    <span className="text-gray-500">{t('enrollments.studentName', { defaultValue: 'Name:' })}</span>
+                    <span className={`${isRTL ? 'mr-2' : 'ml-2'} font-medium`}>{selectedStudent.first_name} {selectedStudent.last_name}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">ID:</span>
-                    <span className="ml-2 font-medium">{selectedStudent.student_id}</span>
+                    <span className="text-gray-500">{t('enrollments.studentId', { defaultValue: 'ID:' })}</span>
+                    <span className={`${isRTL ? 'mr-2' : 'ml-2'} font-medium`}>{selectedStudent.student_id}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Major:</span>
-                    <span className="ml-2 font-medium">{getLocalizedName(selectedStudent.majors, isRTL) || 'N/A'}</span>
+                    <span className="text-gray-500">{t('enrollments.studentMajor', { defaultValue: 'Major:' })}</span>
+                    <span className={`${isRTL ? 'mr-2' : 'ml-2'} font-medium`}>{getLocalizedName(selectedStudent.majors, isRTL) || 'N/A'}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Status:</span>
-                    <span className="ml-2 font-medium">{selectedStudent.status || 'Active'}</span>
+                    <span className="text-gray-500">{t('enrollments.studentStatus', { defaultValue: 'Status:' })}</span>
+                    <span className={`${isRTL ? 'mr-2' : 'ml-2'} font-medium`}>{selectedStudent.status || 'Active'}</span>
                   </div>
                 </div>
               </div>
@@ -1566,28 +1566,28 @@ export default function CreateEnrollment() {
       </div>
 
       {/* Navigation Buttons */}
-      <div className="flex justify-between">
+      <div className={`flex justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
         <button
           onClick={handleBack}
           disabled={currentStep === 1}
-          className="flex items-center space-x-2 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex items-center px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
         >
-          <ArrowLeft className="w-4 h-4" />
+          {isRTL ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
           <span>{t('enrollments.back')}</span>
         </button>
         {currentStep < steps.length ? (
           <button
             onClick={handleNext}
-            className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+            className={`flex items-center px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
           >
             <span>{t('enrollments.next')}</span>
-            <ArrowRight className="w-4 h-4" />
+            {isRTL ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             disabled={loading || validationErrors.length > 0}
-            className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`flex items-center px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
           >
             <Check className="w-4 h-4" />
             <span>{loading ? t('enrollments.enrolling') : validationErrors.length > 0 ? t('enrollments.cannotEnroll') : t('enrollments.completeEnrollment')}</span>
