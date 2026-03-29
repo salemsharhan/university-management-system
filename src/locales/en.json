@@ -1083,6 +1083,27 @@
       "scope": "Scope",
       "departmentCourses": "Department Courses",
       "departmentInstructors": "Department Instructors",
+      "addCourse": "+ Add Course",
+      "assignInstructor": "+ Assign Instructor",
+      "courseCode": "Course Code",
+      "courseName": "Course Name",
+      "credits": "Credits",
+      "studentId": "Student ID",
+      "name": "Name",
+      "gradeDistribution": "Grade Distribution",
+      "semesterTrends": "Semester Trends",
+      "activeThisSemester": "8 active this semester",
+      "fullTimePartTime": "6 full-time, 2 part-time",
+      "enrollmentVsLastSemester": "15% vs last semester",
+      "aboveUniversityAvg": "Above university avg (3.25)",
+      "avgGpaTrend": "Avg GPA Trend",
+      "enrollmentTrend": "Enrollment Trend",
+      "attendanceTrend": "Attendance Trend",
+      "passRateTrend": "Pass Rate Trend",
+      "createdBy": "Created By",
+      "createdDate": "Created Date",
+      "lastModifiedBy": "Last Modified By",
+      "lastModifiedDate": "Last Modified Date",
       "deleteConfirm": "Are you sure you want to delete this department?",
       "cannotDeleteWithStudents": "Cannot delete department with enrolled students",
       "cannotDeleteWithCourses": "Cannot delete department with active courses",
@@ -3452,4 +3473,3 @@
     "gradesSubmittedSuccess": "Grades submitted successfully."
   }
 }
-

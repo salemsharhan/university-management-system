@@ -193,6 +193,7 @@ export default function ViewDepartment() {
     { id: 'students', label: t('academic.departments.students', 'Students') },
     { id: 'performance', label: t('academic.departments.performance', 'Performance') }
   ]
+  const departmentStatusLabel = department?.status ? t(`common.${department.status}`, department.status) : ''
 
   if (loading) {
     return (
@@ -241,11 +242,11 @@ export default function ViewDepartment() {
           <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0">
             <Building2 className="w-10 h-10 text-white" />
           </div>
-          <div className="flex-1">
+          <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
             <div className={`flex items-center gap-4 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <h1 className="text-3xl font-bold text-gray-900">{getLocalizedName(department, isRTL)}</h1>
               <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${department?.status === 'active' ? 'bg-green-100 text-green-700' : department?.status === 'archived' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-600'}`}>
-                {department?.status === 'active' ? 'Active' : department?.status === 'archived' ? 'Archived' : 'Inactive'}
+                {departmentStatusLabel}
               </span>
             </div>
             <div className="text-sm text-gray-500 mb-1">{department?.code}</div>
@@ -261,7 +262,7 @@ export default function ViewDepartment() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              className={`flex-1 px-6 py-4 text-sm font-medium border-b-2 transition-colors text-center ${activeTab === tab.id ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
             >
               {tab.label}
             </button>
@@ -273,7 +274,7 @@ export default function ViewDepartment() {
           <div className="p-6 space-y-6">
             {/* Workflow Actions */}
             <div>
-              <h3 className="text-base font-semibold text-gray-900 mb-4">{t('academic.departments.workflowActions', 'Workflow Actions')}</h3>
+              <h3 className={`text-base font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.departments.workflowActions', 'Workflow Actions')}</h3>
               <div className={`flex flex-wrap gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                 {department?.status !== 'active' && (
                   <button onClick={() => handleWorkflowAction('activate')} className={`flex items-center gap-2 px-5 py-2.5 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium hover:bg-green-100 ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -305,10 +306,10 @@ export default function ViewDepartment() {
             {/* Tier 2 KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               {[
-                [kpis.totalCourses, t('academic.departments.totalCourses', 'Total Courses'), '8 active this semester'],
-                [kpis.totalInstructors, t('academic.departments.totalInstructors', 'Total Instructors'), '6 full-time, 2 part-time'],
-                [kpis.enrolledStudents, t('academic.departments.enrolledStudents', 'Enrolled Students'), `↑ 15% vs last semester`],
-                [kpis.averageGPA.toFixed(2), t('academic.departments.averageGPA', 'Average GPA'), 'Above university avg (3.25)']
+                [kpis.totalCourses, t('academic.departments.totalCourses', 'Total Courses'), t('academic.departments.activeThisSemester', '8 active this semester')],
+                [kpis.totalInstructors, t('academic.departments.totalInstructors', 'Total Instructors'), t('academic.departments.fullTimePartTime', '6 full-time, 2 part-time')],
+                [kpis.enrolledStudents, t('academic.departments.enrolledStudents', 'Enrolled Students'), t('academic.departments.enrollmentVsLastSemester', '↑ 15% vs last semester')],
+                [kpis.averageGPA.toFixed(2), t('academic.departments.averageGPA', 'Average GPA'), t('academic.departments.aboveUniversityAvg', 'Above university avg (3.25)')]
               ].map(([val, label, sub], i) => (
                 <div key={i} className="bg-white rounded-xl border border-gray-200 p-6">
                   <div className="text-sm text-gray-500 mb-2">{label}</div>
@@ -320,14 +321,14 @@ export default function ViewDepartment() {
 
             {/* Department Info + HoD */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
+              <div className={`lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
                 <h3 className="text-base font-semibold text-gray-900 mb-5">{t('academic.departments.departmentInfo', 'Department Information')}</h3>
                 <div className="grid grid-cols-2 gap-5">
                   {[
                     [t('departmentsForm.nameEn'), getLocalizedName(department, isRTL)],
                     [t('departmentsForm.nameAr'), department?.name_ar],
                     [t('departmentsForm.code'), department?.code],
-                    [t('common.status'), department?.status],
+                    [t('common.status'), t(`common.${department?.status}`, department?.status)],
                     [t('academic.departments.scope', 'Scope'), department?.is_university_wide ? t('academic.departments.universityWide') : t('academic.departments.collegeSpecific')],
                     [t('departmentsForm.college'), getLocalizedName(department?.colleges, isRTL) || (department?.is_university_wide ? t('academic.departments.allColleges') : 'N/A')]
                   ].map(([l, v], i) => (
@@ -344,7 +345,7 @@ export default function ViewDepartment() {
                   </div>
                 )}
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className={`bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
                 <h3 className="text-base font-semibold text-gray-900 mb-5">{t('departmentsForm.head')}</h3>
                 {department?.instructors ? (
                   <>
@@ -357,8 +358,18 @@ export default function ViewDepartment() {
                         <div className="text-sm text-gray-500">{department.instructors.title}</div>
                       </div>
                     </div>
-                    {department.instructors.email && <div className="mb-2"><span className="text-xs text-gray-400">Email:</span> <span className="text-sm">{department.instructors.email}</span></div>}
-                    {department.instructors.phone && <div><span className="text-xs text-gray-400">Phone:</span> <span className="text-sm">{department.instructors.phone}</span></div>}
+                    {department.instructors.email && (
+                      <div className={`mb-2 ${isRTL ? 'flex items-center justify-between' : ''}`}>
+                        <span className="text-xs text-gray-400">{t('common.email')}:</span>
+                        <span className="text-sm" dir="ltr">{department.instructors.email}</span>
+                      </div>
+                    )}
+                    {department.instructors.phone && (
+                      <div className={isRTL ? 'flex items-center justify-between' : ''}>
+                        <span className="text-xs text-gray-400">{t('common.phone')}:</span>
+                        <span className="text-sm" dir="ltr">{department.instructors.phone}</span>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="text-sm text-gray-500 italic">{t('academic.departments.notAssigned')}</div>
@@ -385,13 +396,13 @@ export default function ViewDepartment() {
             </div>
 
             {/* Audit */}
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+            <div className={`bg-gray-50 rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
               <h3 className="text-sm font-semibold text-gray-500 mb-4">{t('academic.departments.auditInfo', 'Audit Information')}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                <div><div className="text-xs text-gray-400">Created By</div><div className="text-sm">{department?.created_by || 'N/A'}</div></div>
-                <div><div className="text-xs text-gray-400">Created Date</div><div className="text-sm">{department?.created_at ? new Date(department.created_at).toLocaleDateString() : 'N/A'}</div></div>
-                <div><div className="text-xs text-gray-400">Last Modified By</div><div className="text-sm">{department?.updated_by || 'N/A'}</div></div>
-                <div><div className="text-xs text-gray-400">Last Modified Date</div><div className="text-sm">{department?.updated_at ? new Date(department.updated_at).toLocaleDateString() : 'N/A'}</div></div>
+                <div><div className="text-xs text-gray-400">{t('academic.departments.createdBy', 'Created By')}</div><div className="text-sm">{department?.created_by || 'N/A'}</div></div>
+                <div><div className="text-xs text-gray-400">{t('academic.departments.createdDate', 'Created Date')}</div><div className="text-sm">{department?.created_at ? new Date(department.created_at).toLocaleDateString() : 'N/A'}</div></div>
+                <div><div className="text-xs text-gray-400">{t('academic.departments.lastModifiedBy', 'Last Modified By')}</div><div className="text-sm">{department?.updated_by || 'N/A'}</div></div>
+                <div><div className="text-xs text-gray-400">{t('academic.departments.lastModifiedDate', 'Last Modified Date')}</div><div className="text-sm">{department?.updated_at ? new Date(department.updated_at).toLocaleDateString() : 'N/A'}</div></div>
               </div>
             </div>
           </div>
@@ -399,25 +410,25 @@ export default function ViewDepartment() {
 
         {activeTab === 'courses' && (
           <div className="p-6">
-            <div className="flex justify-between items-center mb-5">
+            <div className={`flex justify-between items-center mb-5 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <h3 className="text-lg font-semibold text-gray-900">{t('academic.departments.departmentCourses', 'Department Courses')}</h3>
-              <button onClick={() => navigate('/academic/subjects/create')} className="px-4 py-2 bg-primary-gradient text-white rounded-lg text-sm font-medium">+ Add Course</button>
+              <button onClick={() => navigate('/academic/subjects/create')} className="px-4 py-2 bg-primary-gradient text-white rounded-lg text-sm font-medium">{t('academic.departments.addCourse', '+ Add Course')}</button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Course Code</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Course Name</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Credits</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>{t('academic.departments.courseCode', 'Course Code')}</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>{t('academic.departments.courseName', 'Course Name')}</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>{t('academic.departments.credits', 'Credits')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {subjects.map(s => (
                     <tr key={s.id} className="border-b border-gray-100">
-                      <td className="py-4 px-4 font-medium text-gray-900">{s.code}</td>
-                      <td className="py-4 px-4 text-gray-700">{getLocalizedName(s, isRTL)}</td>
-                      <td className="py-4 px-4 text-gray-500">{s.credit_hours}</td>
+                      <td className={`py-4 px-4 font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{s.code}</td>
+                      <td className={`py-4 px-4 text-gray-700 ${isRTL ? 'text-right' : 'text-left'}`}>{getLocalizedName(s, isRTL)}</td>
+                      <td className={`py-4 px-4 text-gray-500 ${isRTL ? 'text-right' : 'text-left'}`}>{s.credit_hours}</td>
                     </tr>
                   ))}
                   {subjects.length === 0 && (
@@ -431,13 +442,13 @@ export default function ViewDepartment() {
 
         {activeTab === 'instructors' && (
           <div className="p-6">
-            <div className="flex justify-between items-center mb-5">
+            <div className={`flex justify-between items-center mb-5 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <h3 className="text-lg font-semibold text-gray-900">{t('academic.departments.departmentInstructors', 'Department Instructors')}</h3>
-              <button onClick={() => navigate('/instructors/create')} className="px-4 py-2 bg-primary-gradient text-white rounded-lg text-sm font-medium">+ Assign Instructor</button>
+              <button onClick={() => navigate('/instructors/create')} className="px-4 py-2 bg-primary-gradient text-white rounded-lg text-sm font-medium">{t('academic.departments.assignInstructor', '+ Assign Instructor')}</button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {instructors.map(inst => (
-                <div key={inst.id} className="p-5 bg-gray-50 rounded-xl border border-gray-200">
+                <div key={inst.id} className={`p-5 bg-gray-50 rounded-xl border border-gray-200 ${isRTL ? 'text-right' : 'text-left'}`}>
                   <div className={`flex items-center gap-3 mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                     <div className="w-12 h-12 bg-primary-gradient rounded-full flex items-center justify-center text-white font-semibold">
                       {getLocalizedName(inst, isRTL)?.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -447,7 +458,7 @@ export default function ViewDepartment() {
                       <div className="text-sm text-gray-500">{inst.title}</div>
                     </div>
                   </div>
-                  <span className={`inline-block px-2 py-1 rounded text-xs ${inst.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{inst.status}</span>
+                  <span className={`inline-block px-2 py-1 rounded text-xs ${inst.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t(`common.${inst.status}`, inst.status)}</span>
                 </div>
               ))}
               {instructors.length === 0 && <div className="col-span-3 text-center py-8 text-gray-500">{t('common.noData')}</div>}
@@ -457,27 +468,27 @@ export default function ViewDepartment() {
 
         {activeTab === 'students' && (
           <div className="p-6">
-            <div className="flex justify-between items-center mb-5">
+            <div className={`flex justify-between items-center mb-5 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <h3 className="text-lg font-semibold text-gray-900">{t('academic.departments.enrolledStudents', 'Enrolled Students')} ({students.length})</h3>
-              <input type="text" placeholder={t('common.search')} className="px-4 py-2 border border-gray-200 rounded-lg text-sm w-64" />
+              <input type="text" placeholder={t('common.search')} className={`px-4 py-2 border border-gray-200 rounded-lg text-sm w-64 ${isRTL ? 'text-right' : 'text-left'}`} />
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b-2 border-gray-200">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Student ID</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Name</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">GPA</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>{t('academic.departments.studentId', 'Student ID')}</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>{t('academic.departments.name', 'Name')}</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>GPA</th>
+                    <th className={`${isRTL ? 'text-right' : 'text-left'} py-3 px-4 text-xs font-semibold text-gray-500 uppercase`}>{t('common.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {students.map(s => (
                     <tr key={s.id} className="border-b border-gray-100">
-                      <td className="py-4 px-4 font-medium text-gray-900">{s.student_id}</td>
-                      <td className="py-4 px-4">{getLocalizedName(s, isRTL)}</td>
-                      <td className="py-4 px-4">{s.gpa || 'N/A'}</td>
-                      <td className="py-4 px-4"><span className={`px-2 py-1 rounded text-xs ${s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{s.status}</span></td>
+                      <td className={`py-4 px-4 font-medium text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{s.student_id}</td>
+                      <td className={`py-4 px-4 ${isRTL ? 'text-right' : 'text-left'}`}>{getLocalizedName(s, isRTL)}</td>
+                      <td className={`py-4 px-4 ${isRTL ? 'text-right' : 'text-left'}`}>{s.gpa || 'N/A'}</td>
+                      <td className={`py-4 px-4 ${isRTL ? 'text-right' : 'text-left'}`}><span className={`px-2 py-1 rounded text-xs ${s.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{t(`common.${s.status}`, s.status)}</span></td>
                     </tr>
                   ))}
                   {students.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-gray-500">{t('common.noData')}</td></tr>}
@@ -489,13 +500,13 @@ export default function ViewDepartment() {
 
         {activeTab === 'performance' && (
           <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-5">{t('academic.departments.performance', 'Performance')}</h3>
+            <h3 className={`text-lg font-semibold text-gray-900 mb-5 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.departments.performance', 'Performance')}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h4 className="font-semibold text-gray-900 mb-4">Grade Distribution</h4>
+              <div className={`bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
+                <h4 className="font-semibold text-gray-900 mb-4">{t('academic.departments.gradeDistribution', 'Grade Distribution')}</h4>
                 <div className="space-y-3">
                   {['A', 'B', 'C', 'D/F'].map((grade, i) => (
-                    <div key={grade} className="flex items-center gap-3">
+                    <div key={grade} className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
                       <div className="w-10 font-semibold text-gray-900">{grade}</div>
                       <div className="flex-1 h-6 bg-gray-200 rounded overflow-hidden">
                         <div className="h-full bg-primary-600" style={{ width: `${[35, 40, 19, 6][i]}%` }} />
@@ -505,14 +516,14 @@ export default function ViewDepartment() {
                   ))}
                 </div>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h4 className="font-semibold text-gray-900 mb-4">Semester Trends</h4>
+              <div className={`bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
+                <h4 className="font-semibold text-gray-900 mb-4">{t('academic.departments.semesterTrends', 'Semester Trends')}</h4>
                 <div className="grid grid-cols-2 gap-4">
                   {[
-                    ['Avg GPA Trend', '+0.15', 'vs last semester', 'green'],
-                    ['Enrollment Trend', '+12%', 'vs last semester', 'blue'],
-                    ['Attendance Trend', '-2%', 'vs last semester', 'amber'],
-                    ['Pass Rate Trend', '+3%', 'vs last semester', 'green']
+                    [t('academic.departments.avgGpaTrend', 'Avg GPA Trend'), '+0.15', t('academic.departments.vsLastSemester', 'vs last semester'), 'green'],
+                    [t('academic.departments.enrollmentTrend', 'Enrollment Trend'), '+12%', t('academic.departments.vsLastSemester', 'vs last semester'), 'blue'],
+                    [t('academic.departments.attendanceTrend', 'Attendance Trend'), '-2%', t('academic.departments.vsLastSemester', 'vs last semester'), 'amber'],
+                    [t('academic.departments.passRateTrend', 'Pass Rate Trend'), '+3%', t('academic.departments.vsLastSemester', 'vs last semester'), 'green']
                   ].map(([l, v, sub, c], i) => (
                     <div key={i} className={`p-4 rounded-xl ${c === 'green' ? 'bg-green-50' : c === 'blue' ? 'bg-blue-50' : 'bg-amber-50'}`}>
                       <div className="text-xs text-gray-600 mb-1">{l}</div>

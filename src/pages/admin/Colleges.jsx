@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
+import { getLocalizedName } from '../../utils/localizedName'
 import { Plus, Building2, Search, MoreVertical, Edit, Trash2, Eye, BarChart3 } from 'lucide-react'
 
 export default function Colleges() {
@@ -31,6 +32,11 @@ export default function Colleges() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getStatusLabel = (status) => {
+    if (!status) return '-'
+    return t(`common.${String(status).toLowerCase()}`, status)
   }
 
   return (
@@ -82,27 +88,33 @@ export default function Colleges() {
                     <Building2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">{college.name_en}</h3>
+                    <h3 className="text-lg font-bold text-gray-900">{getLocalizedName(college, isRTL) || college.name_en}</h3>
                     <p className="text-sm text-gray-500">{college.code}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-2 mb-4">
-                <div className={`flex items-center text-sm text-gray-600 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="font-medium w-24">{t('colleges.email')}:</span>
-                  <span className="truncate">{college.official_email}</span>
-                </div>
-                <div className={`flex items-center text-sm text-gray-600 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="font-medium w-24">{t('colleges.status')}:</span>
+              <div className={`space-y-2 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>
+                <div className={`text-sm text-gray-600 ${isRTL ? 'grid grid-cols-[auto,1fr] items-center gap-x-3' : 'flex items-center justify-start gap-2'}`}>
+                  <span className={`font-medium ${isRTL ? 'col-start-1 text-right' : 'w-24'}`}>{t('colleges.email')}:</span>
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    className={`truncate inline-block ${isRTL ? 'col-start-2 justify-self-start text-left' : ''}`}
+                    dir="ltr"
+                    style={{ unicodeBidi: 'isolate' }}
+                  >
+                    {college.official_email || '-'}
+                  </span>
+                </div>
+                <div className={`text-sm text-gray-600 ${isRTL ? 'grid grid-cols-[auto,1fr] items-center gap-x-3' : 'flex items-center justify-start gap-2'}`}>
+                  <span className={`font-medium ${isRTL ? 'col-start-1 text-right' : 'w-24'}`}>{t('colleges.status')}:</span>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${isRTL ? 'col-start-2 justify-self-start' : ''} ${
                       college.status === 'active'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}
                   >
-                    {college.status}
+                    {getStatusLabel(college.status)}
                   </span>
                 </div>
               </div>
@@ -129,7 +141,3 @@ export default function Colleges() {
     </div>
   )
 }
-
-
-
-

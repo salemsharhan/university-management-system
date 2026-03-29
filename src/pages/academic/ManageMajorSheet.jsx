@@ -396,7 +396,10 @@ export default function ManageMajorSheet() {
     setCourseGroups(prev => {
       const updated = [...prev]
       const courseExists = updated[groupIndex].courses.some(c => c.subject_id === subjectId)
-      if (courseExists) {
+      const courseExistsInOtherGroups = updated.some((group, idx) =>
+        idx !== groupIndex && group.courses.some(c => c.subject_id === subjectId)
+      )
+      if (courseExists || courseExistsInOtherGroups) {
         addingCourseRef.current = false
         return prev
       }
@@ -427,6 +430,10 @@ export default function ManageMajorSheet() {
       return updated
     })
   }
+
+  const selectedSubjectIds = new Set(
+    courseGroups.flatMap(group => group.courses.map(course => course.subject_id)).filter(Boolean)
+  )
 
   const removeCourseFromGroup = (groupIndex, courseIndex) => {
     setCourseGroups(prev => {
@@ -1039,7 +1046,7 @@ export default function ManageMajorSheet() {
                             >
                               <option value="">{t('academic.majors.degreePlanSheet.selectCourse')}</option>
                               {subjects
-                                .filter(s => !group.courses.some(c => c.subject_id === s.id))
+                                .filter(s => !selectedSubjectIds.has(s.id))
                                 .map(subject => (
                                   <option key={subject.id} value={subject.id}>
                                     {subject.code} - {isRTL ? (subject.name_ar || subject.name_en) : subject.name_en} ({subject.credit_hours} {t('academic.majors.degreePlanSheet.credits')})
@@ -1193,4 +1200,3 @@ export default function ManageMajorSheet() {
     </div>
   )
 }
-

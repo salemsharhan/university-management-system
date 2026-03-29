@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
+import { getLocalizedName } from '../../utils/localizedName'
 import { 
   ArrowLeft, 
   Building2, 
@@ -133,7 +134,7 @@ export default function CollegeProfile() {
         case 'students':
           const { data: studentsData } = await supabase
             .from('students')
-            .select('id, student_id, name_en, email, status, enrollment_date')
+            .select('id, student_id, name_en, name_ar, email, status, enrollment_date')
             .eq('college_id', id)
             .order('name_en')
             .limit(50)
@@ -143,7 +144,7 @@ export default function CollegeProfile() {
         case 'instructors':
           const { data: instructorsData } = await supabase
             .from('instructors')
-            .select('id, employee_id, name_en, email, title, status, department_id, departments(name_en)')
+            .select('id, employee_id, name_en, name_ar, email, title, status, department_id, departments(name_en, name_ar)')
             .eq('college_id', id)
             .order('name_en')
             .limit(50)
@@ -163,7 +164,7 @@ export default function CollegeProfile() {
         case 'semesters':
           const { data: semestersData } = await supabase
             .from('semesters')
-            .select('*, academic_years(name_en, code)')
+            .select('*, academic_years(name_en, name_ar, code)')
             .or(`college_id.eq.${id},is_university_wide.eq.true`)
             .order('start_date', { ascending: false })
             .limit(50)
@@ -173,7 +174,7 @@ export default function CollegeProfile() {
         case 'departments':
           const { data: deptsData } = await supabase
             .from('departments')
-            .select('*, faculties(name_en)')
+            .select('*, faculties(name_en, name_ar)')
             .or(`college_id.eq.${id},is_university_wide.eq.true`)
             .eq('status', 'active')
             .order('name_en')
@@ -184,7 +185,7 @@ export default function CollegeProfile() {
         case 'majors':
           const { data: majorsData } = await supabase
             .from('majors')
-            .select('*, faculties(name_en)')
+            .select('*, faculties(name_en, name_ar)')
             .or(`college_id.eq.${id},is_university_wide.eq.true`)
             .eq('status', 'active')
             .order('name_en')
@@ -195,7 +196,7 @@ export default function CollegeProfile() {
         case 'subjects':
           const { data: subjectsData } = await supabase
             .from('subjects')
-            .select('*, majors(name_en, code)')
+            .select('*, majors(name_en, name_ar, code)')
             .or(`college_id.eq.${id},is_university_wide.eq.true`)
             .eq('status', 'active')
             .order('code')
@@ -206,7 +207,7 @@ export default function CollegeProfile() {
         case 'classes':
           const { data: classesData } = await supabase
             .from('classes')
-            .select('*, subjects(name_en, code), semesters(name_en)')
+            .select('*, subjects(name_en, name_ar, code), semesters(name_en, name_ar)')
             .or(`college_id.eq.${id},is_university_wide.eq.true`)
             .eq('status', 'active')
             .order('code')
@@ -217,7 +218,7 @@ export default function CollegeProfile() {
         case 'attendance':
           const { data: sessionsData } = await supabase
             .from('class_sessions')
-            .select('id, session_date, start_time, end_time, classes(code, section, subjects(name_en)))')
+            .select('id, session_date, start_time, end_time, classes(id, code, section, subjects(name_en, name_ar)))')
             .eq('college_id', id)
             .order('session_date', { ascending: false })
             .limit(50)
@@ -225,7 +226,7 @@ export default function CollegeProfile() {
           
           const { data: attendanceData } = await supabase
             .from('attendance')
-            .select('id, date, status, students(name_en, student_id), classes(code, section))')
+            .select('id, date, status, students(name_en, name_ar, student_id), classes(code, section))')
             .eq('college_id', id)
             .order('date', { ascending: false })
             .limit(50)
@@ -279,6 +280,12 @@ export default function CollegeProfile() {
     { id: 'attendance', name: t('colleges.profile.attendance'), icon: Calendar },
     { id: 'settings', name: t('colleges.profile.settings'), icon: Settings },
   ]
+  const collegeName = getLocalizedName(college, isRTL) || college?.name_en || college?.name_ar
+  const altCollegeName = isRTL ? college?.name_en : college?.name_ar
+  const getStatusLabel = (status) => {
+    if (!status) return '-'
+    return t(`common.${String(status).toLowerCase()}`, status)
+  }
 
   return (
     <div className="space-y-6">
@@ -310,17 +317,17 @@ export default function CollegeProfile() {
             <Building2 className="w-12 h-12 text-white" />
           </div>
           <div className="flex-1">
-            <h1 className="text-4xl font-bold text-gray-900">{college.name_en}</h1>
-            {college.name_ar && (
-              <p className="text-2xl text-gray-600 mt-1">{college.name_ar}</p>
+            <h1 className="text-4xl font-bold text-gray-900">{collegeName}</h1>
+            {altCollegeName && (
+              <p className="text-2xl text-gray-600 mt-1" dir={isRTL ? 'ltr' : 'rtl'}>{altCollegeName}</p>
             )}
             <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'} mt-4`}>
               <span className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
-                Code: {college.code}
+                {t('colleges.generalSettings.code', 'Code')}: {college.code}
               </span>
               {college.type && (
                 <span className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium">
-                  Type: {college.type}
+                  {t('colleges.generalSettings.type', 'Type')}: {college.type}
                 </span>
               )}
               {college.abbreviation && (
@@ -335,7 +342,7 @@ export default function CollegeProfile() {
                     : 'bg-gray-100 text-gray-800'
                 }`}
               >
-                {college.status}
+                {getStatusLabel(college.status)}
               </span>
             </div>
           </div>
@@ -374,7 +381,7 @@ export default function CollegeProfile() {
                 <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-blue-100 text-sm">Students</p>
+                      <p className="text-blue-100 text-sm">{t('colleges.profile.students')}</p>
                       <p className="text-3xl font-bold mt-1">{stats.students}</p>
                     </div>
                     <GraduationCap className="w-10 h-10 opacity-80" />
@@ -383,7 +390,7 @@ export default function CollegeProfile() {
                 <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-green-100 text-sm">Instructors</p>
+                      <p className="text-green-100 text-sm">{t('colleges.profile.instructors')}</p>
                       <p className="text-3xl font-bold mt-1">{stats.instructors}</p>
                     </div>
                     <Users className="w-10 h-10 opacity-80" />
@@ -392,7 +399,7 @@ export default function CollegeProfile() {
                 <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-purple-100 text-sm">Academic Years</p>
+                      <p className="text-purple-100 text-sm">{t('colleges.profile.academicYears')}</p>
                       <p className="text-3xl font-bold mt-1">{stats.academicYears}</p>
                     </div>
                     <CalendarDays className="w-10 h-10 opacity-80" />
@@ -401,7 +408,7 @@ export default function CollegeProfile() {
                 <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-orange-100 text-sm">Departments</p>
+                      <p className="text-orange-100 text-sm">{t('colleges.profile.departments')}</p>
                       <p className="text-3xl font-bold mt-1">{stats.departments}</p>
                     </div>
                     <Building2 className="w-10 h-10 opacity-80" />
@@ -417,7 +424,7 @@ export default function CollegeProfile() {
                     {college.official_email && (
                       <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
                         <Mail className="w-5 h-5 text-gray-400" />
-                        <span className="text-gray-700">{college.official_email}</span>
+                        <span className="text-gray-700" dir="ltr">{college.official_email}</span>
                       </div>
                     )}
                     {college.phone_number && (
@@ -522,9 +529,9 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {students.map((student) => (
                   <div key={student.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/students/${student.id}`)}>
-                    <p className="font-semibold text-gray-900">{student.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(student, isRTL) || student.name_en || student.name_ar}</p>
                     <p className="text-sm text-gray-600">{student.student_id}</p>
-                    <p className="text-sm text-gray-600">{student.email}</p>
+                    <p className="text-sm text-gray-600" dir="ltr">{student.email}</p>
                   </div>
                 ))}
               </div>
@@ -545,10 +552,10 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {instructors.map((instructor) => (
                   <div key={instructor.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/instructors/${instructor.id}`)}>
-                    <p className="font-semibold text-gray-900">{instructor.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(instructor, isRTL) || instructor.name_en || instructor.name_ar}</p>
                     <p className="text-sm text-gray-600">{instructor.employee_id}</p>
                     <p className="text-sm text-gray-600 capitalize">{instructor.title}</p>
-                    <p className="text-sm text-gray-600">{instructor.departments?.name_en}</p>
+                    <p className="text-sm text-gray-600">{getLocalizedName(instructor.departments, isRTL) || instructor.departments?.name_en}</p>
                   </div>
                 ))}
               </div>
@@ -570,7 +577,7 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {academicYears.map((year) => (
                   <div key={year.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/academic/years/${year.id}`)}>
-                    <p className="font-semibold text-gray-900">{year.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(year, isRTL) || year.name_en || year.name_ar}</p>
                     <p className="text-sm text-gray-600">{year.code}</p>
                   </div>
                 ))}
@@ -592,7 +599,7 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {semesters.map((semester) => (
                   <div key={semester.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/academic/semesters/${semester.id}`)}>
-                    <p className="font-semibold text-gray-900">{semester.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(semester, isRTL) || semester.name_en || semester.name_ar}</p>
                     <p className="text-sm text-gray-600">{semester.code}</p>
                   </div>
                 ))}
@@ -614,7 +621,7 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {departments.map((dept) => (
                   <div key={dept.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/academic/departments/${dept.id}`)}>
-                    <p className="font-semibold text-gray-900">{dept.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(dept, isRTL) || dept.name_en || dept.name_ar}</p>
                     <p className="text-sm text-gray-600">{dept.code}</p>
                   </div>
                 ))}
@@ -636,7 +643,7 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {majors.map((major) => (
                   <div key={major.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/academic/majors/${major.id}`)}>
-                    <p className="font-semibold text-gray-900">{major.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(major, isRTL) || major.name_en || major.name_ar}</p>
                     <p className="text-sm text-gray-600">{major.code}</p>
                   </div>
                 ))}
@@ -658,7 +665,7 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {subjects.map((subject) => (
                   <div key={subject.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/academic/subjects/${subject.id}`)}>
-                    <p className="font-semibold text-gray-900">{subject.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(subject, isRTL) || subject.name_en || subject.name_ar}</p>
                     <p className="text-sm text-gray-600">{subject.code}</p>
                   </div>
                 ))}
@@ -680,7 +687,7 @@ export default function CollegeProfile() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {classes.map((classItem) => (
                   <div key={classItem.id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/academic/classes/${classItem.id}`)}>
-                    <p className="font-semibold text-gray-900">{classItem.subjects?.name_en}</p>
+                    <p className="font-semibold text-gray-900">{getLocalizedName(classItem.subjects, isRTL) || classItem.subjects?.name_en}</p>
                     <p className="text-sm text-gray-600">{classItem.code}</p>
                   </div>
                 ))}
@@ -712,7 +719,7 @@ export default function CollegeProfile() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-semibold text-gray-900">
-                              {session.classes?.code} - {session.classes?.subjects?.name_en}
+                              {session.classes?.code} - {getLocalizedName(session.classes?.subjects, isRTL) || session.classes?.subjects?.name_en}
                             </p>
                             <p className="text-sm text-gray-600">
                               {new Date(session.session_date).toLocaleDateString()} • {session.start_time} - {session.end_time}
@@ -758,7 +765,7 @@ export default function CollegeProfile() {
                               {new Date(record.date).toLocaleDateString()}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {record.students?.name_en || 'N/A'} ({record.students?.student_id || 'N/A'})
+                              {(getLocalizedName(record.students, isRTL) || 'N/A')} ({record.students?.student_id || 'N/A'})
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {record.classes?.code || 'N/A'}
@@ -770,7 +777,7 @@ export default function CollegeProfile() {
                                 record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-blue-100 text-blue-800'
                               }`}>
-                                {record.status}
+                                {t(`attendance.${record.status}`, t(`common.${record.status}`, record.status))}
                               </span>
                             </td>
                           </tr>
@@ -819,4 +826,3 @@ export default function CollegeProfile() {
     </div>
   )
 }
-

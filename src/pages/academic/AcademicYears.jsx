@@ -274,6 +274,26 @@ export default function AcademicYears() {
         </button>
       </div>
 
+      {/* Current Academic Year Banner */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+        <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} gap-4`}>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
+            <div className="text-xs text-gray-500 mb-1">{t('academic.academicYears.currentAcademicYear')}</div>
+            <div className="text-xl font-bold text-gray-900">
+              {kpis.currentYear ? (getLocalizedName(kpis.currentYear, isRTL) || kpis.currentYear.code) : (t('common.notAvailable') || 'N/A')}
+            </div>
+            {kpis.currentYear?.code && (
+              <div className="text-sm text-gray-500 mt-1">{kpis.currentYear.code}</div>
+            )}
+          </div>
+          {kpis.currentYear && (
+            <span className="px-3 py-1 bg-primary-gradient text-white rounded-full text-xs font-semibold whitespace-nowrap">
+              {t('academic.academicYears.current').toUpperCase()}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Tier 1 KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-5 mb-8">
         {/* Current Academic Year */}
@@ -636,5 +656,4 @@ export default function AcademicYears() {
     </div>
   )
 }
-
 
