@@ -549,39 +549,107 @@
     "department": "القسم",
     "noInstructorsFound": "لم يتم العثور على مدرسين"
   },
-  "enrollments": {
-    "title": "إدارة التسجيلات",
-    "subtitle": "إدارة تسجيلات الطلاب في المقررات",
-    "create": "إضافة تسجيل جديد",
-    "searchPlaceholder": "اسم الطالب أو رقمه...",
-    "allSemesters": "جميع الفصول",
-    "allStatus": "جميع الحالات",
-    "student": "الطالب",
-    "class": "الفصل",
-    "semester": "الفصل الدراسي",
-    "enrollmentDate": "تاريخ التسجيل",
-    "status": "الحالة",
-    "grade": "الدرجة",
-    "actions": "الإجراءات",
-    "createTitle": "إضافة تسجيل جديد",
-    "createSubtitle": "تسجيل طالب في فصل للفصل الدراسي المحدد",
-    "collegeSelectionRequired": "اختيار الكلية مطلوب",
-    "collegeSelectionMessage": "يرجى اختيار كلية قبل المتابعة مع التسجيل",
-    "selectCollege": "اختر الكلية...",
-    "selectSemester": "اختر الفصل الدراسي",
-    "step1": "الخطوة 1 من 4",
-    "step2": "اختر الطالب",
-    "step2Label": "الخطوة 2 من 4",
-    "step3": "اختر الفصل",
-    "step3Label": "الخطوة 3 من 4",
-    "step4": "المراجعة",
-    "step4Label": "الخطوة 4 من 4",
-    "semesterLabel": "الفصل الدراسي *",
-    "semesterHint": "اختر الفصل الدراسي لهذا التسجيل",
-    "back": "رجوع",
-    "next": "التالي",
-    "previous": "السابق"
-  },
+ "enrollments": {
+  "title": "إدارة التسجيلات",
+  "subtitle": "إدارة تسجيل الطلاب في المقررات",
+  "create": "إضافة تسجيل",
+  "searchPlaceholder": "اسم الطالب أو رقمه...",
+  "allSemesters": "جميع الفصول الدراسية",
+  "allStatus": "جميع الحالات",
+  "student": "الطالب",
+  "class": "الشعبة",
+  "semester": "الفصل الدراسي",
+  "enrollmentDate": "تاريخ التسجيل",
+  "status": "الحالة",
+  "grade": "الدرجة",
+  "actions": "الإجراءات",
+
+  "createTitle": "إضافة تسجيل جديد",
+  "createSubtitle": "تسجيل طالب في شعبة للفصل الدراسي المحدد",
+
+  "collegeSelectionRequired": "اختيار الكلية مطلوب",
+  "collegeSelectionMessage": "يرجى اختيار الكلية قبل متابعة عملية التسجيل",
+  "selectedCollege": "الكلية المحددة",
+  "workingWith": "أنت تعمل مع",
+  "selectCollege": "اختر الكلية...",
+
+  "allAcademicYears": "جميع السنوات الأكاديمية",
+  "academicYearHint": "تشمل السنوات الأكاديمية الخاصة بالكلية وعلى مستوى الجامعة",
+
+  "selectSemester": "اختر الفصل الدراسي",
+
+  "step1": "الخطوة 1 من 4",
+  "step2": "اختر الطالب",
+  "step2Label": "الخطوة 2 من 4",
+  "step3": "اختر الشعبة",
+  "step3Label": "الخطوة 3 من 4",
+  "step4": "المراجعة",
+  "step4Label": "الخطوة 4 من 4",
+
+  "semesterLabel": "الفصل الدراسي *",
+  "semesterHint": "اختر الفصل الدراسي لهذا التسجيل",
+
+  "noSessionsAvailable": "لا توجد شُعب متاحة لهذا الفصل الدراسي",
+
+  "enrolling": "جارٍ التسجيل...",
+  "cannotEnroll": "لا يمكن إتمام التسجيل - يرجى تصحيح الأخطاء",
+  "completeEnrollment": "إتمام التسجيل",
+
+  "createdSuccess": "تم إنشاء التسجيل بنجاح! سيتم إعادة التوجيه...",
+  "currentTag": "الحالي",
+
+  "back": "رجوع",
+  "next": "التالي",
+  "previous": "السابق",
+
+  "alreadyEnrolled": "الطالب مسجل بالفعل في هذه الشعبة",
+
+  "bulkEnrollmentTitle": "التسجيل الجماعي - إضافة عدة شُعب",
+  "bulkEnrollmentSubtitle": "إدارة تسجيل الطلاب في المقررات",
+  "backToList": "العودة إلى القائمة",
+
+  "bulkSelectSemester": "اختر الفصل الدراسي",
+  "bulkSelectStudent": "اختر الطالب",
+  "bulkSearchStudent": "ابحث بالاسم أو الرقم الجامعي...",
+
+  "bulkAvailableClasses": "الشُعب المتاحة للفصل الدراسي المحدد",
+  "bulkClasses": "الشُعب",
+  "bulkSearchClass": "ابحث برمز الشعبة أو اسم المقرر...",
+  "bulkAllSubjects": "جميع المقررات",
+
+  "bulkReset": "إعادة تعيين",
+  "bulkAddToCart": "إضافة إلى السلة",
+  "bulkRemove": "إزالة",
+
+  "bulkWeeklySchedule": "معاينة الجدول الأسبوعي",
+
+  "bulkCurrentlyEnrolled": "مسجل حالياً",
+  "bulkSelectedInCart": "المحدد في السلة",
+  "bulkSelectedClasses": "الشُعب المحددة",
+
+  "bulkNoClassesSelected": "لم يتم اختيار أي شُعب بعد",
+  "bulkNoClassesHint": "أضف شُعباً من القائمة للبدء",
+
+  "bulkCredits": "الساعات",
+  "bulkCreditHours": "الساعات المعتمدة",
+
+  "bulkCurrent": "الحالي",
+  "bulkSelected": "المحدد",
+
+  "bulkTotalTuition": "إجمالي الرسوم",
+  "bulkTotalCredits": "إجمالي الساعات",
+
+  "bulkEnrolling": "جارٍ التسجيل...",
+  "bulkEnrollSelected": "تسجيل الشُعب المحددة",
+
+  "bulkCreatedSuccess": "تم إنشاء التسجيلات بنجاح! سيتم إعادة التوجيه...",
+
+  "bulkTimeConflicts": "تم اكتشاف تعارض في الأوقات",
+  "bulkSelectAtLeastOne": "يرجى اختيار شعبة واحدة على الأقل",
+  "bulkSelectSemesterError": "يرجى اختيار فصل دراسي",
+  "bulkSelectStudentError": "يرجى اختيار طالب",
+  "bulkClassFull": "الشعبة ممتلئة"
+},
   "courses": {
     "title": "المقررات",
     "subtitle": "تصفح وإدارة المقررات",

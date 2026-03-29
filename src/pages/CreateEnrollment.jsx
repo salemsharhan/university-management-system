@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { getSemesterCreditsFromUniversitySettings } from '../utils/getCollegeSettings'
+import { getLocalizedName } from '../utils/localizedName'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useCollege } from '../contexts/CollegeContext'
@@ -744,7 +745,7 @@ export default function CreateEnrollment() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date, is_current, academic_year_id')
+        .select('id, name_en, name_ar, code, start_date, end_date, is_current, academic_year_id')
         .order('start_date', { ascending: false })
 
       // Filter by college: college's semesters OR university-wide semesters
@@ -763,7 +764,7 @@ export default function CreateEnrollment() {
     try {
       let query = supabase
         .from('students')
-        .select('id, first_name, last_name, student_id, email, college_id, majors(name_en, code), status')
+        .select('id, first_name, last_name, student_id, email, college_id, majors(name_en, name_ar, code), status')
         .eq('status', 'active')
         .order('first_name')
 
@@ -820,12 +821,14 @@ export default function CreateEnrollment() {
           subjects (
             id,
             name_en,
+            name_ar,
             code,
             credit_hours
           ),
           instructors (
             id,
             name_en,
+            name_ar,
             email
           ),
           class_schedules (
@@ -1086,7 +1089,7 @@ export default function CreateEnrollment() {
               <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'}`}>
                 {requiresCollegeSelection 
                   ? t('enrollments.collegeSelectionMessage')
-                  : `${t('enrollments.workingWith')}: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || 'Unknown'}`}
+                  : `${t('enrollments.workingWith')}: ${getLocalizedName(colleges.find(c => c.id === selectedCollegeId), isRTL) || t('common.unknown')}`}
               </p>
             </div>
             <select
@@ -1102,7 +1105,7 @@ export default function CreateEnrollment() {
               <option value="">{t('enrollments.selectCollege')}</option>
               {colleges.map(college => (
                 <option key={college.id} value={college.id}>
-                  {college.name_en} ({college.code})
+                  {getLocalizedName(college, isRTL)} ({college.code})
                 </option>
               ))}
             </select>
@@ -1175,7 +1178,7 @@ export default function CreateEnrollment() {
                 <option value="">{t('enrollments.allAcademicYears') || 'All Academic Years'}</option>
                 {academicYears.map(year => (
                   <option key={year.id} value={year.id}>
-                    {year.name_en} ({year.code})
+                    {getLocalizedName(year, isRTL)} ({year.code})
                   </option>
                 ))}
               </select>
@@ -1197,7 +1200,7 @@ export default function CreateEnrollment() {
                   : semesters
                 ).map(semester => (
                   <option key={semester.id} value={semester.id}>
-                    {semester.name_en} ({semester.code}) {semester.is_current ? '[Current]' : ''}
+                    {getLocalizedName(semester, isRTL)} ({semester.code}) {semester.is_current ? `[${t('enrollments.currentTag', { defaultValue: 'Current' })}]` : ''}
                   </option>
                 ))}
               </select>
@@ -1265,7 +1268,7 @@ export default function CreateEnrollment() {
                   </div>
                   <div>
                     <span className="text-gray-500">Major:</span>
-                    <span className="ml-2 font-medium">{selectedStudent.majors?.name_en || 'N/A'}</span>
+                    <span className="ml-2 font-medium">{getLocalizedName(selectedStudent.majors, isRTL) || 'N/A'}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Status:</span>
@@ -1391,12 +1394,12 @@ export default function CreateEnrollment() {
                         />
                         <div className="ml-3 flex-1">
                           <div className="font-medium text-gray-900">
-                            {cls.subjects?.code}-{cls.section} - {cls.subjects?.name_en}
+                            {cls.subjects?.code}-{cls.section} - {getLocalizedName(cls.subjects, isRTL)}
                           </div>
                           <div className="text-sm text-gray-600 mt-1">
                             <span className="font-medium">{cls.subjects?.credit_hours || 0} credits</span>
                             {' • '}
-                            <span>Instructor: {cls.instructors?.name_en || 'TBA'}</span>
+                            <span>Instructor: {getLocalizedName(cls.instructors, isRTL) || 'TBA'}</span>
                             {' • '}
                             <span className={available > 0 ? 'text-green-600' : 'text-red-600'}>
                               {available} seats available
@@ -1434,7 +1437,7 @@ export default function CreateEnrollment() {
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <span className="text-gray-500">Subject:</span>
-                            <span className="ml-2 font-medium">{cls.subjects?.name_en}</span>
+                            <span className="ml-2 font-medium">{getLocalizedName(cls.subjects, isRTL)}</span>
                           </div>
                           <div>
                             <span className="text-gray-500">Code:</span>
@@ -1442,7 +1445,7 @@ export default function CreateEnrollment() {
                           </div>
                           <div>
                             <span className="text-gray-500">Instructor:</span>
-                            <span className="ml-2 font-medium">{cls.instructors?.name_en || 'TBA'}</span>
+                            <span className="ml-2 font-medium">{getLocalizedName(cls.instructors, isRTL) || 'TBA'}</span>
                           </div>
                           <div>
                             <span className="text-gray-500">Credit Hours:</span>
@@ -1520,21 +1523,21 @@ export default function CreateEnrollment() {
             <div className="bg-gray-50 rounded-lg p-6 space-y-4">
               <div>
                 <span className="text-sm font-medium text-gray-500">Semester:</span>
-                <p className="text-gray-900">{selectedSemester?.name_en} ({selectedSemester?.code})</p>
+                <p className="text-gray-900">{getLocalizedName(selectedSemester, isRTL)} ({selectedSemester?.code})</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-500">Student:</span>
                 <p className="text-gray-900">{selectedStudent?.first_name} {selectedStudent?.last_name} ({selectedStudent?.student_id})</p>
-                <p className="text-xs text-gray-500 mt-1">Major: {selectedStudent?.majors?.name_en || 'N/A'}</p>
+                <p className="text-xs text-gray-500 mt-1">Major: {getLocalizedName(selectedStudent?.majors, isRTL) || 'N/A'}</p>
               </div>
               <div>
                 <span className="text-sm font-medium text-gray-500">Selected Classes ({selectedClassObjs?.length || 0}):</span>
                 <div className="mt-2 space-y-2">
                   {selectedClassObjs?.map((cls, idx) => (
                     <div key={cls.id} className="p-2 bg-gray-50 rounded border border-gray-200">
-                      <p className="text-gray-900 font-medium">{cls.subjects?.code}-{cls.section} - {cls.subjects?.name_en}</p>
+                      <p className="text-gray-900 font-medium">{cls.subjects?.code}-{cls.section} - {getLocalizedName(cls.subjects, isRTL)}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Credit Hours: {cls.subjects?.credit_hours || 'N/A'} • Instructor: {cls.instructors?.name_en || 'TBA'}
+                        Credit Hours: {cls.subjects?.credit_hours || 'N/A'} • Instructor: {getLocalizedName(cls.instructors, isRTL) || 'TBA'}
                       </p>
                     </div>
                   ))}
@@ -1570,14 +1573,14 @@ export default function CreateEnrollment() {
           className="flex items-center space-x-2 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back</span>
+          <span>{t('enrollments.back')}</span>
         </button>
         {currentStep < steps.length ? (
           <button
             onClick={handleNext}
             className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
           >
-            <span>Next</span>
+            <span>{t('enrollments.next')}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         ) : (
@@ -1594,4 +1597,3 @@ export default function CreateEnrollment() {
     </div>
   )
 }
-

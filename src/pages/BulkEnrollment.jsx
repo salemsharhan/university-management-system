@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useCollege } from '../contexts/CollegeContext'
+import { getLocalizedName } from '../utils/localizedName'
 import { ArrowLeft, ArrowRight, ShoppingCart, Calendar, Search, Plus, X, Eye, Trash2, Check, Save, Loader, Building2 } from 'lucide-react'
 
 export default function BulkEnrollment() {
@@ -100,7 +101,7 @@ export default function BulkEnrollment() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date, status, academic_year_id')
+        .select('id, name_en, name_ar, code, start_date, end_date, status, academic_year_id')
         .order('start_date', { ascending: false })
 
       // Filter by college: show college's semesters OR university-wide
@@ -122,7 +123,7 @@ export default function BulkEnrollment() {
     try {
       let query = supabase
         .from('students')
-        .select('id, first_name, last_name, student_id, email, majors(name_en, code), status')
+        .select('id, first_name, last_name, student_id, email, majors(name_en, name_ar, code), status')
         .eq('status', 'active')
         .order('first_name')
 
@@ -146,7 +147,7 @@ export default function BulkEnrollment() {
     try {
       let query = supabase
         .from('subjects')
-        .select('id, name_en, code')
+        .select('id, name_en, name_ar, code')
         .eq('status', 'active')
         .order('name_en')
 
@@ -175,12 +176,14 @@ export default function BulkEnrollment() {
           subjects (
             id,
             name_en,
+            name_ar,
             code,
             credit_hours
           ),
           instructors (
             id,
             name_en,
+            name_ar,
             email
           ),
           class_schedules (
@@ -199,7 +202,7 @@ export default function BulkEnrollment() {
       }
 
       if (classSearch) {
-        query = query.or(`code.ilike.%${classSearch}%,subjects.name_en.ilike.%${classSearch}%`)
+        query = query.or(`code.ilike.%${classSearch}%,subjects.name_en.ilike.%${classSearch}%,subjects.name_ar.ilike.%${classSearch}%`)
       }
 
       if (subjectFilter !== 'all') {
@@ -528,7 +531,7 @@ export default function BulkEnrollment() {
               <option value="">{t('enrollments.selectCollege')}</option>
               {colleges.map(college => (
                 <option key={college.id} value={college.id}>
-                  {college.name_en} ({college.code})
+                  {getLocalizedName(college, isRTL)} ({college.code})
                 </option>
               ))}
             </select>
@@ -568,7 +571,7 @@ export default function BulkEnrollment() {
                 >
                   <option value="">{t('enrollments.allAcademicYears') || 'All Academic Years'}</option>
                   {academicYears.map(year => (
-                    <option key={year.id} value={year.id}>{year.name_en} ({year.code})</option>
+                    <option key={year.id} value={year.id}>{getLocalizedName(year, isRTL)} ({year.code})</option>
                   ))}
                 </select>
               </div>
@@ -583,14 +586,16 @@ export default function BulkEnrollment() {
                       setFormData(prev => ({ ...prev, semester_id: semester.id.toString() }))
                       setError('')
                     }}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                    className={`w-full ${isRTL ? 'text-right' : 'text-left'} p-4 rounded-lg border-2 transition-all ${
                       formData.semester_id === semester.id.toString()
                         ? 'border-primary-600 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <div className="font-semibold text-gray-900">{semester.name_en}</div>
-                    <div className="text-sm text-gray-500">{semester.code} - {semester.status}</div>
+                    <div className="font-semibold text-gray-900">{getLocalizedName(semester, isRTL)}</div>
+                    <div className="text-sm text-gray-500">
+                      {semester.code} - {t(`common.${semester.status}`, { defaultValue: semester.status })}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -624,7 +629,7 @@ export default function BulkEnrollment() {
                       setFormData(prev => ({ ...prev, student_id: student.id.toString() }))
                       setError('')
                     }}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                    className={`w-full ${isRTL ? 'text-right' : 'text-left'} p-4 rounded-lg border-2 transition-all ${
                       formData.student_id === student.id.toString()
                         ? 'border-primary-600 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300'
@@ -634,7 +639,7 @@ export default function BulkEnrollment() {
                       {student.first_name} {student.last_name}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {student.student_id} • {student.majors?.name_en || 'N/A'}
+                      {student.student_id} • {getLocalizedName(student.majors, isRTL) || 'N/A'}
                     </div>
                   </button>
                 ))}
@@ -679,9 +684,9 @@ export default function BulkEnrollment() {
                   >
                     <option value="all">{t('enrollments.bulkAllSubjects')}</option>
                     {subjects.map(subject => (
-                      <option key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.name_en}
-                      </option>
+                    <option key={subject.id} value={subject.id}>
+                        {subject.code} - {getLocalizedName(subject, isRTL)}
+                    </option>
                     ))}
                   </select>
                   <button
@@ -716,13 +721,13 @@ export default function BulkEnrollment() {
                           : 'border-gray-200'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className={`flex items-start justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <div className="flex-1">
                           <div className="font-semibold text-gray-900">
-                            {classItem.code} - {classItem.subjects?.name_en}
+                            {classItem.code} - {getLocalizedName(classItem.subjects, isRTL)}
                           </div>
                           <div className="text-sm text-gray-600 mt-1">
-                            {classItem.instructors?.name_en || 'TBA'} • {classItem.class_schedules?.[0]?.location || 'TBA'} • {available}/{classItem.capacity} seats
+                            {getLocalizedName(classItem.instructors, isRTL) || 'TBA'} • {classItem.class_schedules?.[0]?.location || 'TBA'} • {available}/{classItem.capacity} seats
                           </div>
                           <div className="text-sm font-medium text-gray-900 mt-2">
                             {classItem.subjects?.credit_hours || 0} Credits • ${((classItem.subjects?.credit_hours || 0) * 500).toFixed(2)}
@@ -733,7 +738,7 @@ export default function BulkEnrollment() {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className={`flex items-center space-x-2 ${isRTL ? 'space-x-reverse mr-4' : 'ml-4'}`}>
                           {!isEnrolled && !isInCart && (
                             <button
                               onClick={() => addToCart(classItem)}
@@ -792,7 +797,7 @@ export default function BulkEnrollment() {
                   <tbody>
                     {times.map(time => (
                       <tr key={time}>
-                        <td className="p-2 text-gray-500 text-right">{time}</td>
+                        <td className={`p-2 text-gray-500 ${isRTL ? 'text-left' : 'text-right'}`}>{time}</td>
                         {days.slice(0, 5).map(day => {
                           const cellData = grid[day]?.[time] || []
                           const enrolled = cellData.find(d => d.type === 'enrolled')
@@ -928,7 +933,7 @@ export default function BulkEnrollment() {
           disabled={currentStep === 1}
           className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <ArrowLeft className="w-4 h-4" />
+          {isRTL ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
           <span>{t('enrollments.previous')}</span>
         </button>
         {currentStep < 3 ? (
@@ -937,11 +942,10 @@ export default function BulkEnrollment() {
             className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all`}
           >
             <span>{t('enrollments.next')}</span>
-            <ArrowRight className="w-4 h-4" />
+            {isRTL ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
           </button>
         ) : null}
       </div>
     </div>
   )
 }
-

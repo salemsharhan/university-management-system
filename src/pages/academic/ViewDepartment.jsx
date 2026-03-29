@@ -257,7 +257,7 @@ export default function ViewDepartment() {
 
       {/* Tabs */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className={`flex border-b border-gray-200 ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div dir={isRTL ? 'rtl' : 'ltr'} className="flex border-b border-gray-200">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -275,7 +275,7 @@ export default function ViewDepartment() {
             {/* Workflow Actions */}
             <div>
               <h3 className={`text-base font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.departments.workflowActions', 'Workflow Actions')}</h3>
-              <div className={`flex flex-wrap gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex flex-wrap gap-3 ${isRTL ? 'justify-end flex-row-reverse' : ''}`}>
                 {department?.status !== 'active' && (
                   <button onClick={() => handleWorkflowAction('activate')} className={`flex items-center gap-2 px-5 py-2.5 bg-green-50 border border-green-200 rounded-xl text-green-700 text-sm font-medium hover:bg-green-100 ${isRTL ? 'flex-row-reverse' : ''}`}>
                     <Check className="w-4 h-4" />
@@ -359,15 +359,15 @@ export default function ViewDepartment() {
                       </div>
                     </div>
                     {department.instructors.email && (
-                      <div className={`mb-2 ${isRTL ? 'flex items-center justify-between' : ''}`}>
-                        <span className="text-xs text-gray-400">{t('common.email')}:</span>
-                        <span className="text-sm" dir="ltr">{department.instructors.email}</span>
+                      <div className={`mb-2 ${isRTL ? 'grid grid-cols-[auto,1fr] items-center gap-x-3' : 'flex items-center gap-2'}`}>
+                        <span className={`text-xs text-gray-400 ${isRTL ? 'col-start-1 text-right' : ''}`}>{t('common.email')}:</span>
+                        <span className={`text-sm ${isRTL ? 'col-start-2 text-left justify-self-start' : ''}`} dir="ltr">{department.instructors.email}</span>
                       </div>
                     )}
                     {department.instructors.phone && (
-                      <div className={isRTL ? 'flex items-center justify-between' : ''}>
-                        <span className="text-xs text-gray-400">{t('common.phone')}:</span>
-                        <span className="text-sm" dir="ltr">{department.instructors.phone}</span>
+                      <div className={isRTL ? 'grid grid-cols-[auto,1fr] items-center gap-x-3' : 'flex items-center gap-2'}>
+                        <span className={`text-xs text-gray-400 ${isRTL ? 'col-start-1 text-right' : ''}`}>{t('common.phone')}:</span>
+                        <span className={`text-sm ${isRTL ? 'col-start-2 text-left justify-self-start' : ''}`} dir="ltr">{department.instructors.phone}</span>
                       </div>
                     )}
                   </>
@@ -501,17 +501,23 @@ export default function ViewDepartment() {
         {activeTab === 'performance' && (
           <div className="p-6">
             <h3 className={`text-lg font-semibold text-gray-900 mb-5 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.departments.performance', 'Performance')}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div dir={isRTL ? 'rtl' : 'ltr'} className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className={`bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
                 <h4 className="font-semibold text-gray-900 mb-4">{t('academic.departments.gradeDistribution', 'Grade Distribution')}</h4>
                 <div className="space-y-3">
                   {['A', 'B', 'C', 'D/F'].map((grade, i) => (
-                    <div key={grade} className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <div className="w-10 font-semibold text-gray-900">{grade}</div>
+                    <div key={grade} className="flex items-center gap-3">
+                      <div className={`w-10 font-semibold text-gray-900 ${isRTL ? 'order-3 text-right' : 'order-1 text-left'}`}>{grade}</div>
                       <div className="flex-1 h-6 bg-gray-200 rounded overflow-hidden">
-                        <div className="h-full bg-primary-600" style={{ width: `${[35, 40, 19, 6][i]}%` }} />
+                        <div
+                          className="h-full bg-primary-600"
+                          style={{
+                            width: `${[35, 40, 19, 6][i]}%`,
+                            marginLeft: isRTL ? 'auto' : 0
+                          }}
+                        />
                       </div>
-                      <div className="w-10 text-sm text-gray-500">{[35, 40, 19, 6][i]}%</div>
+                      <div className={`w-10 text-sm text-gray-500 ${isRTL ? 'order-1 text-left' : 'order-3 text-right'}`} dir="ltr">{[35, 40, 19, 6][i]}%</div>
                     </div>
                   ))}
                 </div>
@@ -527,7 +533,7 @@ export default function ViewDepartment() {
                   ].map(([l, v, sub, c], i) => (
                     <div key={i} className={`p-4 rounded-xl ${c === 'green' ? 'bg-green-50' : c === 'blue' ? 'bg-blue-50' : 'bg-amber-50'}`}>
                       <div className="text-xs text-gray-600 mb-1">{l}</div>
-                      <div className="text-lg font-bold text-gray-900">{v}</div>
+                      <div className="text-lg font-bold text-gray-900" dir="ltr">{v}</div>
                       <div className="text-xs text-gray-500">{sub}</div>
                     </div>
                   ))}
