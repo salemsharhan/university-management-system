@@ -28,6 +28,22 @@ export default function AcademicYears() {
   })
   const [openDropdown, setOpenDropdown] = useState(null)
   const [yearStats, setYearStats] = useState({}) // Store semester and enrollment counts per year
+  const statusTransitions = {
+    draft: 'scheduled',
+    scheduled: 'in_progress',
+    in_progress: 'closing',
+    closing: 'closed',
+    closed: 'archived',
+    archived: null
+  }
+  const statusTranslationKeys = {
+    draft: 'statusDraft',
+    scheduled: 'statusScheduled',
+    in_progress: 'statusInProgress',
+    closing: 'statusClosing',
+    closed: 'statusClosed',
+    archived: 'statusArchived'
+  }
 
   useEffect(() => {
     fetchAcademicYears()
@@ -243,6 +259,12 @@ export default function AcademicYears() {
     setOpenDropdown(openDropdown === id ? null : id)
   }
 
+  const getStatusLabel = (status) => {
+    if (!status) return 'N/A'
+    const translationKey = statusTranslationKeys[status]
+    return translationKey ? t(`academic.academicYears.${translationKey}`) : status
+  }
+
   const handleSetAsCurrent = async (yearId, isUniversityWide, collegeId) => {
     try {
       // First, unset all other current years (respecting scope)
@@ -276,6 +298,106 @@ export default function AcademicYears() {
     } catch (err) {
       console.error('Error setting academic year as current:', err)
       alert(err.message || 'Failed to set academic year as current')
+    }
+  }
+
+  const handleAdvanceStatus = async (year) => {
+    try {
+      const nextStatus = statusTransitions[year.status]
+      if (!nextStatus) return
+      if (!confirm(`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(nextStatus)}?`)) return
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const userEmail = user?.email || null
+
+      const updateData = {
+        status: nextStatus,
+        last_status_change: new Date().toISOString(),
+        last_status_change_by: userEmail,
+        last_status_change_reason: 'advance_status'
+      }
+
+      if (nextStatus === 'closing') {
+        updateData.registration_open = false
+      }
+      if (nextStatus === 'closed' || nextStatus === 'archived') {
+        updateData.registration_open = false
+        updateData.grade_entry_allowed = false
+        updateData.attendance_editing_allowed = false
+        updateData.financial_posting_allowed = false
+        updateData.is_current = false
+      }
+
+      const { error } = await supabase
+        .from('academic_years')
+        .update(updateData)
+        .eq('id', year.id)
+
+      if (error) throw error
+      await fetchAcademicYears()
+      setOpenDropdown(null)
+    } catch (err) {
+      console.error('Error advancing academic year status:', err)
+      alert(err.message || 'Failed to advance status')
+    }
+  }
+
+  const handleCloneYear = async (year) => {
+    try {
+      if (!confirm(t('academic.academicYears.cloneConfirm', 'Create a draft copy of this academic year?'))) return
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const userEmail = user?.email || null
+
+      let cloneCode = `${year.code}-copy`
+      let counter = 1
+      while (true) {
+        const { data: existing } = await supabase
+          .from('academic_years')
+          .select('id')
+          .eq('code', cloneCode)
+          .maybeSingle()
+
+        if (!existing) break
+        cloneCode = `${year.code}-copy-${counter}`
+        counter++
+      }
+
+      const cloneData = {
+        name_en: `${year.name_en} (Copy)`,
+        name_ar: year.name_ar ? `${year.name_ar} (نسخة)` : null,
+        code: cloneCode,
+        start_date: year.start_date,
+        end_date: year.end_date,
+        description: year.description,
+        description_ar: year.description_ar,
+        is_university_wide: year.is_university_wide,
+        college_id: year.college_id,
+        status: 'draft',
+        is_current: false,
+        registration_open: false,
+        grade_entry_allowed: false,
+        attendance_editing_allowed: false,
+        financial_posting_allowed: false,
+        created_by: userEmail
+      }
+
+      const { data: clonedYear, error: cloneError } = await supabase
+        .from('academic_years')
+        .insert(cloneData)
+        .select()
+        .single()
+
+      if (cloneError) throw cloneError
+      setOpenDropdown(null)
+      if (clonedYear?.id) {
+        navigate(`/academic/years/${clonedYear.id}`)
+      } else {
+        fetchAcademicYears()
+      }
+    } catch (err) {
+      console.error('Error cloning academic year:', err)
+      alert(err.message || 'Failed to clone academic year')
     }
   }
 
@@ -612,65 +734,22 @@ export default function AcademicYears() {
                             <span>{t('academic.academicYears.setAsCurrent')}</span>
                           </button>
                         )}
-                        {year.status !== 'closed' && year.status !== 'archived' && (
-                          <>
-                            <button
-                              onClick={() => {
-                                // TODO: Implement close registration
-                                setOpenDropdown(null)
-                              }}
-                              className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 border-b border-gray-100 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
-                            >
-                              <Bell className="w-4 h-4 text-yellow-600" />
-                              <span>{t('academic.academicYears.closeRegistration')}</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                // TODO: Implement lock editing
-                                setOpenDropdown(null)
-                              }}
-                              className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 border-b border-gray-100 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
-                            >
-                              <Lock className="w-4 h-4 text-blue-600" />
-                              <span>{t('academic.academicYears.lockEditing')}</span>
-                            </button>
-                          </>
+                        {statusTransitions[year.status] && (
+                          <button
+                            onClick={() => handleAdvanceStatus(year)}
+                            className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 border-b border-gray-100 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
+                          >
+                            <TrendingUp className="w-4 h-4 text-amber-600" />
+                            <span>{`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(statusTransitions[year.status])}`}</span>
+                          </button>
                         )}
                         <button
-                          onClick={() => {
-                            navigate(`/academic/years/${year.id}`)
-                            // Clone will be handled in ViewAcademicYear
-                            setOpenDropdown(null)
-                          }}
+                          onClick={() => handleCloneYear(year)}
                           className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 border-b border-gray-100 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
                         >
                           <Copy className="w-4 h-4 text-green-600" />
                           <span>{t('academic.academicYears.cloneYear')}</span>
                         </button>
-                        {year.status !== 'closed' && year.status !== 'archived' && (
-                          <button
-                            onClick={() => {
-                              // TODO: Implement close year
-                              setOpenDropdown(null)
-                            }}
-                            className={`w-full text-left px-4 py-3 text-xs text-red-600 hover:bg-red-50 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
-                          >
-                            <XCircle className="w-4 h-4" />
-                            <span>{t('academic.academicYears.closeYear')}</span>
-                          </button>
-                        )}
-                        {(year.status === 'closed' || year.status === 'archived') && (
-                          <button
-                            onClick={() => {
-                              // TODO: Implement archive
-                              setOpenDropdown(null)
-                            }}
-                            className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
-                          >
-                            <Archive className="w-4 h-4 text-gray-500" />
-                            <span>{t('academic.academicYears.archive')}</span>
-                          </button>
-                        )}
                         {year.status === 'draft' && (
                           <button
                             onClick={() => {

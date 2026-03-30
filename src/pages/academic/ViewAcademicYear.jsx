@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../contexts/AuthContext'
 import { 
   ArrowLeft, Edit, CalendarDays, Trash2, Users, FileText, AlertTriangle, 
-  DollarSign, CreditCard, Lock, Copy, XCircle, Archive, Bell, CheckCircle,
+  DollarSign, CreditCard, Copy, CheckCircle,
   TrendingUp
 } from 'lucide-react'
 
@@ -16,7 +15,6 @@ export default function ViewAcademicYear() {
   const { isRTL } = useLanguage()
   const { id } = useParams()
   const navigate = useNavigate()
-  const { userRole } = useAuth()
   const [academicYear, setAcademicYear] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,6 +28,29 @@ export default function ViewAcademicYear() {
     outstandingBalances: 0
   })
   const [updatingFlag, setUpdatingFlag] = useState(null)
+  const [lifecycleLoading, setLifecycleLoading] = useState(false)
+
+  const statusTransitions = {
+    draft: 'scheduled',
+    scheduled: 'in_progress',
+    in_progress: 'closing',
+    closing: 'closed',
+    closed: 'archived',
+    archived: null
+  }
+  const statusTranslationKeys = {
+    draft: 'statusDraft',
+    scheduled: 'statusScheduled',
+    in_progress: 'statusInProgress',
+    closing: 'statusClosing',
+    closed: 'statusClosed',
+    archived: 'statusArchived'
+  }
+
+  const isReadOnlyStatus = ['closed', 'archived'].includes(academicYear?.status)
+  const displayTitleName = isRTL
+    ? (academicYear?.name_ar || '')
+    : (academicYear?.name_en || getLocalizedName(academicYear, isRTL))
 
   useEffect(() => {
     fetchAcademicYear()
@@ -124,22 +145,17 @@ export default function ViewAcademicYear() {
     if (!academicYear) return
 
     setError('') // Clear any previous errors
+    setLifecycleLoading(true)
     try {
       let updateData = {}
       const { data: { user } } = await supabase.auth.getUser()
       const userEmail = user?.email || null
 
       switch (action) {
-        case 'close_registration':
-          updateData = { registration_open: false }
-          break
-        case 'lock_editing':
-          updateData = { 
-            grade_entry_allowed: false,
-            attendance_editing_allowed: false 
+        case 'clone_year': {
+          if (!confirm(t('academic.academicYears.cloneConfirm', 'Create a draft copy of this academic year?'))) {
+            return
           }
-          break
-        case 'clone_year':
           // Clone the academic year - only include fields that should be copied
           // Generate a unique code by checking for existing copies
           let cloneCode = `${academicYear.code}-copy`
@@ -187,13 +203,35 @@ export default function ViewAcademicYear() {
             navigate(`/academic/years/${clonedYear.id}`)
           }
           return
-        case 'close_year':
-          updateData = { status: 'closed' }
+        }
+        case 'advance_status': {
+          const nextStatus = statusTransitions[academicYear.status]
+          if (!nextStatus) return
+          if (!confirm(`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(nextStatus)}?`)) {
+            return
+          }
+
+          updateData = {
+            status: nextStatus
+          }
+
+          // Lifecycle-safe defaults
+          if (nextStatus === 'closing') {
+            updateData.registration_open = false
+          }
+          if (nextStatus === 'closed' || nextStatus === 'archived') {
+            updateData.registration_open = false
+            updateData.grade_entry_allowed = false
+            updateData.attendance_editing_allowed = false
+            updateData.financial_posting_allowed = false
+            updateData.is_current = false
+          }
           break
-        case 'archive':
-          updateData = { status: 'archived' }
-          break
-        case 'set_as_current':
+        }
+        case 'set_as_current': {
+          if (!confirm(t('academic.academicYears.setCurrentConfirm', 'Set this academic year as current?'))) {
+            return
+          }
           // First, unset all other current years (respecting scope)
           let unsetQuery = supabase
             .from('academic_years')
@@ -213,14 +251,17 @@ export default function ViewAcademicYear() {
           if (unsetError) throw unsetError
           
           // Now set this year as current
-          updateData = { is_current: true }
+          // Setting current implicitly activates the year to avoid "current vs in_progress" confusion
+          updateData = { is_current: true, status: 'in_progress' }
           break
+        }
         default:
           return
       }
 
       updateData.last_status_change = new Date().toISOString()
       updateData.last_status_change_by = userEmail
+      updateData.last_status_change_reason = action
 
       const { error } = await supabase
         .from('academic_years')
@@ -232,11 +273,14 @@ export default function ViewAcademicYear() {
     } catch (err) {
       console.error('Error performing lifecycle action:', err)
       setError(err.message || 'Failed to perform action')
+    } finally {
+      setLifecycleLoading(false)
     }
   }
 
   const toggleControlFlag = async (flag) => {
     if (!academicYear) return
+    if (isReadOnlyStatus) return
 
     setUpdatingFlag(flag)
     try {
@@ -276,10 +320,20 @@ export default function ViewAcademicYear() {
     const style = statusMap[status] || statusMap.draft
     return (
       <span className={`px-4 py-1.5 ${style.bg} ${style.text} rounded-full text-xs font-semibold`}>
-        {t(`academic.academicYears.status${status.charAt(0).toUpperCase() + status.slice(1).replace('_', '')}`).toUpperCase()}
+        {getStatusLabel(status).toUpperCase()}
       </span>
     )
   }
+
+  const getStatusLabel = (status) => {
+    if (!status) return 'N/A'
+    const translationKey = statusTranslationKeys[status]
+    return translationKey ? t(`academic.academicYears.${translationKey}`) : status
+  }
+
+  const showSetAsCurrent = !academicYear?.is_current && academicYear?.status === 'scheduled'
+  const nextStatus = academicYear?.status ? statusTransitions[academicYear.status] : null
+  const showAdvanceStatus = Boolean(nextStatus) && !(academicYear?.status === 'scheduled' && showSetAsCurrent)
 
   if (loading) {
     return (
@@ -345,60 +399,77 @@ export default function ViewAcademicYear() {
 
       {/* Academic Year Header Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-6'} mb-8`}>
+        <div
+          dir={isRTL ? 'rtl' : 'ltr'}
+          className={`flex items-start gap-6 mb-8 ${isRTL ? 'text-right' : 'text-left'}`}
+        >
           <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0">
             <CalendarDays className="w-10 h-10 text-white" />
           </div>
           <div className="flex-1">
-            <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-2`}>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {getLocalizedName(academicYear, isRTL)} - {getLocalizedName(academicYear?.colleges, isRTL) || t('academic.academicYears.universityWideLabel')}
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className={`text-3xl font-bold text-gray-900 inline-flex items-baseline ${isRTL ? 'flex-row' : 'flex-row'} gap-2`} dir={isRTL ? 'rtl' : 'ltr'}>
+                <span dir="auto" className="inline-block [unicode-bidi:isolate]">
+                  {displayTitleName}
+                </span>
+                <span>-</span>
+                <span dir="auto" className="inline-block [unicode-bidi:isolate]">
+                  {getLocalizedName(academicYear?.colleges, isRTL) || t('academic.academicYears.universityWideLabel')}
+                </span>
               </h1>
               {getStatusBadge(academicYear?.status)}
             </div>
-            <p className="text-gray-600">{academicYear?.code} - {getLocalizedName(academicYear?.colleges, isRTL) || t('academic.academicYears.universityWideLabel')}</p>
+            <p className={`text-gray-600 inline-flex items-baseline gap-2 ${isRTL ? 'flex-row' : 'flex-row'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+              <span dir="auto" className="inline-block [unicode-bidi:isolate]">{academicYear?.code}</span>
+              <span>-</span>
+              <span dir="auto" className="inline-block [unicode-bidi:isolate]">
+                {getLocalizedName(academicYear?.colleges, isRTL) || t('academic.academicYears.universityWideLabel')}
+              </span>
+            </p>
           </div>
         </div>
 
         {/* Basic Info Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          <div>
-            <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.nameEn')}</div>
-            <div className="text-sm font-semibold text-gray-900">{getLocalizedName(academicYear, isRTL)}</div>
-          </div>
-          <div>
+          {!isRTL && (
+            <div className="text-left">
+              <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.nameEn')}</div>
+              <div className="text-sm font-semibold text-gray-900">{academicYear?.name_en || 'N/A'}</div>
+            </div>
+          )}
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.startDate')}</div>
             <div className="text-sm font-semibold text-gray-900">
               {academicYear?.start_date ? new Date(academicYear.start_date).toLocaleDateString() : 'N/A'}
             </div>
           </div>
-          <div>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.nameAr')}</div>
             <div className="text-sm font-semibold text-gray-900" dir="rtl">
               {academicYear?.name_ar || 'N/A'}
             </div>
           </div>
-          <div>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.endDate')}</div>
             <div className="text-sm font-semibold text-gray-900">
               {academicYear?.end_date ? new Date(academicYear.end_date).toLocaleDateString() : 'N/A'}
             </div>
           </div>
-          <div>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.code')}</div>
             <div className="text-sm font-semibold text-gray-900">{academicYear?.code}</div>
           </div>
-          <div>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.isCurrent')}</div>
             <div className="text-sm font-semibold text-gray-900">
               {academicYear?.is_current ? t('common.yes') : t('common.no')}
             </div>
           </div>
-          <div>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.status')}</div>
-            <div className="text-sm font-semibold text-green-600 capitalize">{academicYear?.status || 'N/A'}</div>
+            <div className="text-sm font-semibold text-green-600 capitalize">{getStatusLabel(academicYear?.status)}</div>
           </div>
-          <div>
+          <div className={isRTL ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-600 mb-1.5">{t('academic.academicYears.scope')}</div>
             <span className="inline-block bg-gray-100 text-gray-700 px-3 py-1 rounded-lg text-xs font-medium">
               {academicYear?.is_university_wide 
@@ -411,26 +482,16 @@ export default function ViewAcademicYear() {
 
       {/* Lifecycle Actions */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-5">{t('academic.academicYears.lifecycleActions')}</h2>
+        <h2 className={`text-lg font-semibold text-gray-900 mb-5 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.academicYears.lifecycleActions')}</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          {t('academic.academicYears.lifecycleHelp')}
+        </p>
         <div className={`flex flex-wrap ${isRTL ? 'space-x-reverse' : 'space-x-3'} gap-3`}>
-          <button
-            onClick={() => handleLifecycleAction('close_registration')}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-lg text-sm font-semibold hover:bg-yellow-100 transition-colors`}
-          >
-            <Bell className="w-4 h-4" />
-            <span>{t('academic.academicYears.closeRegistration')}</span>
-          </button>
-          <button
-            onClick={() => handleLifecycleAction('lock_editing')}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-semibold hover:bg-blue-100 transition-colors`}
-          >
-            <Lock className="w-4 h-4" />
-            <span>{t('academic.academicYears.lockEditing')}</span>
-          </button>
-          {!academicYear?.is_current && (academicYear?.status === 'scheduled' || academicYear?.status === 'in_progress') && (
+          {showSetAsCurrent && (
             <button
               onClick={() => handleLifecycleAction('set_as_current')}
-              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-primary-gradient text-white border border-primary-600 rounded-lg text-sm font-semibold hover:shadow-lg transition-colors`}
+              disabled={lifecycleLoading}
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-primary-gradient text-white border border-primary-600 rounded-lg text-sm font-semibold hover:shadow-lg transition-colors disabled:opacity-50`}
             >
               <CheckCircle className="w-4 h-4" />
               <span>{t('academic.academicYears.setAsCurrent')}</span>
@@ -438,25 +499,22 @@ export default function ViewAcademicYear() {
           )}
           <button
             onClick={() => handleLifecycleAction('clone_year')}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-semibold hover:bg-green-100 transition-colors`}
+            disabled={lifecycleLoading}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-semibold hover:bg-green-100 transition-colors disabled:opacity-50`}
           >
             <Copy className="w-4 h-4" />
             <span>{t('academic.academicYears.cloneYear')}</span>
           </button>
-          <button
-            onClick={() => handleLifecycleAction('close_year')}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors`}
-          >
-            <XCircle className="w-4 h-4" />
-            <span>{t('academic.academicYears.closeAcademicYear')}</span>
-          </button>
-          <button
-            onClick={() => handleLifecycleAction('archive')}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-gray-50 text-gray-600 border border-gray-200 rounded-lg text-sm font-semibold hover:bg-gray-100 transition-colors`}
-          >
-            <Archive className="w-4 h-4" />
-            <span>{t('academic.academicYears.archive')}</span>
-          </button>
+          {showAdvanceStatus && (
+            <button
+              onClick={() => handleLifecycleAction('advance_status')}
+              disabled={lifecycleLoading}
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-5 py-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-sm font-semibold hover:bg-amber-100 transition-colors disabled:opacity-50`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>{`${t('academic.academicYears.moveTo')}: ${getStatusLabel(nextStatus)}`}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -470,10 +528,10 @@ export default function ViewAcademicYear() {
               <Users className={`w-6 h-6 ${academicYear?.registration_open ? 'text-green-600' : 'text-gray-600'}`} />
               <button
                 onClick={() => toggleControlFlag('registration_open')}
-                disabled={updatingFlag === 'registration_open'}
+                disabled={updatingFlag === 'registration_open' || isReadOnlyStatus}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
                   academicYear?.registration_open ? 'bg-green-600' : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className={`absolute top-0.5 ${isRTL ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full transition-transform ${
                   academicYear?.registration_open ? (isRTL ? 'translate-x-0' : 'translate-x-6') : 'translate-x-0'
@@ -496,10 +554,10 @@ export default function ViewAcademicYear() {
               <FileText className={`w-6 h-6 ${academicYear?.grade_entry_allowed ? 'text-green-600' : 'text-gray-600'}`} />
               <button
                 onClick={() => toggleControlFlag('grade_entry_allowed')}
-                disabled={updatingFlag === 'grade_entry_allowed'}
+                disabled={updatingFlag === 'grade_entry_allowed' || isReadOnlyStatus}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
                   academicYear?.grade_entry_allowed ? 'bg-green-600' : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className={`absolute top-0.5 ${isRTL ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full transition-transform ${
                   academicYear?.grade_entry_allowed ? (isRTL ? 'translate-x-0' : 'translate-x-6') : 'translate-x-0'
@@ -522,10 +580,10 @@ export default function ViewAcademicYear() {
               <CheckCircle className={`w-6 h-6 ${academicYear?.attendance_editing_allowed ? 'text-green-600' : 'text-gray-600'}`} />
               <button
                 onClick={() => toggleControlFlag('attendance_editing_allowed')}
-                disabled={updatingFlag === 'attendance_editing_allowed'}
+                disabled={updatingFlag === 'attendance_editing_allowed' || isReadOnlyStatus}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
                   academicYear?.attendance_editing_allowed ? 'bg-green-600' : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className={`absolute top-0.5 ${isRTL ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full transition-transform ${
                   academicYear?.attendance_editing_allowed ? (isRTL ? 'translate-x-0' : 'translate-x-6') : 'translate-x-0'
@@ -548,10 +606,10 @@ export default function ViewAcademicYear() {
               <DollarSign className={`w-6 h-6 ${academicYear?.financial_posting_allowed ? 'text-green-600' : 'text-yellow-600'}`} />
               <button
                 onClick={() => toggleControlFlag('financial_posting_allowed')}
-                disabled={updatingFlag === 'financial_posting_allowed'}
+                disabled={updatingFlag === 'financial_posting_allowed' || isReadOnlyStatus}
                 className={`relative w-12 h-6 rounded-full transition-colors ${
                   academicYear?.financial_posting_allowed ? 'bg-green-600' : 'bg-gray-300'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className={`absolute top-0.5 ${isRTL ? 'right-0.5' : 'left-0.5'} w-5 h-5 bg-white rounded-full transition-transform ${
                   academicYear?.financial_posting_allowed ? (isRTL ? 'translate-x-0' : 'translate-x-6') : 'translate-x-0'
