@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { Calendar, TrendingUp, Users, AlertTriangle, FileText, Clock, CheckCircle, XCircle, BarChart3, PieChart } from 'lucide-react'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 
 export default function ExaminationDashboard() {
-  const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
   const { userRole, collegeId } = useAuth()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -30,6 +33,34 @@ export default function ExaminationDashboard() {
   const [upcomingExams, setUpcomingExams] = useState([])
   const [examTypes, setExamTypes] = useState([])
   const [gradeDistribution, setGradeDistribution] = useState([])
+
+  const isArabicLayout = isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+
+  const getExamTypeLabel = (examType) => {
+    if (!examType) return t('examinations.types.other')
+    const lower = examType.toLowerCase()
+    if (lower.includes('final')) return t('examinations.types.final')
+    if (lower.includes('midterm')) return t('examinations.types.midterm')
+    if (lower.includes('quiz')) return t('examinations.types.quiz')
+    if (lower.includes('assignment')) return t('examinations.types.assignment')
+    if (lower.includes('project')) return t('examinations.types.project')
+    if (lower.includes('lab')) return t('examinations.types.lab')
+    if (lower.includes('oral')) return t('examinations.types.oral')
+    if (lower.includes('practical')) return t('examinations.types.practical')
+    if (lower.includes('other')) return t('examinations.types.other')
+    return examType
+  }
+
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString(isArabicLayout ? 'ar-SA' : 'en-US')
+    } catch {
+      return dateString
+    }
+  }
 
   useEffect(() => {
     fetchDashboardData()
@@ -252,7 +283,8 @@ export default function ExaminationDashboard() {
           classes (
             code,
             subjects (
-              name_en
+              name_en,
+              name_ar
             )
           )
         `)
@@ -282,12 +314,12 @@ export default function ExaminationDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabicLayout ? 'text-right' : 'text-left'}`} dir={isArabicLayout ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Examination Dashboard</h1>
-          <p className="text-gray-600 mt-1">Overview of examination metrics and performance</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('examinations.dashboard.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('examinations.dashboard.subtitle')}</p>
         </div>
       </div>
 
@@ -296,7 +328,7 @@ export default function ExaminationDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Today's Exams</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.todaysExams')}</p>
               <p className="text-3xl font-bold text-gray-900">{stats.todaysExams}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -308,7 +340,7 @@ export default function ExaminationDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Upcoming</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.upcoming')}</p>
               <p className="text-3xl font-bold text-gray-900">{stats.upcoming}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -320,7 +352,7 @@ export default function ExaminationDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Pending Grades</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.pendingGrades')}</p>
               <p className="text-3xl font-bold text-gray-900">{stats.pendingGrades}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -332,7 +364,7 @@ export default function ExaminationDashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Scheduling Conflicts</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.schedulingConflicts')}</p>
               <p className="text-3xl font-bold text-gray-900">{stats.schedulingConflicts}</p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
@@ -345,22 +377,22 @@ export default function ExaminationDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Performance Metrics */}
         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Performance Metrics</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.dashboard.performanceMetrics')}</h2>
           <div className="grid grid-cols-3 gap-6">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Overall Pass Rate</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.overallPassRate')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {stats.overallPassRate !== null ? `${stats.overallPassRate}%` : '--'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Average Score</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.averageScore')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {stats.averageScore !== null ? stats.averageScore : '--'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-gray-600 mb-1">Attendance Rate</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.dashboard.attendanceRate')}</p>
               <p className="text-2xl font-bold text-gray-900">
                 {stats.attendanceRate !== null ? `${stats.attendanceRate}%` : '--'}
               </p>
@@ -370,22 +402,22 @@ export default function ExaminationDashboard() {
 
         {/* Quick Statistics */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Quick Statistics</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.dashboard.quickStatistics')}</h2>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Today's Exams</span>
+              <span className="text-sm text-gray-600">{t('examinations.dashboard.todaysExams')}</span>
               <span className="text-lg font-semibold text-gray-900">{stats.todaysExams}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Pending Grades</span>
+              <span className="text-sm text-gray-600">{t('examinations.dashboard.pendingGrades')}</span>
               <span className="text-lg font-semibold text-gray-900">{stats.pendingGrades}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Makeup Requests</span>
+              <span className="text-sm text-gray-600">{t('examinations.dashboard.makeupRequests')}</span>
               <span className="text-lg font-semibold text-gray-900">{stats.makeupRequests}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Recent Incidents</span>
+              <span className="text-sm text-gray-600">{t('examinations.dashboard.recentIncidents')}</span>
               <span className="text-lg font-semibold text-gray-900">{stats.recentIncidents}</span>
             </div>
           </div>
@@ -395,12 +427,12 @@ export default function ExaminationDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Examination Types */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Examination Types</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.dashboard.examinationTypes')}</h2>
           {examTypes.length > 0 ? (
             <div className="space-y-3">
               {examTypes.map((item, index) => (
                 <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">{item.type}</span>
+                  <span className="text-sm font-medium text-gray-700">{getExamTypeLabel(item.type)}</span>
                   <span className="text-sm text-gray-600">{item.count}</span>
                 </div>
               ))}
@@ -408,14 +440,14 @@ export default function ExaminationDashboard() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <PieChart className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-              <p>No Data Available</p>
+              <p>{t('examinations.dashboard.noDataAvailable')}</p>
             </div>
           )}
         </div>
 
         {/* Grade Distribution */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Grade Distribution</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.dashboard.gradeDistribution')}</h2>
           {gradeDistribution.length > 0 ? (
             <div className="space-y-3">
               {gradeDistribution.map((item, index) => (
@@ -428,7 +460,7 @@ export default function ExaminationDashboard() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <BarChart3 className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-              <p>No Data Available</p>
+              <p>{t('examinations.dashboard.noDataAvailable')}</p>
             </div>
           )}
         </div>
@@ -436,7 +468,7 @@ export default function ExaminationDashboard() {
 
       {/* Upcoming Examinations */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Upcoming</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.dashboard.upcomingExaminations')}</h2>
         {upcomingExams.length > 0 ? (
           <div className="space-y-4">
             {upcomingExams.map((exam) => (
@@ -444,14 +476,14 @@ export default function ExaminationDashboard() {
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900">{exam.exam_name}</h3>
                   <p className="text-sm text-gray-600">
-                    {exam.classes?.code} - {exam.classes?.subjects?.name_en || 'N/A'}
+                    {exam.classes?.code} - {getLocalizedName(exam.classes?.subjects, isArabicLayout) || t('common.notSelected')}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {new Date(exam.exam_date).toLocaleDateString()} • {exam.start_time?.substring(0, 5)} - {exam.end_time?.substring(0, 5)}
+                    {formatDate(exam.exam_date)} • {exam.start_time?.substring(0, 5)} - {exam.end_time?.substring(0, 5)}
                   </p>
                 </div>
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                  {exam.exam_type}
+                  {getExamTypeLabel(exam.exam_type)}
                 </span>
               </div>
             ))}
@@ -459,21 +491,21 @@ export default function ExaminationDashboard() {
         ) : (
           <div className="text-center py-8 text-gray-500">
             <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-            <p>No Examinations Found</p>
+            <p>{t('examinations.dashboard.noExaminationsFound')}</p>
           </div>
         )}
       </div>
 
       {/* Issues & Alerts */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">Issues & Alerts</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.dashboard.issuesAlerts')}</h2>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <span className="text-sm font-medium text-yellow-800">Scheduling Conflicts</span>
+            <span className="text-sm font-medium text-yellow-800">{t('examinations.dashboard.schedulingConflicts')}</span>
             <span className="text-lg font-bold text-yellow-900">{stats.schedulingConflicts}</span>
           </div>
           <div className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
-            <span className="text-sm font-medium text-red-800">Reported Incidents</span>
+            <span className="text-sm font-medium text-red-800">{t('examinations.dashboard.reportedIncidents')}</span>
             <span className="text-lg font-bold text-red-900">{stats.reportedIncidents}</span>
           </div>
         </div>
@@ -481,4 +513,3 @@ export default function ExaminationDashboard() {
     </div>
   )
 }
-
