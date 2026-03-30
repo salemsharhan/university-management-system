@@ -20,6 +20,12 @@ export default function EditAcademicYear() {
   const [collegeId, setCollegeId] = useState(null)
   const [colleges, setColleges] = useState([])
   const [isUniversityWide, setIsUniversityWide] = useState(false)
+  const legacyStatusMap = {
+    planned: 'draft',
+    active: 'in_progress',
+    completed: 'closed'
+  }
+  const normalizeStatus = (status) => legacyStatusMap[status] || status
 
   const [formData, setFormData] = useState({
     name_en: '',
@@ -29,7 +35,7 @@ export default function EditAcademicYear() {
     end_date: '',
     description: '',
     description_ar: '',
-    status: 'planned',
+    status: 'draft',
     is_current: false,
     college_id: null,
     is_university_wide: false,
@@ -95,7 +101,7 @@ export default function EditAcademicYear() {
         end_date: data.end_date || '',
         description: data.description || '',
         description_ar: data.description_ar || '',
-        status: data.status || 'planned',
+        status: normalizeStatus(data.status) || 'draft',
         is_current: data.is_current || false,
         college_id: data.college_id,
         is_university_wide: data.is_university_wide || false,
@@ -314,9 +320,12 @@ export default function EditAcademicYear() {
                     onChange={(e) => handleChange('status', e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="planned">{t('academic.semesters.planned')}</option>
-                    <option value="active">{t('common.active')}</option>
-                    <option value="completed">{t('common.completed')}</option>
+                    <option value="draft">{t('academic.academicYears.statusDraft')}</option>
+                    <option value="scheduled">{t('academic.academicYears.statusScheduled')}</option>
+                    <option value="in_progress">{t('academic.academicYears.statusInProgress')}</option>
+                    <option value="closing">{t('academic.academicYears.statusClosing')}</option>
+                    <option value="closed">{t('academic.academicYears.statusClosed')}</option>
+                    <option value="archived">{t('academic.academicYears.statusArchived')}</option>
                   </select>
                 </div>
                 <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} pt-8`}>
@@ -376,6 +385,5 @@ export default function EditAcademicYear() {
     </div>
   )
 }
-
 
 

@@ -38,6 +38,11 @@ export default function ViewAcademicYear() {
     closed: 'archived',
     archived: null
   }
+  const legacyStatusMap = {
+    planned: 'draft',
+    active: 'in_progress',
+    completed: 'closed'
+  }
   const statusTranslationKeys = {
     draft: 'statusDraft',
     scheduled: 'statusScheduled',
@@ -46,8 +51,10 @@ export default function ViewAcademicYear() {
     closed: 'statusClosed',
     archived: 'statusArchived'
   }
+  const normalizeStatus = (status) => legacyStatusMap[status] || status
 
-  const isReadOnlyStatus = ['closed', 'archived'].includes(academicYear?.status)
+  const normalizedStatus = normalizeStatus(academicYear?.status)
+  const isReadOnlyStatus = ['closed', 'archived'].includes(normalizedStatus)
   const displayTitleName = isRTL
     ? (academicYear?.name_ar || '')
     : (academicYear?.name_en || getLocalizedName(academicYear, isRTL))
@@ -205,7 +212,7 @@ export default function ViewAcademicYear() {
           return
         }
         case 'advance_status': {
-          const nextStatus = statusTransitions[academicYear.status]
+          const nextStatus = statusTransitions[normalizedStatus]
           if (!nextStatus) return
           if (!confirm(`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(nextStatus)}?`)) {
             return
@@ -309,6 +316,7 @@ export default function ViewAcademicYear() {
   }
 
   const getStatusBadge = (status) => {
+    const normalized = normalizeStatus(status)
     const statusMap = {
       draft: { bg: 'bg-gray-100', text: 'text-gray-800' },
       scheduled: { bg: 'bg-blue-100', text: 'text-blue-800' },
@@ -317,23 +325,24 @@ export default function ViewAcademicYear() {
       closed: { bg: 'bg-gray-100', text: 'text-gray-600' },
       archived: { bg: 'bg-gray-50', text: 'text-gray-500' }
     }
-    const style = statusMap[status] || statusMap.draft
+    const style = statusMap[normalized] || statusMap.draft
     return (
       <span className={`px-4 py-1.5 ${style.bg} ${style.text} rounded-full text-xs font-semibold`}>
-        {getStatusLabel(status).toUpperCase()}
+        {getStatusLabel(normalized).toUpperCase()}
       </span>
     )
   }
 
   const getStatusLabel = (status) => {
-    if (!status) return 'N/A'
-    const translationKey = statusTranslationKeys[status]
-    return translationKey ? t(`academic.academicYears.${translationKey}`) : status
+    const normalized = normalizeStatus(status)
+    if (!normalized) return 'N/A'
+    const translationKey = statusTranslationKeys[normalized]
+    return translationKey ? t(`academic.academicYears.${translationKey}`) : normalized
   }
 
-  const showSetAsCurrent = !academicYear?.is_current && academicYear?.status === 'scheduled'
-  const nextStatus = academicYear?.status ? statusTransitions[academicYear.status] : null
-  const showAdvanceStatus = Boolean(nextStatus) && !(academicYear?.status === 'scheduled' && showSetAsCurrent)
+  const showSetAsCurrent = !academicYear?.is_current && ['scheduled', 'in_progress'].includes(normalizedStatus)
+  const nextStatus = normalizedStatus ? statusTransitions[normalizedStatus] : null
+  const showAdvanceStatus = Boolean(nextStatus) && !(normalizedStatus === 'scheduled' && showSetAsCurrent)
 
   if (loading) {
     return (

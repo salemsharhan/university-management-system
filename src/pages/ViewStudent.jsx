@@ -58,14 +58,16 @@ function getInitials(student, isRTL) {
 export default function ViewStudent() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isRTL } = useLanguage()
+  const isArabicLayout = isRTL ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const [student, setStudent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('overview')
   const [enrollmentEligibility, setEnrollmentEligibility] = useState(null)
-  const [checkingEligibility, setCheckingEligibility] = useState(false)
   const [activeSemester, setActiveSemester] = useState(null)
   const [studentDocuments, setStudentDocuments] = useState([])
 
@@ -125,7 +127,6 @@ export default function ViewStudent() {
 
   const checkEnrollmentEligibility = async () => {
     if (!student || !activeSemester) return
-    setCheckingEligibility(true)
     const eligibility = { allowed: true, reasons: [], warnings: [], financialMilestone: null, financialHold: null, outstandingInvoices: [], totalOutstanding: 0 }
     try {
       if (student.status !== 'active') {
@@ -138,7 +139,7 @@ export default function ViewStudent() {
       const financeCheck = checkFinancePermission('SE_REG', milestone, hold)
       if (!financeCheck.allowed) {
         eligibility.allowed = false
-        eligibility.reasons.push(`Financial: ${financeCheck.reason}`)
+        eligibility.reasons.push(`${t('viewStudent.financial')}: ${translateFinanceReason(financeCheck.reason)}`)
       }
       const { data: invoices } = await supabase
         .from('invoices')
@@ -151,18 +152,20 @@ export default function ViewStudent() {
         eligibility.totalOutstanding = invoices.reduce((sum, inv) => sum + parseFloat(inv.pending_amount || 0), 0)
         if (eligibility.totalOutstanding > 0) {
           const milestoneInfo = getMilestoneInfo(milestone)
-          if (milestoneInfo.percentage < 30) eligibility.warnings.push(`Outstanding balance: ${eligibility.totalOutstanding.toFixed(2)}. At least 30% payment required for enrollment.`)
+          if (milestoneInfo.percentage < 30) {
+            eligibility.warnings.push(
+              `${t('viewStudent.outstandingBalance')}: ${eligibility.totalOutstanding.toFixed(2)}. ${t('viewStudent.min30Required')}`
+            )
+          }
         }
       }
       if (hold === 'FHCH') { eligibility.allowed = false; eligibility.reasons.push('Payment chargeback. Contact finance office.') }
       else if (hold === 'FHEX') { eligibility.allowed = false; eligibility.reasons.push('Payment deadline exceeded. Contact finance office.') }
       setEnrollmentEligibility(eligibility)
-    } catch (err) {
+    } catch {
       eligibility.allowed = false
       eligibility.reasons.push('Error checking eligibility.')
       setEnrollmentEligibility(eligibility)
-    } finally {
-      setCheckingEligibility(false)
     }
   }
 
@@ -191,6 +194,24 @@ export default function ViewStudent() {
   const displayNameAr = [student?.first_name_ar, student?.middle_name_ar, student?.last_name_ar].filter(Boolean).join(' ') || student?.name_ar || ''
   const primaryDisplayName = getLocalizedName(student, isRTL) || (isRTL ? (displayNameAr || displayNameEn) : (displayNameEn || displayNameAr)) || '—'
   const secondaryDisplayName = isRTL ? (displayNameEn || null) : (displayNameAr || null)
+  const translateStudyType = (value) => {
+    if (!value) return '—'
+    const normalized = String(value).toLowerCase().replace(/\s+/g, '_')
+    const map = {
+      full_time: t('viewStudent.studyTypeFullTime'),
+      part_time: t('viewStudent.studyTypePartTime'),
+      distance: t('viewStudent.studyTypeDistance'),
+      online: t('viewStudent.studyTypeOnline')
+    }
+    return map[normalized] || String(value).replace(/_/g, ' ')
+  }
+  const translateFinanceReason = (reason) => {
+    if (!reason) return ''
+    if (reason.toLowerCase().includes('at least 30% payment is required')) {
+      return t('viewStudent.financeReasonMin30')
+    }
+    return reason
+  }
 
   return (
     <div className="space-y-0">
@@ -209,13 +230,16 @@ export default function ViewStudent() {
 
       {/* Profile header: compact avatar + name + major (no banner) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className={`flex flex-col sm:flex-row sm:items-center gap-4 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
+        <div
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+          className="flex flex-col sm:flex-row sm:items-center gap-4"
+        >
           <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-xl font-bold text-white shadow-md flex-shrink-0">
             {getInitials(student, isRTL)}
           </div>
-          <div className="flex-1 min-w-0">
+          <div className={`min-w-0 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
             {secondaryDisplayName && (
-              <p className={`text-base text-gray-600 ${isRTL ? 'font-arabic' : ''}`}>{secondaryDisplayName}</p>
+              <p className={`text-base text-gray-600 ${isArabicLayout ? 'font-arabic' : ''}`}>{secondaryDisplayName}</p>
             )}
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5">{primaryDisplayName}</h1>
             <p className="mt-1 text-primary-600 font-medium border-b-2 border-amber-400 pb-0.5 inline-block">
@@ -290,20 +314,22 @@ export default function ViewStudent() {
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-1 border-b border-gray-200 overflow-x-auto">
-          {TABS.map(({ id, labelKey, icon: Icon }) => (
+          {TABS.map((tab) => {
+            const TabIcon = tab.icon
+            return (
             <button
-              key={id}
-              onClick={() => setActiveTab(id)}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-t-lg transition-colors ${
-                activeTab === id
+                activeTab === tab.id
                   ? 'bg-primary-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <Icon className="w-4 h-4" />
-              {t(labelKey)}
+              <TabIcon className="w-4 h-4" />
+              {t(tab.labelKey)}
             </button>
-          ))}
+          )})}
         </div>
 
         {/* Tab content */}
@@ -324,7 +350,7 @@ export default function ViewStudent() {
                   <p className="text-xs text-primary-600 mt-0.5">{t('viewStudent.credits')}</p>
                 </div>
                 <div className="bg-amber-50 text-amber-900 rounded-lg px-3 py-2.5 text-center border border-amber-200">
-                  <p className="text-base font-semibold">{(student?.study_type || 'full_time').replace('_', ' ')}</p>
+                  <p className="text-base font-semibold">{translateStudyType(student?.study_type || 'full_time')}</p>
                   <p className="text-xs text-amber-700 mt-0.5">{t('viewStudent.studyType')}</p>
                 </div>
                 <div className="bg-primary-100 text-primary-800 rounded-lg px-3 py-2.5 text-center border border-primary-200">
@@ -402,7 +428,7 @@ export default function ViewStudent() {
               {[
                 ['major', majorName],
                 ['college', collegeName],
-                ['studyType', (student?.study_type || '—').replace('_', ' ')],
+                ['studyType', translateStudyType(student?.study_type || '—')],
                 ['studyLoad', (student?.study_load || '—').replace('_', ' ')],
                 ['studyApproach', (student?.study_approach || '—').replace('_', ' ')],
                 ['creditHours', student?.credit_hours ?? '—'],
@@ -516,17 +542,17 @@ export default function ViewStudent() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">{t('viewStudent.scholarship')}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">Has scholarship</p><p className="font-medium">{student?.has_scholarship ? t('common.yes') : t('common.no')}</p></div>
-                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">Type</p><p className="font-medium">{student?.scholarship_type || '—'}</p></div>
-                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">Percentage</p><p className="font-medium">{student?.scholarship_percentage != null ? `${student.scholarship_percentage}%` : '—'}</p></div>
+                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.hasScholarship')}</p><p className="font-medium">{student?.has_scholarship ? t('common.yes') : t('common.no')}</p></div>
+                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.type')}</p><p className="font-medium">{student?.scholarship_type || '—'}</p></div>
+                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.percentage')}</p><p className="font-medium">{student?.scholarship_percentage != null ? `${student.scholarship_percentage}%` : '—'}</p></div>
                 </div>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">{t('viewStudent.medical')}</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">Conditions</p><p className="font-medium">{student?.medical_conditions || '—'}</p></div>
-                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">Allergies</p><p className="font-medium">{student?.allergies || '—'}</p></div>
-                  <div className="rounded-xl bg-gray-50 p-4 sm:col-span-2"><p className="text-xs text-gray-500 uppercase">Medications</p><p className="font-medium">{student?.medications || '—'}</p></div>
+                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.conditions')}</p><p className="font-medium">{student?.medical_conditions || '—'}</p></div>
+                  <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.allergies')}</p><p className="font-medium">{student?.allergies || '—'}</p></div>
+                  <div className="rounded-xl bg-gray-50 p-4 sm:col-span-2"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.medications')}</p><p className="font-medium">{student?.medications || '—'}</p></div>
                 </div>
               </div>
               {student?.notes && (

@@ -44,6 +44,12 @@ export default function AcademicYears() {
     closed: 'statusClosed',
     archived: 'statusArchived'
   }
+  const legacyStatusMap = {
+    planned: 'draft',
+    active: 'in_progress',
+    completed: 'closed'
+  }
+  const normalizeStatus = (status) => legacyStatusMap[status] || status
 
   useEffect(() => {
     fetchAcademicYears()
@@ -168,11 +174,12 @@ export default function AcademicYears() {
     const currentYear = yearsArray.find(year => {
       const start = new Date(year.start_date)
       const end = new Date(year.end_date)
-      return year.is_current || (now >= start && now <= end && year.status === 'in_progress')
+      const normalized = normalizeStatus(year.status)
+      return year.is_current || (now >= start && now <= end && normalized === 'in_progress')
     })
 
     const activeYears = yearsArray.filter(year => 
-      ['scheduled', 'in_progress'].includes(year.status)
+      ['scheduled', 'in_progress'].includes(normalizeStatus(year.status))
     ).length
 
     const registrationStatus = currentYear?.registration_open ? 'open' : 'closed'
@@ -202,7 +209,8 @@ export default function AcademicYears() {
     const matchesStatus = (() => {
       if (!statusFilter) return true
 
-      const isReadOnly = year.status === 'closed' || year.status === 'archived'
+      const normalizedStatus = normalizeStatus(year.status)
+      const isReadOnly = normalizedStatus === 'closed' || normalizedStatus === 'archived'
       const isPendingSetup = !year.registration_open &&
         !year.grade_entry_allowed &&
         !year.attendance_editing_allowed &&
@@ -226,13 +234,14 @@ export default function AcademicYears() {
           return isReadOnly
         default:
           // Lifecycle enum statuses from academic_year_status
-          return year.status === statusFilter
+          return normalizedStatus === statusFilter
       }
     })()
     return matchesSearch && matchesStatus
   })
 
   const getStatusBadge = (status) => {
+    const normalized = normalizeStatus(status)
     const statusMap = {
       draft: { bg: 'bg-gray-100', text: 'text-gray-800', label: t('academic.academicYears.statusDraft') },
       scheduled: { bg: 'bg-blue-100', text: 'text-blue-700', label: t('academic.academicYears.statusScheduled') },
@@ -241,10 +250,10 @@ export default function AcademicYears() {
       closed: { bg: 'bg-gray-100', text: 'text-gray-500', label: t('academic.academicYears.statusClosed') },
       archived: { bg: 'bg-gray-50', text: 'text-gray-500', label: t('academic.academicYears.statusArchived') }
     }
-    const style = statusMap[status] || statusMap.draft
+    const style = statusMap[normalized] || statusMap.draft
     return (
       <span className={`px-3 py-1 ${style.bg} ${style.text} rounded-full text-xs font-semibold whitespace-nowrap`}>
-        {style.label.toUpperCase()}
+        {getStatusLabel(normalized).toUpperCase()}
       </span>
     )
   }
@@ -260,9 +269,10 @@ export default function AcademicYears() {
   }
 
   const getStatusLabel = (status) => {
-    if (!status) return 'N/A'
-    const translationKey = statusTranslationKeys[status]
-    return translationKey ? t(`academic.academicYears.${translationKey}`) : status
+    const normalized = normalizeStatus(status)
+    if (!normalized) return 'N/A'
+    const translationKey = statusTranslationKeys[normalized]
+    return translationKey ? t(`academic.academicYears.${translationKey}`) : normalized
   }
 
   const handleSetAsCurrent = async (yearId, isUniversityWide, collegeId) => {
@@ -287,7 +297,7 @@ export default function AcademicYears() {
       // Now set this year as current
       const { error: setError } = await supabase
         .from('academic_years')
-        .update({ is_current: true })
+        .update({ is_current: true, status: 'in_progress' })
         .eq('id', yearId)
       
       if (setError) throw setError
@@ -303,7 +313,7 @@ export default function AcademicYears() {
 
   const handleAdvanceStatus = async (year) => {
     try {
-      const nextStatus = statusTransitions[year.status]
+      const nextStatus = statusTransitions[normalizeStatus(year.status)]
       if (!nextStatus) return
       if (!confirm(`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(nextStatus)}?`)) return
 
@@ -593,7 +603,8 @@ export default function AcademicYears() {
             const stats = yearStats[year.id] || { semesterCount: 0, enrollmentCount: 0 }
             const semesterCount = stats.semesterCount
             const enrollmentCount = stats.enrollmentCount
-            const isClosed = year.status === 'closed' || year.status === 'archived'
+            const normalizedStatus = normalizeStatus(year.status)
+            const isClosed = normalizedStatus === 'closed' || normalizedStatus === 'archived'
 
             return (
               <div
@@ -605,8 +616,8 @@ export default function AcademicYears() {
                 <div className="p-6">
                   <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'} mb-5`}>
                     <div className={`w-14 h-14 ${
-                      year.status === 'in_progress' ? 'bg-primary-gradient' :
-                      year.status === 'scheduled' ? 'bg-gradient-to-br from-blue-500 to-blue-400' :
+                      normalizedStatus === 'in_progress' ? 'bg-primary-gradient' :
+                      normalizedStatus === 'scheduled' ? 'bg-gradient-to-br from-blue-500 to-blue-400' :
                       'bg-gradient-to-br from-gray-400 to-gray-300'
                     } rounded-xl flex items-center justify-center flex-shrink-0`}>
                       <CalendarDays className="w-7 h-7 text-white" />
@@ -622,7 +633,7 @@ export default function AcademicYears() {
                         {t('academic.academicYears.current').toUpperCase()}
                       </span>
                     )}
-                    {!year.is_current && getStatusBadge(year.status)}
+                    {!year.is_current && getStatusBadge(normalizedStatus)}
                   </div>
 
                   {/* Dates Grid */}
@@ -677,13 +688,13 @@ export default function AcademicYears() {
                         {t('academic.academicYears.attendanceEdit')}
                       </span>
                     )}
-                    {!year.registration_open && !year.grade_entry_allowed && !year.attendance_editing_allowed && year.status !== 'closed' && year.status !== 'archived' && (
+                    {!year.registration_open && !year.grade_entry_allowed && !year.attendance_editing_allowed && normalizedStatus !== 'closed' && normalizedStatus !== 'archived' && (
                       <span className={`inline-flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'} bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-md text-xs font-medium`}>
                         <Clock className="w-3 h-3" />
                         {t('academic.academicYears.pendingSetup')}
                       </span>
                     )}
-                    {(year.status === 'closed' || year.status === 'archived') && (
+                    {(normalizedStatus === 'closed' || normalizedStatus === 'archived') && (
                       <span className={`inline-flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'} bg-gray-100 text-gray-500 px-2.5 py-1 rounded-md text-xs font-medium`}>
                         <Lock className="w-3 h-3" />
                         {t('academic.academicYears.readOnly')}
@@ -725,7 +736,7 @@ export default function AcademicYears() {
                     </button>
                     {openDropdown === year.id && (
                       <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} bottom-full mb-1 bg-white rounded-xl shadow-xl min-w-[200px] z-10 overflow-hidden border border-gray-200`}>
-                        {year.status === 'scheduled' && !year.is_current && (
+                        {normalizedStatus === 'scheduled' && !year.is_current && (
                           <button
                             onClick={() => handleSetAsCurrent(year.id, year.is_university_wide, year.college_id)}
                             className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 border-b border-gray-100 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
@@ -734,13 +745,13 @@ export default function AcademicYears() {
                             <span>{t('academic.academicYears.setAsCurrent')}</span>
                           </button>
                         )}
-                        {statusTransitions[year.status] && (
+                        {statusTransitions[normalizedStatus] && (
                           <button
                             onClick={() => handleAdvanceStatus(year)}
                             className={`w-full text-left px-4 py-3 text-xs text-gray-900 hover:bg-gray-50 border-b border-gray-100 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}
                           >
                             <TrendingUp className="w-4 h-4 text-amber-600" />
-                            <span>{`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(statusTransitions[year.status])}`}</span>
+                            <span>{`${t('academic.academicYears.moveTo', 'Move to')}: ${getStatusLabel(statusTransitions[normalizedStatus])}`}</span>
                           </button>
                         )}
                         <button
@@ -750,7 +761,7 @@ export default function AcademicYears() {
                           <Copy className="w-4 h-4 text-green-600" />
                           <span>{t('academic.academicYears.cloneYear')}</span>
                         </button>
-                        {year.status === 'draft' && (
+                        {normalizedStatus === 'draft' && (
                           <button
                             onClick={() => {
                               // TODO: Implement delete
