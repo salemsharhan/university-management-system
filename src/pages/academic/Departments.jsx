@@ -11,13 +11,17 @@ import {
 } from 'lucide-react'
 
 export default function Departments() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isRTL } = useLanguage()
+  const isArabicLayout = isRTL ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
   const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [collegeFilter, setCollegeFilter] = useState('')
   const [kpis, setKpis] = useState({
     activeDepartments: 0,
     withActiveCourses: 0,
@@ -127,7 +131,6 @@ export default function Departments() {
 
   const calculateKPIs = (depts) => {
     const active = (depts || []).filter(d => d.status === 'active').length
-    const total = (depts || []).length
     setKpis({
       activeDepartments: active,
       withActiveCourses: Math.min(active, Math.max(0, Math.round(active * 0.875))),
@@ -146,9 +149,23 @@ export default function Departments() {
 
   const filteredDepartments = departments.filter(dept => {
     const name = getLocalizedName(dept, isRTL)
-    return name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dept.code?.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesCollege = (() => {
+      if (!collegeFilter) return true
+      if (collegeFilter === 'university_wide') return dept.is_university_wide
+      return String(dept.college_id || '') === collegeFilter
+    })()
+
+    return matchesSearch && matchesCollege
   })
+
+  const collegeFilterOptions = [...new Map(
+    departments
+      .filter(d => d.colleges?.id)
+      .map(d => [d.colleges.id, d.colleges])
+  ).values()]
 
   const getStatusBadge = (status) => {
     const map = {
@@ -162,14 +179,17 @@ export default function Departments() {
 
   return (
     <div className="space-y-8">
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div>
+      <div
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+        className="flex items-center justify-between"
+      >
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
           <h1 className="text-3xl font-bold text-gray-900">{t('academic.departments.title')}</h1>
           <p className="text-gray-600 mt-1">{t('academic.departments.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/academic/departments/create')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all`}
+          className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all`}
         >
           <Plus className="w-5 h-5" />
           <span>{t('academic.departments.create')}</span>
@@ -179,7 +199,7 @@ export default function Departments() {
       {/* Tier 1 KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-4`}>
+          <div dir={isArabicLayout ? 'rtl' : 'ltr'} className="flex items-center gap-3 mb-4">
             <div className="w-11 h-11 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
               <Building2 className="w-5 h-5 text-white" />
             </div>
@@ -189,7 +209,7 @@ export default function Departments() {
           <div className="text-xs text-green-600 mt-1">{t('academic.departments.currentlyOffering')}</div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-4`}>
+          <div dir={isArabicLayout ? 'rtl' : 'ltr'} className="flex items-center gap-3 mb-4">
             <div className="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
@@ -199,7 +219,7 @@ export default function Departments() {
           <div className="text-xs text-blue-600 mt-1">{t('academic.departments.contributing')}</div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-4`}>
+          <div dir={isArabicLayout ? 'rtl' : 'ltr'} className="flex items-center gap-3 mb-4">
             <div className="w-11 h-11 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
               <Users className="w-5 h-5 text-white" />
             </div>
@@ -209,7 +229,7 @@ export default function Departments() {
           <div className="text-xs text-green-600 mt-1">↑ 12% {t('academic.departments.vsLastSemester')}</div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-4`}>
+          <div dir={isArabicLayout ? 'rtl' : 'ltr'} className="flex items-center gap-3 mb-4">
             <div className="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center">
               <AlertCircle className="w-5 h-5 text-white" />
             </div>
@@ -219,7 +239,7 @@ export default function Departments() {
           <div className="text-xs text-amber-600 mt-1">{t('academic.departments.needAttention')}</div>
         </div>
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-sm border border-green-200 p-6">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'} mb-4`}>
+          <div dir={isArabicLayout ? 'rtl' : 'ltr'} className="flex items-center gap-3 mb-4">
             <div className="w-11 h-11 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-white" />
             </div>
@@ -241,6 +261,19 @@ export default function Departments() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="flex-1 border-0 outline-none text-sm text-gray-900"
           />
+          <select
+            value={collegeFilter}
+            onChange={(e) => setCollegeFilter(e.target.value)}
+            className={`px-4 py-2 border border-gray-200 rounded-lg text-xs text-gray-600 bg-gray-50 cursor-pointer ${isArabicLayout ? 'text-right' : 'text-left'}`}
+          >
+            <option value="">{t('academic.departments.allColleges', 'All Colleges')}</option>
+            <option value="university_wide">{t('academic.departments.universityWide', 'University-wide')}</option>
+            {collegeFilterOptions.map((college) => (
+              <option key={college.id} value={String(college.id)}>
+                {getLocalizedName(college, isRTL)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -255,9 +288,10 @@ export default function Departments() {
             return (
               <div
                 key={dept.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                dir={isArabicLayout ? 'rtl' : 'ltr'}
+                className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow ${isArabicLayout ? 'text-right' : 'text-left'}`}
               >
-                <div className={`flex items-start ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'} mb-5`}>
+                <div className="flex items-start gap-4 mb-5">
                   <div className="w-14 h-14 bg-primary-gradient rounded-xl flex items-center justify-center flex-shrink-0">
                     <Building2 className="w-7 h-7 text-white" />
                   </div>
@@ -266,7 +300,7 @@ export default function Departments() {
                     <div className="text-sm text-gray-500">{dept.code}</div>
                   </div>
                 </div>
-                <div className={`flex gap-2 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex gap-2 mb-4 ${isArabicLayout ? 'justify-start' : 'justify-start'}`}>
                   {getStatusBadge(dept.status)}
                   <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
                     {dept.is_university_wide ? t('academic.departments.universityWide') : t('academic.departments.collegeSpecific')}
@@ -280,7 +314,7 @@ export default function Departments() {
                 </div>
                 <div className="mb-4">
                   <div className="text-xs text-gray-400 mb-1">{t('departmentsForm.head')}</div>
-                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
+                  <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                     <div className="w-7 h-7 bg-primary-gradient rounded-full flex items-center justify-center text-white text-xs font-semibold">
                       {getLocalizedName(dept.instructors, isRTL) ? getLocalizedName(dept.instructors, isRTL).split(' ').map(n => n[0]).join('').slice(0, 2) : '?'}
                     </div>
@@ -303,7 +337,7 @@ export default function Departments() {
                     <div className="text-xs text-gray-500">{t('academic.departments.students')}</div>
                   </div>
                 </div>
-                <div className={`grid grid-cols-2 gap-3 mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <button
                     onClick={() => navigate(`/academic/departments/${dept.id}`)}
                     className={`flex items-center justify-center gap-1.5 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium`}
@@ -319,7 +353,7 @@ export default function Departments() {
                     {t('academic.departments.edit')}
                   </button>
                 </div>
-                <div className={`grid grid-cols-2 gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => navigate(`/academic/departments/${dept.id}`)}
                     className="flex items-center justify-center gap-1.5 py-2.5 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs font-medium hover:bg-green-100"

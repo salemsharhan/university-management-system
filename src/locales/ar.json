@@ -1711,6 +1711,8 @@
       "create": "إنشاء مادة",
       "searchPlaceholder": "البحث عن المواد...",
       "major": "التخصص",
+      "allMajors": "جميع التخصصات",
+"allColleges": "جميع الكليات",
       "creditHours": "الساعات المعتمدة",
       "type": "النوع",
       "semester": "الفصل",

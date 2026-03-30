@@ -1348,6 +1348,8 @@
       "subtitle": "Manage academic subjects",
       "create": "Create Subject",
       "searchPlaceholder": "Search subjects...",
+      "allMajors": "All Majors",
+      "allColleges": "All Colleges",
       "major": "Major",
       "creditHours": "Credit Hours",
       "type": "Type",

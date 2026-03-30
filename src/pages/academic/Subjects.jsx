@@ -8,13 +8,18 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Plus, BookOpen, Search, Eye, Edit } from 'lucide-react'
 
 export default function Subjects() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isRTL } = useLanguage()
+  const isArabicLayout = isRTL ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [majorFilter, setMajorFilter] = useState('')
+  const [collegeFilter, setCollegeFilter] = useState('')
 
   useEffect(() => {
     fetchSubjects()
@@ -25,7 +30,7 @@ export default function Subjects() {
       setLoading(true)
       let query = supabase
         .from('subjects')
-        .select('*, majors(name_en, name_ar, code)')
+        .select('*, majors(id, name_en, name_ar, code), colleges(id, name_en, name_ar, code)')
         .eq('status', 'active')
         .order('code')
 
@@ -45,20 +50,43 @@ export default function Subjects() {
 
   const filteredSubjects = subjects.filter(subject => {
     const name = getLocalizedName(subject, isRTL)
-    return name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       subject.code.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesMajor = !majorFilter || String(subject.major_id || subject.majors?.id || '') === majorFilter
+    const matchesCollege = (() => {
+      if (!collegeFilter) return true
+      if (collegeFilter === 'university_wide') return subject.is_university_wide
+      return String(subject.college_id || subject.colleges?.id || '') === collegeFilter
+    })()
+
+    return matchesSearch && matchesMajor && matchesCollege
   })
+
+  const majorFilterOptions = [...new Map(
+    subjects
+      .filter(s => s.majors?.id)
+      .map(s => [s.majors.id, s.majors])
+  ).values()]
+
+  const collegeFilterOptions = [...new Map(
+    subjects
+      .filter(s => s.colleges?.id)
+      .map(s => [s.colleges.id, s.colleges])
+  ).values()]
 
   return (
     <div className="space-y-6">
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div>
+      <div
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+        className="flex items-center justify-between"
+      >
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
           <h1 className="text-3xl font-bold text-gray-900">{t('academic.subjects.title')}</h1>
           <p className="text-gray-600 mt-1">{t('academic.subjects.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/academic/subjects/create')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
+          className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
         >
           <Plus className="w-5 h-5" />
           <span>{t('academic.subjects.create')}</span>
@@ -66,15 +94,42 @@ export default function Subjects() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="relative">
-          <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
-          <input
-            type="text"
-            placeholder={t('academic.subjects.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-          />
+        <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : ''} gap-3`}>
+          <div className="relative flex-1">
+            <Search className={`absolute ${isArabicLayout ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
+            <input
+              type="text"
+              placeholder={t('academic.subjects.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`w-full ${isArabicLayout ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+            />
+          </div>
+          <select
+            value={majorFilter}
+            onChange={(e) => setMajorFilter(e.target.value)}
+            className={`px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white ${isArabicLayout ? 'text-right' : 'text-left'}`}
+          >
+            <option value="">{t('academic.subjects.allMajors')}</option>
+            {majorFilterOptions.map((major) => (
+              <option key={major.id} value={String(major.id)}>
+                {getLocalizedName(major, isRTL)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={collegeFilter}
+            onChange={(e) => setCollegeFilter(e.target.value)}
+            className={`px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white ${isArabicLayout ? 'text-right' : 'text-left'}`}
+          >
+            <option value="">{t('academic.subjects.allColleges')}</option>
+            <option value="university_wide">{t('academic.subjects.universityWide')}</option>
+            {collegeFilterOptions.map((college) => (
+              <option key={college.id} value={String(college.id)}>
+                {getLocalizedName(college, isRTL)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -132,5 +187,3 @@ export default function Subjects() {
     </div>
   )
 }
-
-
