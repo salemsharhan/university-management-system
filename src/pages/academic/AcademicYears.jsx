@@ -8,8 +8,11 @@ import { useAuth } from '../../contexts/AuthContext'
 import { Plus, CalendarDays, Search, Eye, Edit, MoreVertical, TrendingUp, Users, Clock, CheckCircle, Calendar, Bell, Lock, Copy, XCircle, Archive } from 'lucide-react'
 
 export default function AcademicYears() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isRTL } = useLanguage()
+  const isArabicLayout = isRTL ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
   const [academicYears, setAcademicYears] = useState([])
@@ -180,7 +183,36 @@ export default function AcademicYears() {
     const name = getLocalizedName(year, isRTL)
     const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       year.code.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = !statusFilter || year.status === statusFilter
+    const matchesStatus = (() => {
+      if (!statusFilter) return true
+
+      const isReadOnly = year.status === 'closed' || year.status === 'archived'
+      const isPendingSetup = !year.registration_open &&
+        !year.grade_entry_allowed &&
+        !year.attendance_editing_allowed &&
+        !year.financial_posting_allowed &&
+        !isReadOnly
+
+      switch (statusFilter) {
+        case 'pending_setup':
+          return isPendingSetup
+        case 'registration_open':
+          return year.registration_open
+        case 'grade_entry_allowed':
+          return year.grade_entry_allowed
+        case 'attendance_editing_allowed':
+          return year.attendance_editing_allowed
+        case 'financial_posting_allowed':
+          return year.financial_posting_allowed
+        case 'current':
+          return year.is_current
+        case 'read_only':
+          return isReadOnly
+        default:
+          // Lifecycle enum statuses from academic_year_status
+          return year.status === statusFilter
+      }
+    })()
     return matchesSearch && matchesStatus
   })
 
@@ -260,14 +292,14 @@ export default function AcademicYears() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className={`flex items-start ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div>
+      <div className="flex items-start justify-between gap-4">
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('academic.academicYears.title')}</h1>
           <p className="text-sm text-gray-500">{t('academic.academicYears.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/academic/years/create')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all`}
+          className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-md hover:shadow-lg transition-all`}
         >
           <Plus className="w-4 h-4" />
           <span>{t('academic.academicYears.create')}</span>
@@ -276,11 +308,11 @@ export default function AcademicYears() {
 
       {/* Current Academic Year Banner */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-        <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} gap-4`}>
-          <div className={isRTL ? 'text-right' : 'text-left'}>
+        <div className="flex items-center justify-between gap-4">
+          <div className={isArabicLayout ? 'text-right' : 'text-left'}>
             <div className="text-xs text-gray-500 mb-1">{t('academic.academicYears.currentAcademicYear')}</div>
             <div className="text-xl font-bold text-gray-900">
-              {kpis.currentYear ? (getLocalizedName(kpis.currentYear, isRTL) || kpis.currentYear.code) : (t('common.notAvailable') || 'N/A')}
+              {kpis.currentYear ? (getLocalizedName(kpis.currentYear, isArabicLayout) || kpis.currentYear.code) : (t('common.notAvailable') || 'N/A')}
             </div>
             {kpis.currentYear?.code && (
               <div className="text-sm text-gray-500 mt-1">{kpis.currentYear.code}</div>
@@ -407,7 +439,7 @@ export default function AcademicYears() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-200 rounded-lg text-xs text-gray-500 bg-gray-50 cursor-pointer"
+            className={`px-4 py-2 border border-gray-200 rounded-lg text-xs text-gray-500 bg-gray-50 cursor-pointer ${isRTL ? 'text-right' : 'text-left'}`}
           >
             <option value="">{t('academic.academicYears.allStatuses')}</option>
             <option value="draft">{t('academic.academicYears.statusDraft')}</option>
@@ -416,6 +448,13 @@ export default function AcademicYears() {
             <option value="closing">{t('academic.academicYears.statusClosing')}</option>
             <option value="closed">{t('academic.academicYears.statusClosed')}</option>
             <option value="archived">{t('academic.academicYears.statusArchived')}</option>
+            <option value="pending_setup">{t('academic.academicYears.pendingSetup')}</option>
+            <option value="registration_open">{t('academic.academicYears.registrationOpen')}</option>
+            <option value="grade_entry_allowed">{t('academic.academicYears.gradeEntryAllowed')}</option>
+            <option value="attendance_editing_allowed">{t('academic.academicYears.attendanceEditing')}</option>
+            <option value="financial_posting_allowed">{t('academic.academicYears.financialPosting')}</option>
+            <option value="current">{t('academic.academicYears.current')}</option>
+            <option value="read_only">{t('academic.academicYears.readOnly')}</option>
           </select>
         </div>
       </div>
@@ -656,4 +695,3 @@ export default function AcademicYears() {
     </div>
   )
 }
-
