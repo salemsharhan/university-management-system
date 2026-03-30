@@ -685,7 +685,130 @@
   },
   "examinations": {
     "title": "الامتحانات",
-    "subtitle": "إدارة الامتحانات"
+    "subtitle": "إدارة الامتحانات",
+    "listSubtitle": "إدارة الامتحانات والتقييمات",
+    "scheduleExam": "جدولة امتحان",
+    "searchPlaceholder": "ابحث بالمقرر أو العنوان...",
+    "loading": "جارٍ تحميل الامتحانات...",
+    "noExamsTitle": "لا توجد امتحانات",
+    "noExamsTryAdjusting": "حاول تعديل البحث أو عوامل التصفية",
+    "noExamsGetStarted": "ابدأ بجدولة أول امتحان",
+    "viewDetails": "عرض التفاصيل",
+    "tba": "غير محدد",
+    "total": "الإجمالي",
+    "passing": "درجة النجاح",
+    "marks": "درجة",
+    "minutesShort": "د",
+    "weight": "الوزن",
+    "filters": {
+      "allTypes": "جميع الأنواع",
+      "allStatus": "جميع الحالات"
+    },
+    "types": {
+      "final": "نهائي",
+      "midterm": "منتصف الفصل",
+      "quiz": "اختبار قصير",
+      "assignment": "واجب",
+      "project": "مشروع",
+      "lab": "امتحان عملي",
+      "oral": "امتحان شفهي",
+      "practical": "تطبيقي",
+      "other": "أخرى"
+    },
+    "statuses": {
+      "scheduled": "مجدول",
+      "ongoing": "جارٍ",
+      "completed": "مكتمل",
+      "cancelled": "ملغي"
+    },
+    "create": {
+      "title": "إنشاء امتحان جديد",
+      "subtitle": "جدولة امتحان جديد للفصل",
+      "collegeSelectionRequired": "يلزم اختيار الكلية",
+      "selectedCollege": "الكلية المحددة",
+      "selectCollegePrompt": "يرجى اختيار الكلية قبل المتابعة في النموذج",
+      "workingWith": "أنت تعمل على",
+      "selectCollegePlaceholder": "اختر الكلية...",
+      "basicInformation": "المعلومات الأساسية",
+      "scheduleInformation": "معلومات الجدولة",
+      "gradingInformation": "معلومات التقييم",
+      "materialsAllowed": "المواد المسموح بها",
+      "examInstructions": "تعليمات الامتحان",
+      "durationMinutes": "المدة (بالدقائق)",
+      "durationHelp": "سيتم حساب المدة تلقائياً بناءً على وقت البداية ووقت النهاية",
+      "instructionsHelp": "أدخل تعليمات للطلاب والمراقبين",
+      "tipsTitle": "نصائح",
+      "tips": {
+        "conflicts": "تأكد من عدم تعارض تاريخ ووقت الامتحان مع امتحانات أخرى مجدولة",
+        "weight": "تمثل نسبة الوزن مقدار مساهمة هذا الامتحان في الدرجة النهائية",
+        "gradingScheme": "يجب أن تتوافق الدرجة الكلية مع نظام التقييم لديك",
+        "clearInstructions": "تساعد التعليمات الواضحة الطلاب على فهم التوقعات والإجراءات"
+      },
+      "fields": {
+        "examName": "اسم الامتحان",
+        "examCode": "رمز الامتحان",
+        "class": "الفصل",
+        "semester": "الفصل الدراسي",
+        "examType": "نوع الامتحان",
+        "description": "الوصف",
+        "examDate": "تاريخ الامتحان",
+        "startTime": "وقت البداية",
+        "endTime": "وقت النهاية",
+        "totalMarks": "الدرجة الكلية",
+        "passingMarks": "درجة النجاح",
+        "weightPercentage": "نسبة الوزن",
+        "allowCalculator": "السماح بالآلة الحاسبة",
+        "allowNotes": "السماح بالملاحظات",
+        "allowTextbook": "السماح بالكتاب",
+        "otherMaterials": "مواد أخرى مسموح بها",
+        "universityWide": "امتحان على مستوى الجامعة"
+      },
+      "placeholders": {
+        "examName": "مثال: اختبار منتصف الفصل - الرياضيات",
+        "examCode": "مثال: MATH-MT-2024",
+        "examType": "اختر نوع الامتحان",
+        "description": "وصف اختياري للامتحان",
+        "instructions": "اكتب تعليمات واضحة حول صيغة الامتحان والقواعد والمتطلبات",
+        "otherMaterials": "اختياري: اذكر مواد إضافية",
+        "selectSemester": "اختر الفصل الدراسي...",
+        "selectClass": "اختر الفصل..."
+      },
+      "actions": {
+        "create": "إنشاء الامتحان",
+        "creating": "جارٍ الإنشاء...",
+        "back": "رجوع"
+      },
+      "messages": {
+        "createdSuccess": "تم إنشاء الامتحان بنجاح! جارٍ التحويل...",
+        "failedToLoadSemesters": "فشل تحميل الفصول الدراسية",
+        "failedToLoadClasses": "فشل تحميل الفصول",
+        "fillRequired": "يرجى تعبئة جميع الحقول المطلوبة",
+        "datePast": "لا يمكن أن يكون تاريخ الامتحان في الماضي",
+        "endAfterStart": "يجب أن يكون وقت النهاية بعد وقت البداية",
+        "totalMarksPositive": "يجب أن تكون الدرجة الكلية أكبر من 0",
+        "passingExceedsTotal": "لا يمكن أن تتجاوز درجة النجاح الدرجة الكلية",
+        "weightRange": "يجب أن تكون نسبة الوزن بين 0 و 100",
+        "collegeIdRequired": "معرّف الكلية مطلوب"
+      }
+    },
+    "conflicts": {
+      "title": "تعارضات الامتحانات",
+      "subtitle": "اكتشاف تعارضات الجدولة ومعالجتها",
+      "critical": "حرج",
+      "high": "مرتفع",
+      "medium": "متوسط",
+      "low": "منخفض",
+      "timeOverlap": "تداخل زمني",
+      "sameClassConflict": "تعارض نفس الفصل",
+      "overlapLabel": "التداخل",
+      "minutes": "دقيقة",
+      "exam1": "امتحان 1",
+      "exam2": "امتحان 2",
+      "editExam1": "تعديل امتحان 1",
+      "editExam2": "تعديل امتحان 2",
+      "noConflictsTitle": "لا توجد تعارضات",
+      "noConflictsSubtitle": "تمت جدولة جميع الامتحانات دون تعارض"
+    }
   },
   "attendance": {
     "dashboard": {

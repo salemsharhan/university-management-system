@@ -1,22 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
-import { ArrowLeft, Save, Calendar, Clock, FileText, BookOpen, Calculator, Building2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Calendar, FileText, BookOpen, Calculator, Building2 } from 'lucide-react'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 
 export default function CreateExamination() {
   const navigate = useNavigate()
-  const { userRole, collegeId: authCollegeId, departmentId } = useAuth()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
+  const isArabicLayout = isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+
   const [classes, setClasses] = useState([])
   const [semesters, setSemesters] = useState([])
-  const [examTypes, setExamTypes] = useState([
+  const [examTypes] = useState([
     'Midterm',
     'Final',
     'Quiz',
@@ -70,7 +80,7 @@ export default function CreateExamination() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date, status')
+        .select('id, name_en, name_ar, code, start_date, end_date, status')
         .order('start_date', { ascending: false })
 
       // For instructors, filter by their college
@@ -85,7 +95,7 @@ export default function CreateExamination() {
       setSemesters(data || [])
     } catch (err) {
       console.error('Error fetching semesters:', err)
-      setError('Failed to load semesters')
+      setError(t('examinations.create.messages.failedToLoadSemesters'))
     }
   }
 
@@ -102,6 +112,7 @@ export default function CreateExamination() {
           subjects (
             id,
             name_en,
+            name_ar,
             code
           )
         `)
@@ -121,7 +132,7 @@ export default function CreateExamination() {
       setClasses(data || [])
     } catch (err) {
       console.error('Error fetching classes:', err)
-      setError('Failed to load classes')
+      setError(t('examinations.create.messages.failedToLoadClasses'))
     }
   }
 
@@ -140,6 +151,21 @@ export default function CreateExamination() {
     return 0
   }
 
+  const getExamTypeLabel = (examType) => {
+    if (!examType) return ''
+    const lower = examType.toLowerCase()
+    if (lower.includes('final')) return t('examinations.types.final')
+    if (lower.includes('midterm')) return t('examinations.types.midterm')
+    if (lower.includes('quiz')) return t('examinations.types.quiz')
+    if (lower.includes('assignment')) return t('examinations.types.assignment')
+    if (lower.includes('project')) return t('examinations.types.project')
+    if (lower.includes('lab')) return t('examinations.types.lab')
+    if (lower.includes('oral')) return t('examinations.types.oral')
+    if (lower.includes('practical')) return t('examinations.types.practical')
+    if (lower.includes('other')) return t('examinations.types.other')
+    return examType
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
@@ -150,7 +176,7 @@ export default function CreateExamination() {
         !formData.semester_id || !formData.exam_type || !formData.exam_date || 
         !formData.start_time || !formData.end_time || !formData.total_marks || 
         !formData.weight_percentage) {
-      setError('Please fill in all required fields')
+      setError(t('examinations.create.messages.fillRequired'))
       return
     }
 
@@ -159,30 +185,30 @@ export default function CreateExamination() {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     if (examDate < today) {
-      setError('Exam date cannot be in the past')
+      setError(t('examinations.create.messages.datePast'))
       return
     }
 
     // Validate times
     if (formData.start_time >= formData.end_time) {
-      setError('End time must be after start time')
+      setError(t('examinations.create.messages.endAfterStart'))
       return
     }
 
     // Validate marks
     if (parseFloat(formData.total_marks) <= 0) {
-      setError('Total marks must be greater than 0')
+      setError(t('examinations.create.messages.totalMarksPositive'))
       return
     }
 
     if (formData.passing_marks && parseFloat(formData.passing_marks) > parseFloat(formData.total_marks)) {
-      setError('Passing marks cannot exceed total marks')
+      setError(t('examinations.create.messages.passingExceedsTotal'))
       return
     }
 
     // Validate weight percentage
     if (parseFloat(formData.weight_percentage) < 0 || parseFloat(formData.weight_percentage) > 100) {
-      setError('Weight percentage must be between 0 and 100')
+      setError(t('examinations.create.messages.weightRange'))
       return
     }
 
@@ -205,7 +231,7 @@ export default function CreateExamination() {
     }
 
     if (!examCollegeId) {
-      setError('College ID is required')
+      setError(t('examinations.create.messages.collegeIdRequired'))
       return
     }
 
@@ -225,7 +251,7 @@ export default function CreateExamination() {
         return 'quiz' // Default fallback
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('examinations')
         .insert({
           // New columns
@@ -268,7 +294,7 @@ export default function CreateExamination() {
       }, 1500)
     } catch (err) {
       console.error('Error creating examination:', err)
-      setError(err.message || 'Failed to create examination')
+      setError(err.message || t('common.error'))
     } finally {
       setLoading(false)
     }
@@ -283,19 +309,23 @@ export default function CreateExamination() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabicLayout ? 'text-right' : 'text-left'}`} dir={isArabicLayout ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
+        <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
           <button
             onClick={() => navigate('/examinations')}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+            {isArabicLayout ? (
+              <ArrowRight className="w-5 h-5 text-gray-600" />
+            ) : (
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            )}
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create New Examination</h1>
-            <p className="text-gray-600 mt-1">Schedule a new examination for your class</p>
+            <h1 className="text-3xl font-bold text-gray-900">{t('examinations.create.title')}</h1>
+            <p className="text-gray-600 mt-1">{t('examinations.create.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -308,7 +338,7 @@ export default function CreateExamination() {
 
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
-          Examination created successfully! Redirecting...
+          {t('examinations.create.messages.createdSuccess')}
         </div>
       )}
 
@@ -316,16 +346,16 @@ export default function CreateExamination() {
         {/* College Selector for Admin - Must be selected first */}
         {userRole === 'admin' && (
           <div className={`rounded-lg p-6 ${requiresCollegeSelection ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-blue-50 border border-blue-200'}`}>
-            <div className="flex items-center space-x-4">
+            <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-4' : 'space-x-4'}`}>
               <Building2 className={`w-6 h-6 ${requiresCollegeSelection ? 'text-yellow-600' : 'text-blue-600'}`} />
               <div className="flex-1">
                 <p className={`text-base font-semibold ${requiresCollegeSelection ? 'text-yellow-900' : 'text-blue-900'}`}>
-                  {requiresCollegeSelection ? 'College Selection Required' : 'Selected College'}
+                  {requiresCollegeSelection ? t('examinations.create.collegeSelectionRequired') : t('examinations.create.selectedCollege')}
                 </p>
                 <p className={`text-sm ${requiresCollegeSelection ? 'text-yellow-700' : 'text-blue-700'}`}>
                   {requiresCollegeSelection 
-                    ? 'Please select a college before proceeding with the form' 
-                    : `You are working with: ${colleges.find(c => c.id === selectedCollegeId)?.name_en || 'Unknown'}`}
+                    ? t('examinations.create.selectCollegePrompt') 
+                    : `${t('examinations.create.workingWith')}: ${getLocalizedName(colleges.find(c => c.id === selectedCollegeId), isArabicLayout) || t('common.unknown')}`}
                 </p>
               </div>
               <select
@@ -338,10 +368,10 @@ export default function CreateExamination() {
                 }`}
                 required
               >
-                <option value="">Select College...</option>
+                <option value="">{t('examinations.create.selectCollegePlaceholder')}</option>
                 {colleges.map(college => (
                   <option key={college.id} value={college.id}>
-                    {college.name_en} ({college.code})
+                    {getLocalizedName(college, isArabicLayout)} ({college.code})
                   </option>
                 ))}
               </select>
@@ -351,19 +381,19 @@ export default function CreateExamination() {
 
         {/* Basic Information */}
         <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Information</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.create.basicInformation')}</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Examination Name *
+                {t('examinations.create.fields.examName')} *
               </label>
               <input
                 type="text"
                 name="exam_name"
                 value={formData.exam_name}
                 onChange={handleChange}
-                placeholder="e.g., Midterm Exam - Mathematics"
+                placeholder={t('examinations.create.placeholders.examName')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 required
                 disabled={requiresCollegeSelection}
@@ -372,14 +402,14 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Exam Code *
+                {t('examinations.create.fields.examCode')} *
               </label>
               <input
                 type="text"
                 name="exam_code"
                 value={formData.exam_code}
                 onChange={handleChange}
-                placeholder="e.g., MATH-MT-2024"
+                placeholder={t('examinations.create.placeholders.examCode')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent uppercase"
                 required
                 disabled={requiresCollegeSelection}
@@ -388,7 +418,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Class *
+                {t('examinations.create.fields.class')} *
               </label>
               <select
                 name="class_id"
@@ -398,10 +428,10 @@ export default function CreateExamination() {
                 required
                 disabled={!formData.semester_id || requiresCollegeSelection}
               >
-                <option value="">Select a class</option>
+                <option value="">{t('examinations.create.placeholders.selectClass')}</option>
                 {classes.map(classItem => (
                   <option key={classItem.id} value={classItem.id}>
-                    {classItem.code} - {classItem.subjects?.name_en || 'N/A'}
+                    {classItem.code} - {getLocalizedName(classItem.subjects, isArabicLayout) || t('common.notSelected')}
                   </option>
                 ))}
               </select>
@@ -409,7 +439,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Semester *
+                {t('examinations.create.fields.semester')} *
               </label>
               <select
                 name="semester_id"
@@ -419,10 +449,10 @@ export default function CreateExamination() {
                 required
                 disabled={requiresCollegeSelection}
               >
-                <option value="">Select a semester</option>
+                <option value="">{t('examinations.create.placeholders.selectSemester')}</option>
                 {semesters.map(semester => (
                   <option key={semester.id} value={semester.id}>
-                    {semester.name_en} ({semester.code})
+                    {getLocalizedName(semester, isArabicLayout)} ({semester.code})
                   </option>
                 ))}
               </select>
@@ -430,7 +460,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Exam Type *
+                {t('examinations.create.fields.examType')} *
               </label>
               <select
                 name="exam_type"
@@ -440,22 +470,22 @@ export default function CreateExamination() {
                 required
                 disabled={requiresCollegeSelection}
               >
-                <option value="">Select exam type</option>
+                <option value="">{t('examinations.create.placeholders.examType')}</option>
                 {examTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                  <option key={type} value={type}>{getExamTypeLabel(type)}</option>
                 ))}
               </select>
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
+                {t('examinations.create.fields.description')}
               </label>
               <textarea
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                placeholder="Optional description of the examination"
+                placeholder={t('examinations.create.placeholders.description')}
                 rows={3}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 disabled={requiresCollegeSelection}
@@ -466,15 +496,15 @@ export default function CreateExamination() {
 
         {/* Schedule Information */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center space-x-2 mb-6">
+          <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} mb-6`}>
             <Calendar className="w-5 h-5 text-gray-600" />
-            <h2 className="text-xl font-bold text-gray-900">Schedule Information</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('examinations.create.scheduleInformation')}</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Exam Date *
+                {t('examinations.create.fields.examDate')} *
               </label>
               <input
                 type="date"
@@ -490,7 +520,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Duration (minutes)
+                {t('examinations.create.durationMinutes')}
               </label>
               <input
                 type="number"
@@ -499,13 +529,13 @@ export default function CreateExamination() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Duration will be automatically calculated based on start and end times
+                {t('examinations.create.durationHelp')}
               </p>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Start Time *
+                {t('examinations.create.fields.startTime')} *
               </label>
               <input
                 type="time"
@@ -520,7 +550,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                End Time *
+                {t('examinations.create.fields.endTime')} *
               </label>
               <input
                 type="time"
@@ -537,15 +567,15 @@ export default function CreateExamination() {
 
         {/* Grading Information */}
         <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} mb-6`}>
             <FileText className="w-5 h-5 text-gray-600" />
-            <h2 className="text-xl font-bold text-gray-900">Grading Information</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('examinations.create.gradingInformation')}</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Total Marks *
+                {t('examinations.create.fields.totalMarks')} *
               </label>
               <input
                 type="number"
@@ -562,7 +592,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Passing Marks (Optional)
+                {t('examinations.create.fields.passingMarks')}
               </label>
               <input
                 type="number"
@@ -579,7 +609,7 @@ export default function CreateExamination() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Weight Percentage *
+                {t('examinations.create.fields.weightPercentage')} *
               </label>
               <div className="relative">
                 <input
@@ -594,7 +624,7 @@ export default function CreateExamination() {
                   required
                   disabled={requiresCollegeSelection}
                 />
-                <span className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500">%</span>
+                <span className={`absolute ${isArabicLayout ? 'left-4' : 'right-4'} top-1/2 transform -translate-y-1/2 text-gray-500`}>%</span>
               </div>
             </div>
           </div>
@@ -602,20 +632,20 @@ export default function CreateExamination() {
 
         {/* Exam Instructions */}
         <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} mb-6`}>
             <BookOpen className="w-5 h-5 text-gray-600" />
-            <h2 className="text-xl font-bold text-gray-900">Exam Instructions</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('examinations.create.examInstructions')}</h2>
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Enter instructions for students and invigilators
+              {t('examinations.create.instructionsHelp')}
             </label>
             <textarea
               name="instructions"
               value={formData.instructions}
               onChange={handleChange}
-              placeholder="Provide clear instructions about the examination format, rules, and requirements"
+              placeholder={t('examinations.create.placeholders.instructions')}
               rows={6}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               disabled={requiresCollegeSelection}
@@ -625,13 +655,13 @@ export default function CreateExamination() {
 
         {/* Allowed Materials */}
         <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 ${requiresCollegeSelection ? 'opacity-50 pointer-events-none' : ''}`}>
-          <div className="flex items-center space-x-2 mb-6">
+          <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} mb-6`}>
             <Calculator className="w-5 h-5 text-gray-600" />
-            <h2 className="text-xl font-bold text-gray-900">Allowed Materials</h2>
+            <h2 className="text-xl font-bold text-gray-900">{t('examinations.create.materialsAllowed')}</h2>
           </div>
           
           <div className="space-y-4">
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
               <input
                 type="checkbox"
                 name="allow_calculator"
@@ -640,10 +670,10 @@ export default function CreateExamination() {
                 className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                 disabled={requiresCollegeSelection}
               />
-              <label className="text-sm font-medium text-gray-700">Allow Calculator</label>
+              <label className="text-sm font-medium text-gray-700">{t('examinations.create.fields.allowCalculator')}</label>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
               <input
                 type="checkbox"
                 name="allow_notes"
@@ -652,10 +682,10 @@ export default function CreateExamination() {
                 className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                 disabled={requiresCollegeSelection}
               />
-              <label className="text-sm font-medium text-gray-700">Allow Notes</label>
+              <label className="text-sm font-medium text-gray-700">{t('examinations.create.fields.allowNotes')}</label>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
               <input
                 type="checkbox"
                 name="allow_textbook"
@@ -664,19 +694,19 @@ export default function CreateExamination() {
                 className="w-5 h-5 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                 disabled={requiresCollegeSelection}
               />
-              <label className="text-sm font-medium text-gray-700">Allow Textbook</label>
+              <label className="text-sm font-medium text-gray-700">{t('examinations.create.fields.allowTextbook')}</label>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Other Allowed Materials
+                {t('examinations.create.fields.otherMaterials')}
               </label>
               <input
                 type="text"
                 name="other_allowed_materials"
                 value={formData.other_allowed_materials}
                 onChange={handleChange}
-                placeholder="Specify other materials students can bring"
+                placeholder={t('examinations.create.placeholders.otherMaterials')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 disabled={requiresCollegeSelection}
               />
@@ -686,38 +716,38 @@ export default function CreateExamination() {
 
         {/* Guidelines */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 mb-2">Guidelines</h3>
+          <h3 className="font-semibold text-blue-900 mb-2">{t('examinations.create.tipsTitle')}</h3>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-            <li>Ensure the exam date and time do not conflict with other scheduled examinations</li>
-            <li>Weight percentage represents how much this exam contributes to the final grade</li>
-            <li>Total marks should match your grading scheme</li>
-            <li>Clear instructions help students understand expectations and procedures</li>
+            <li>{t('examinations.create.tips.conflicts')}</li>
+            <li>{t('examinations.create.tips.weight')}</li>
+            <li>{t('examinations.create.tips.gradingScheme')}</li>
+            <li>{t('examinations.create.tips.clearInstructions')}</li>
           </ul>
         </div>
 
         {/* Submit Button */}
-        <div className="flex items-center justify-end space-x-4">
+        <div className={`flex items-center justify-end ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-4' : 'space-x-4'}`}>
           <button
             type="button"
             onClick={() => navigate('/examinations')}
             className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-3 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className={`px-6 py-3 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
           >
             {loading ? (
               <>
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                <span>Creating...</span>
+                <span>{t('examinations.create.actions.creating')}</span>
               </>
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                <span>Create Examination</span>
+                <span>{t('examinations.create.actions.create')}</span>
               </>
             )}
           </button>
@@ -726,4 +756,3 @@ export default function CreateExamination() {
     </div>
   )
 }
-

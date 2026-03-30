@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { AlertTriangle, Calendar, Clock, MapPin, Users, XCircle, CheckCircle } from 'lucide-react'
+import { AlertTriangle, Calendar, Clock, Users, XCircle, CheckCircle } from 'lucide-react'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 
 export default function ExaminationConflicts() {
   const navigate = useNavigate()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
   const { userRole, collegeId } = useAuth()
   const [loading, setLoading] = useState(true)
   const [conflicts, setConflicts] = useState([])
@@ -15,6 +20,11 @@ export default function ExaminationConflicts() {
     medium: 0,
     low: 0,
   })
+
+  const isArabicLayout = isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
 
   useEffect(() => {
     fetchConflicts()
@@ -40,7 +50,8 @@ export default function ExaminationConflicts() {
             capacity,
             enrolled,
             subjects (
-              name_en
+              name_en,
+              name_ar
             )
           )
         `)
@@ -108,7 +119,7 @@ export default function ExaminationConflicts() {
           }
         })
 
-        Object.entries(classExams).forEach(([key, exams]) => {
+        Object.entries(classExams).forEach(([, exams]) => {
           if (exams.length > 1) {
             exams.forEach((exam1, i) => {
               exams.slice(i + 1).forEach(exam2 => {
@@ -168,6 +179,18 @@ export default function ExaminationConflicts() {
     }
   }
 
+  const getSeverityLabel = (severity) => t(`examinations.conflicts.${severity}`, { defaultValue: severity })
+  const getConflictTypeLabel = (type) => type === 'time_overlap'
+    ? t('examinations.conflicts.timeOverlap')
+    : t('examinations.conflicts.sameClassConflict')
+  const formatDate = (dateString) => {
+    try {
+      return new Date(dateString).toLocaleDateString(isArabicLayout ? 'ar-SA' : 'en-US')
+    } catch {
+      return dateString
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -177,12 +200,12 @@ export default function ExaminationConflicts() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isArabicLayout ? 'text-right' : 'text-left'}`} dir={isArabicLayout ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Examination Conflicts</h1>
-          <p className="text-gray-600 mt-1">Detect and resolve scheduling conflicts</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('examinations.conflicts.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('examinations.conflicts.subtitle')}</p>
         </div>
       </div>
 
@@ -191,7 +214,7 @@ export default function ExaminationConflicts() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Critical</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.conflicts.critical')}</p>
               <p className="text-3xl font-bold text-red-600">{conflictStats.critical}</p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
@@ -203,7 +226,7 @@ export default function ExaminationConflicts() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">High</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.conflicts.high')}</p>
               <p className="text-3xl font-bold text-orange-600">{conflictStats.high}</p>
             </div>
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -215,7 +238,7 @@ export default function ExaminationConflicts() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Medium</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.conflicts.medium')}</p>
               <p className="text-3xl font-bold text-yellow-600">{conflictStats.medium}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -227,7 +250,7 @@ export default function ExaminationConflicts() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Low</p>
+              <p className="text-sm text-gray-600 mb-1">{t('examinations.conflicts.low')}</p>
               <p className="text-3xl font-bold text-blue-600">{conflictStats.low}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -246,81 +269,85 @@ export default function ExaminationConflicts() {
               className={`bg-white rounded-2xl shadow-sm border-2 ${getSeverityColor(conflict.severity)} p-6`}
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
+                <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
                   {getSeverityIcon(conflict.severity)}
                   <div>
                     <h3 className="font-bold text-gray-900 capitalize">
-                      {conflict.severity} {conflict.type === 'time_overlap' ? 'Time Overlap' : 'Same Class Conflict'}
+                      {getSeverityLabel(conflict.severity)} {getConflictTypeLabel(conflict.type)}
                     </h3>
                     {conflict.overlapMinutes && (
                       <p className="text-sm text-gray-600">
-                        Overlap: {conflict.overlapMinutes} minutes
+                        {t('examinations.conflicts.overlapLabel')}: {conflict.overlapMinutes} {t('examinations.conflicts.minutes')}
                       </p>
                     )}
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getSeverityColor(conflict.severity)}`}>
-                  {conflict.severity}
+                  {getSeverityLabel(conflict.severity)}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Exam 1 */}
                 <div className="p-4 bg-white bg-opacity-50 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-3">Exam 1</h4>
+                  <h4 className="font-semibold text-gray-900 mb-3">{t('examinations.conflicts.exam1')}</h4>
                   <div className="space-y-2 text-sm">
                     <p className="font-medium">{conflict.exam1.exam_name}</p>
                     <p className="text-gray-600">{conflict.exam1.exam_code}</p>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} text-gray-600`}>
                       <Calendar className="w-4 h-4" />
-                      <span>{new Date(conflict.exam1.exam_date).toLocaleDateString()}</span>
+                      <span>{formatDate(conflict.exam1.exam_date)}</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} text-gray-600`}>
                       <Clock className="w-4 h-4" />
                       <span>{conflict.exam1.start_time?.substring(0, 5)} - {conflict.exam1.end_time?.substring(0, 5)}</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} text-gray-600`}>
                       <Users className="w-4 h-4" />
-                      <span>{conflict.exam1.classes?.code} - {conflict.exam1.classes?.subjects?.name_en || 'N/A'}</span>
+                      <span>
+                        {conflict.exam1.classes?.code} - {getLocalizedName(conflict.exam1.classes?.subjects, isArabicLayout) || t('common.notSelected')}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Exam 2 */}
                 <div className="p-4 bg-white bg-opacity-50 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-3">Exam 2</h4>
+                  <h4 className="font-semibold text-gray-900 mb-3">{t('examinations.conflicts.exam2')}</h4>
                   <div className="space-y-2 text-sm">
                     <p className="font-medium">{conflict.exam2.exam_name}</p>
                     <p className="text-gray-600">{conflict.exam2.exam_code}</p>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} text-gray-600`}>
                       <Calendar className="w-4 h-4" />
-                      <span>{new Date(conflict.exam2.exam_date).toLocaleDateString()}</span>
+                      <span>{formatDate(conflict.exam2.exam_date)}</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} text-gray-600`}>
                       <Clock className="w-4 h-4" />
                       <span>{conflict.exam2.start_time?.substring(0, 5)} - {conflict.exam2.end_time?.substring(0, 5)}</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-gray-600">
+                    <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'} text-gray-600`}>
                       <Users className="w-4 h-4" />
-                      <span>{conflict.exam2.classes?.code} - {conflict.exam2.classes?.subjects?.name_en || 'N/A'}</span>
+                      <span>
+                        {conflict.exam2.classes?.code} - {getLocalizedName(conflict.exam2.classes?.subjects, isArabicLayout) || t('common.notSelected')}
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-300">
-                <div className="flex items-center justify-end space-x-3">
+                <div className={`flex items-center justify-end ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'}`}>
                   <button
                     onClick={() => navigate(`/examinations/${conflict.exam1.id}/edit`)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm"
                   >
-                    Edit Exam 1
+                    {t('examinations.conflicts.editExam1')}
                   </button>
                   <button
                     onClick={() => navigate(`/examinations/${conflict.exam2.id}/edit`)}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm"
                   >
-                    Edit Exam 2
+                    {t('examinations.conflicts.editExam2')}
                   </button>
                 </div>
               </div>
@@ -330,10 +357,8 @@ export default function ExaminationConflicts() {
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
           <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
-          <h3 className="text-xl font-bold text-gray-900 mb-2">No Conflicts Detected</h3>
-          <p className="text-gray-600">
-            All examinations are scheduled without conflicts
-          </p>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{t('examinations.conflicts.noConflictsTitle')}</h3>
+          <p className="text-gray-600">{t('examinations.conflicts.noConflictsSubtitle')}</p>
         </div>
       )}
     </div>
