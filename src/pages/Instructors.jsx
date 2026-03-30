@@ -1,31 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Search, Plus, MoreVertical, Edit, Trash2, Eye, Mail, Phone } from 'lucide-react'
+import { Search, Plus, Edit, Eye, Mail, Phone, User, Building2, BadgeInfo } from 'lucide-react'
+import { getLocalizedName } from '../utils/localizedName'
 
 export default function Instructors() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { isRTL } = useLanguage()
+  const isArabicLayout = isRTL ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
   const [instructors, setInstructors] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [showActions, setShowActions] = useState(null)
 
-  useEffect(() => {
-    fetchInstructors()
-  }, [collegeId, userRole])
-
-  const fetchInstructors = async () => {
+  const fetchInstructors = useCallback(async () => {
     try {
       setLoading(true)
       let query = supabase
         .from('instructors')
-        .select('*, departments(name_en, code)')
+        .select('*, departments(name_en, name_ar, code)')
         .order('created_at', { ascending: false })
 
       // Filter by college_id for college admins - only show instructors from their college
@@ -42,7 +41,11 @@ export default function Instructors() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [collegeId, userRole])
+
+  useEffect(() => {
+    fetchInstructors()
+  }, [fetchInstructors])
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -57,23 +60,47 @@ export default function Instructors() {
     }
   }
 
+  const getStatusLabel = (status) => {
+    const normalized = status || 'active'
+    if (isArabicLayout) {
+      const map = {
+        active: 'نشط',
+        on_leave: 'في إجازة',
+        inactive: 'غير نشط'
+      }
+      return map[normalized] || normalized
+    }
+    return normalized.replace('_', ' ')
+  }
+
+  const getInstructorDisplayName = (instructor) => {
+    if (isArabicLayout) {
+      return (instructor?.name_ar || '').trim() || '-'
+    }
+    return (instructor?.name_en || instructor?.name_ar || '').trim() || '-'
+  }
+
   const filteredInstructors = instructors.filter(instructor =>
     (instructor.name_en && instructor.name_en.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (instructor.name_ar && instructor.name_ar.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (instructor.email && instructor.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (instructor.employee_id && instructor.employee_id.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('instructors.title')}</h1>
+      <div
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+        className="flex items-center justify-between"
+      >
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
+          <h1 className="text-3xl font-bold text-gray-900">{t('navigation.instructors')}</h1>
           <p className="text-gray-600 mt-1">{t('instructors.subtitle')}</p>
         </div>
         <button
           onClick={() => navigate('/instructors/create')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
+          className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
         >
           <Plus className="w-5 h-5" />
           <span>{t('instructors.addInstructor')}</span>
@@ -84,13 +111,13 @@ export default function Instructors() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
+            <Search className={`absolute ${isArabicLayout ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
             <input
               type="text"
               placeholder={t('instructors.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+              className={`w-full ${isArabicLayout ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
             />
           </div>
         </div>
@@ -111,87 +138,71 @@ export default function Instructors() {
             filteredInstructors.map((instructor) => (
               <div
                 key={instructor.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                dir={isArabicLayout ? 'rtl' : 'ltr'}
+                className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow ${isArabicLayout ? 'text-right' : 'text-left'}`}
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {instructor.name_en}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">{instructor.title || t('instructors.title')}</p>
+                <div className="flex items-start gap-4 mb-5">
+                  <div className="w-14 h-14 bg-primary-gradient rounded-xl flex items-center justify-center flex-shrink-0">
+                    <User className="w-7 h-7 text-white" />
                   </div>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowActions(showActions === instructor.id ? null : instructor.id)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                    {showActions === instructor.id && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setShowActions(null)}
-                        />
-                        <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-20`}>
-                          <button 
-                            onClick={() => {
-                              navigate(`/instructors/${instructor.id}`)
-                              setShowActions(null)
-                            }}
-                            className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span>{t('common.view')}</span>
-                          </button>
-                          <button 
-                            onClick={() => {
-                              navigate(`/instructors/${instructor.id}/edit`)
-                              setShowActions(null)
-                            }}
-                            className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-gray-700 hover:bg-gray-100`}
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span>{t('common.edit')}</span>
-                          </button>
-                          <button className={`w-full flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 text-sm text-red-600 hover:bg-red-50`}>
-                            <Trash2 className="w-4 h-4" />
-                            <span>{t('common.delete')}</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-bold text-gray-900 truncate">
+                          {getInstructorDisplayName(instructor)}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">{instructor.employee_id || '-'}</p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(
+                          instructor.status || 'active'
+                        )}`}
+                      >
+                        {getStatusLabel(instructor.status || 'active')}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
-                    <span className="font-medium">{t('instructors.id')}:</span>
-                    <span>{instructor.employee_id || 'N/A'}</span>
+                <div className="space-y-3 mb-5">
+                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                    <Mail className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{instructor.email || '-'}</span>
                   </div>
-                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
-                    <Mail className="w-4 h-4" />
-                    <span className="truncate">{instructor.email || 'N/A'}</span>
+                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                    <Phone className="w-4 h-4 flex-shrink-0" />
+                    <span>{instructor.phone || '-'}</span>
                   </div>
-                  {instructor.phone && (
-                    <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
-                      <Phone className="w-4 h-4" />
-                      <span>{instructor.phone}</span>
-                    </div>
-                  )}
-                  <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-sm text-gray-600`}>
-                    <span className="font-medium">{t('instructors.department')}:</span>
-                    <span>{instructor.departments?.name_en || 'N/A'}</span>
+                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                    <Building2 className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-medium">{isArabicLayout ? 'القسم:' : `${t('instructors.department')}:`}</span>
+                    <span className="truncate">{isArabicLayout ? (instructor.departments?.name_ar || '-') : (getLocalizedName(instructor.departments, false) || '-')}</span>
                   </div>
-                  <div className="pt-3 border-t border-gray-200">
-                    <span
-                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                        instructor.status || 'active'
-                      )}`}
-                    >
-                      {(instructor.status || 'active').replace('_', ' ')}
+                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                    <BadgeInfo className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">
+                      {isArabicLayout
+                        ? (instructor.title_ar || '-')
+                        : (instructor.title || '-')}
                     </span>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => navigate(`/instructors/${instructor.id}`)}
+                    className="flex items-center justify-center gap-1.5 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium"
+                  >
+                    <Eye className="w-4 h-4" />
+                    {t('common.view')}
+                  </button>
+                  <button
+                    onClick={() => navigate(`/instructors/${instructor.id}/edit`)}
+                    className="flex items-center justify-center gap-1.5 py-3 bg-primary-gradient text-white rounded-lg hover:shadow-lg text-sm font-medium"
+                  >
+                    <Edit className="w-4 h-4" />
+                    {t('common.edit')}
+                  </button>
                 </div>
               </div>
             ))
