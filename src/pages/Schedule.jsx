@@ -423,15 +423,15 @@ export default function Schedule() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <div className={`flex flex-col gap-4 lg:items-center lg:justify-between ${isArabicLayout ? 'lg:flex-row-reverse' : 'lg:flex-row'}`}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className={isArabicLayout ? 'text-right' : 'text-left'}>
           <h1 className="text-3xl font-bold text-gray-900">{t('navigation.scheduleTitle')}</h1>
           <p className="text-gray-600 mt-1">{t('navigation.scheduleSubtitle')}</p>
         </div>
         {((userRole === 'student' || userRole === 'instructor' || userRole === 'admin') && (semesters.length > 0 || colleges.length > 0)) && (
-          <div className={`flex items-center flex-wrap gap-3 ${isArabicLayout ? 'flex-row-reverse justify-start' : 'justify-start'}`}>
+          <div className="flex items-center flex-wrap gap-3 justify-start">
             {userRole === 'admin' && colleges.length > 0 && (
               <select
                 value={selectedCollegeId}
@@ -511,7 +511,7 @@ export default function Schedule() {
                             {classItem.course}
                             {classItem.section && <span className={`text-sm font-normal text-gray-600 ${isArabicLayout ? 'mr-2' : 'ml-2'}`}>({txt('الشعبة', 'Section')} {classItem.section})</span>}
                           </h3>
-                          <div className={`flex flex-wrap items-center gap-4 text-sm text-gray-600 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
                             <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}>
                               <MapPin className="w-4 h-4" />
                               <span>{classItem.location}</span>
@@ -542,7 +542,7 @@ export default function Schedule() {
                             )}
                           </div>
                           {classItem.teamsMeetingUrl && (
-                            <div className={`mt-3 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                            <div className="mt-3 flex justify-end">
                               <a
                                 href={classItem.teamsMeetingUrl}
                                 target="_blank"
