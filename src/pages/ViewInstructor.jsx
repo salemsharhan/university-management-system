@@ -134,7 +134,7 @@ export default function ViewInstructor() {
       </div>
 
       <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-8 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-        <div className={`flex items-start gap-4 mb-7 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+        <div className="flex items-start gap-4 mb-7">
           <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0">
             <User className="w-10 h-10 text-white" />
           </div>
@@ -167,13 +167,13 @@ export default function ViewInstructor() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <Mail className="w-5 h-5" />
             <span>{txt('معلومات التواصل', 'Contact Information')}</span>
           </h2>
-          <div className="space-y-3 text-sm">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
             <p><span className="text-gray-500">{txt('البريد:', 'Email:')}</span> <span dir="ltr">{valueOrDash(instructor?.email)}</span></p>
             <p><span className="text-gray-500">{txt('الهاتف:', 'Phone:')}</span> <span dir="ltr">{valueOrDash(instructor?.phone)}</span></p>
             <p><span className="text-gray-500">{txt('العنوان:', 'Address:')}</span> {valueOrDash(instructor?.address)}</p>
@@ -183,11 +183,11 @@ export default function ViewInstructor() {
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <BadgeCheck className="w-5 h-5" />
             <span>{txt('البيانات الشخصية', 'Personal Information')}</span>
           </h2>
-          <div className="space-y-3 text-sm">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
             <p><span className="text-gray-500">{txt('تاريخ الميلاد:', 'Date of Birth:')}</span> {formatDate(instructor?.date_of_birth)}</p>
             <p><span className="text-gray-500">{txt('الجنس:', 'Gender:')}</span> {valueOrDash(instructor?.gender)}</p>
             <p><span className="text-gray-500">{txt('الجنسية:', 'Nationality:')}</span> {valueOrDash(instructor?.nationality)}</p>
@@ -199,11 +199,11 @@ export default function ViewInstructor() {
 
       {(Array.isArray(instructor?.education) && instructor.education.length > 0) && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <GraduationCap className="w-5 h-5" />
             <span>{txt('المؤهلات العلمية', 'Education')}</span>
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={`grid grid-cols-1 ${instructor.education.length > 1 ? 'md:grid-cols-2' : ''} gap-4`}>
             {instructor.education.map((edu, index) => (
               <div key={index} className="border border-gray-200 rounded-xl p-4">
                 <h4 className="font-semibold text-gray-900 mb-2">{valueOrDash(edu.degree)}</h4>
@@ -222,7 +222,7 @@ export default function ViewInstructor() {
 
       {(Array.isArray(instructor?.work_experience) && instructor.work_experience.length > 0) && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <Briefcase className="w-5 h-5" />
             <span>{txt('الخبرات العملية', 'Work Experience')}</span>
           </h2>
@@ -253,7 +253,7 @@ export default function ViewInstructor() {
 
       {Array.isArray(instructor?.languages) && instructor.languages.length > 0 && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <Languages className="w-5 h-5" />
             <span>{txt('اللغات', 'Languages')}</span>
           </h2>
@@ -269,7 +269,7 @@ export default function ViewInstructor() {
 
       {(instructor?.research_interests || instructor?.bio || instructor?.bio_ar) && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <BookOpen className="w-5 h-5" />
             <span>{txt('ملف أكاديمي', 'Academic Profile')}</span>
           </h2>
@@ -296,7 +296,7 @@ export default function ViewInstructor() {
 
       {(Array.isArray(instructor?.publications) && instructor.publications.length > 0) && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <FileText className="w-5 h-5" />
             <span>{txt('المنشورات', 'Publications')}</span>
           </h2>
@@ -312,7 +312,7 @@ export default function ViewInstructor() {
 
       {(Array.isArray(instructor?.certifications) && instructor.certifications.length > 0) && (
         <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-start' : ''}`}>
+          <h2 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse justify-end text-right' : ''}`}>
             <Award className="w-5 h-5" />
             <span>{txt('الشهادات المهنية', 'Certifications')}</span>
           </h2>

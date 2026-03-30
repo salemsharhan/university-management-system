@@ -147,7 +147,7 @@ export default function Instructors() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className={`min-w-0 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
                         <h3 className="text-lg font-bold text-gray-900 truncate">
                           {getInstructorDisplayName(instructor)}
                         </h3>
@@ -165,20 +165,20 @@ export default function Instructors() {
                 </div>
 
                 <div className="space-y-3 mb-5">
-                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 justify-start">
                     <Mail className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">{instructor.email || '-'}</span>
                   </div>
-                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 justify-start">
                     <Phone className="w-4 h-4 flex-shrink-0" />
                     <span>{instructor.phone || '-'}</span>
                   </div>
-                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 justify-start">
                     <Building2 className="w-4 h-4 flex-shrink-0" />
                     <span className="font-medium">{isArabicLayout ? 'القسم:' : `${t('instructors.department')}:`}</span>
                     <span className="truncate">{isArabicLayout ? (instructor.departments?.name_ar || '-') : (getLocalizedName(instructor.departments, false) || '-')}</span>
                   </div>
-                  <div className={`flex items-center gap-2 text-sm text-gray-600 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 justify-start">
                     <BadgeInfo className="w-4 h-4 flex-shrink-0" />
                     <span className="truncate">
                       {isArabicLayout
