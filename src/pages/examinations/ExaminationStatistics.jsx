@@ -342,25 +342,33 @@ export default function ExaminationStatistics() {
         </div>
       </div>
 
-      {/* Key Insights */}
+      {/* Key Insights — use dir on row so icon sits on the start edge (right in RTL) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.statistics.keyInsights')}</h2>
+        <h2 className={`text-xl font-bold text-gray-900 mb-6 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+          {t('examinations.statistics.keyInsights')}
+        </h2>
         <div className="space-y-4">
           {stats.passRate < 50 && (
-            <div className={`flex items-start ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'} p-4 bg-yellow-50 border border-yellow-200 rounded-lg`}>
-              <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
-              <div>
+            <div
+              className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" aria-hidden />
+              <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
                 <p className="font-semibold text-yellow-900">{t('examinations.statistics.lowPassRateTitle')}</p>
-                <p className="text-sm text-yellow-800">{t('examinations.statistics.lowPassRateDesc')}</p>
+                <p className="text-sm text-yellow-800 mt-1">{t('examinations.statistics.lowPassRateDesc')}</p>
               </div>
             </div>
           )}
           {stats.attendanceRate < 80 && (
-            <div className={`flex items-start ${isArabicLayout ? 'flex-row-reverse space-x-reverse space-x-3' : 'space-x-3'} p-4 bg-red-50 border border-red-200 rounded-lg`}>
-              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-              <div>
+            <div
+              className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg"
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" aria-hidden />
+              <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
                 <p className="font-semibold text-red-900">{t('examinations.statistics.lowAttendanceTitle')}</p>
-                <p className="text-sm text-red-800">{t('examinations.statistics.lowAttendanceDesc')}</p>
+                <p className="text-sm text-red-800 mt-1">{t('examinations.statistics.lowAttendanceDesc')}</p>
               </div>
             </div>
           )}
@@ -369,8 +377,13 @@ export default function ExaminationStatistics() {
 
       {/* Additional Statistics */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-6">{t('examinations.statistics.additionalStatistics')}</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <h2 className={`text-xl font-bold text-gray-900 mb-6 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+          {t('examinations.statistics.additionalStatistics')}
+        </h2>
+        <div
+          className="grid grid-cols-2 md:grid-cols-5 gap-4"
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
           <div className="text-center p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600 mb-1">{t('examinations.statistics.upcoming')}</p>
             <p className="text-2xl font-bold text-gray-900">{stats.upcoming}</p>

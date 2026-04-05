@@ -125,13 +125,40 @@ export default function ViewStudent() {
     }
   }
 
+  const translateFinanceReason = (reason) => {
+    if (!reason) return ''
+    const r = String(reason).toLowerCase()
+    if (r.includes('at least 30% payment') || r.includes('30% payment is required')) {
+      return t('viewStudent.financeReasonMin30')
+    }
+    return reason
+  }
+
+  const translateStudentStatusValue = (value) => {
+    if (value == null || value === '') return t('common.unknown')
+    const n = String(value).toLowerCase().replace(/\s+/g, '_')
+    const map = {
+      active: t('common.active'),
+      inactive: t('common.inactive'),
+      pending: t('common.pending'),
+      graduated: t('viewStudent.statusGraduated'),
+      suspended: t('viewStudent.statusSuspended'),
+      withdrawn: t('viewStudent.statusWithdrawn'),
+    }
+    return map[n] || String(value)
+  }
+
   const checkEnrollmentEligibility = async () => {
     if (!student || !activeSemester) return
     const eligibility = { allowed: true, reasons: [], warnings: [], financialMilestone: null, financialHold: null, outstandingInvoices: [], totalOutstanding: 0 }
     try {
       if (student.status !== 'active') {
         eligibility.allowed = false
-        eligibility.reasons.push(`Student status is "${student.status}". Only active students can enroll.`)
+        eligibility.reasons.push(
+          t('viewStudent.eligibilityInactiveStudent', {
+            status: translateStudentStatusValue(student.status),
+          })
+        )
       }
       const { milestone, hold } = await getStudentSemesterMilestone(parseInt(id), activeSemester.id)
       eligibility.financialMilestone = milestone
@@ -159,12 +186,17 @@ export default function ViewStudent() {
           }
         }
       }
-      if (hold === 'FHCH') { eligibility.allowed = false; eligibility.reasons.push('Payment chargeback. Contact finance office.') }
-      else if (hold === 'FHEX') { eligibility.allowed = false; eligibility.reasons.push('Payment deadline exceeded. Contact finance office.') }
+      if (hold === 'FHCH') {
+        eligibility.allowed = false
+        eligibility.reasons.push(t('viewStudent.eligibilityChargeback'))
+      } else if (hold === 'FHEX') {
+        eligibility.allowed = false
+        eligibility.reasons.push(t('viewStudent.eligibilityDeadlineExceeded'))
+      }
       setEnrollmentEligibility(eligibility)
     } catch {
       eligibility.allowed = false
-      eligibility.reasons.push('Error checking eligibility.')
+      eligibility.reasons.push(t('viewStudent.eligibilityCheckError'))
       setEnrollmentEligibility(eligibility)
     }
   }
@@ -195,22 +227,42 @@ export default function ViewStudent() {
   const primaryDisplayName = getLocalizedName(student, isRTL) || (isRTL ? (displayNameAr || displayNameEn) : (displayNameEn || displayNameAr)) || '—'
   const secondaryDisplayName = isRTL ? (displayNameEn || null) : (displayNameAr || null)
   const translateStudyType = (value) => {
-    if (!value) return '—'
+    if (!value || value === '—') return '—'
     const normalized = String(value).toLowerCase().replace(/\s+/g, '_')
     const map = {
       full_time: t('viewStudent.studyTypeFullTime'),
       part_time: t('viewStudent.studyTypePartTime'),
       distance: t('viewStudent.studyTypeDistance'),
-      online: t('viewStudent.studyTypeOnline')
+      online: t('viewStudent.studyTypeOnline'),
+      normal: t('viewStudent.studyTypeNormal'),
+      on_campus: t('viewStudent.studyApproachOnCampus'),
     }
     return map[normalized] || String(value).replace(/_/g, ' ')
   }
-  const translateFinanceReason = (reason) => {
-    if (!reason) return ''
-    if (reason.toLowerCase().includes('at least 30% payment is required')) {
-      return t('viewStudent.financeReasonMin30')
+
+  const translateStudyApproach = (value) => {
+    if (!value || value === '—') return '—'
+    const n = String(value).toLowerCase().replace(/\s+/g, '_')
+    const map = {
+      normal: t('viewStudent.studyApproachNormal'),
+      on_campus: t('viewStudent.studyApproachOnCampus'),
+      oncampus: t('viewStudent.studyApproachOnCampus'),
+      online: t('viewStudent.studyApproachOnline'),
+      distance: t('viewStudent.studyApproachDistance'),
+      hybrid: t('viewStudent.studyApproachHybrid'),
     }
-    return reason
+    return map[n] || String(value).replace(/_/g, ' ')
+  }
+
+  const translateStudyLoad = (value) => {
+    if (!value || value === '—') return '—'
+    const n = String(value).toLowerCase().replace(/\s+/g, '_')
+    const map = {
+      normal: t('viewStudent.studyLoadNormal'),
+      light: t('viewStudent.studyLoadLight'),
+      heavy: t('viewStudent.studyLoadHeavy'),
+    }
+    return map[n] || String(value).replace(/_/g, ' ')
   }
 
   return (
@@ -350,7 +402,7 @@ export default function ViewStudent() {
                   <p className="text-xs text-primary-600 mt-0.5">{t('viewStudent.credits')}</p>
                 </div>
                 <div className="bg-amber-50 text-amber-900 rounded-lg px-3 py-2.5 text-center border border-amber-200">
-                  <p className="text-base font-semibold">{translateStudyType(student?.study_type || 'full_time')}</p>
+                  <p className="text-base font-semibold">{translateStudyType(student?.study_type)}</p>
                   <p className="text-xs text-amber-700 mt-0.5">{t('viewStudent.studyType')}</p>
                 </div>
                 <div className="bg-primary-100 text-primary-800 rounded-lg px-3 py-2.5 text-center border border-primary-200">
@@ -428,12 +480,12 @@ export default function ViewStudent() {
               {[
                 ['major', majorName],
                 ['college', collegeName],
-                ['studyType', translateStudyType(student?.study_type || '—')],
-                ['studyLoad', (student?.study_load || '—').replace('_', ' ')],
-                ['studyApproach', (student?.study_approach || '—').replace('_', ' ')],
+                ['studyType', translateStudyType(student?.study_type)],
+                ['studyLoad', translateStudyLoad(student?.study_load || '—')],
+                ['studyApproach', translateStudyApproach(student?.study_approach || '—')],
                 ['creditHours', student?.credit_hours ?? '—'],
                 ['enrollmentDate', student?.enrollment_date],
-                ['status', student?.status],
+                ['status', translateStudentStatusValue(student?.status)],
               ].map(([key, value]) => (
                 <div key={key} className="rounded-xl bg-gray-50 p-4 border border-gray-100">
                   <p className="text-xs font-medium text-gray-500 uppercase">{t(`viewStudent.${key}`)}</p>

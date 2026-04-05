@@ -236,22 +236,46 @@ export default function ViewDepartment() {
 
       {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">{error}</div>}
 
-      {/* Header Card */}
+      {/* Header Card: RTL = title block on the right, icon on the left (logical order via DOM + dir) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-        <div className={`flex items-start gap-6 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-10 h-10 text-white" />
-          </div>
-          <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-            <div className={`flex items-center gap-4 mb-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <h1 className="text-3xl font-bold text-gray-900">{getLocalizedName(department, isRTL)}</h1>
-              <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${department?.status === 'active' ? 'bg-green-100 text-green-700' : department?.status === 'archived' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-600'}`}>
-                {departmentStatusLabel}
-              </span>
-            </div>
-            <div className="text-sm text-gray-500 mb-1">{department?.code}</div>
-            <div className="text-sm text-gray-500" dir="rtl">{department?.name_ar}</div>
-          </div>
+        <div className="flex items-start gap-6" dir={isRTL ? 'rtl' : 'ltr'}>
+          {isRTL ? (
+            <>
+              <div className="flex-1 min-w-0 text-right">
+                <div className="flex items-center gap-4 mb-2 flex-wrap justify-start" dir="rtl">
+                  <h1 className="text-3xl font-bold text-gray-900">{getLocalizedName(department, isRTL)}</h1>
+                  <span className={`px-4 py-1.5 rounded-full text-sm font-semibold flex-shrink-0 ${department?.status === 'active' ? 'bg-green-100 text-green-700' : department?.status === 'archived' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-600'}`}>
+                    {departmentStatusLabel}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-500 mb-1">{department?.code}</div>
+                {department?.name_ar && (
+                  <div className="text-sm text-gray-500" dir="rtl">{department.name_ar}</div>
+                )}
+              </div>
+              <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0" aria-hidden>
+                <Building2 className="w-10 h-10 text-white" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0" aria-hidden>
+                <Building2 className="w-10 h-10 text-white" />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <div className="flex items-center gap-4 mb-2 flex-wrap">
+                  <h1 className="text-3xl font-bold text-gray-900">{getLocalizedName(department, isRTL)}</h1>
+                  <span className={`px-4 py-1.5 rounded-full text-sm font-semibold flex-shrink-0 ${department?.status === 'active' ? 'bg-green-100 text-green-700' : department?.status === 'archived' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100 text-gray-600'}`}>
+                    {departmentStatusLabel}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-500 mb-1">{department?.code}</div>
+                {department?.name_ar && (
+                  <div className="text-sm text-gray-500" dir="rtl">{department.name_ar}</div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -503,23 +527,32 @@ export default function ViewDepartment() {
             <h3 className={`text-lg font-semibold text-gray-900 mb-5 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.departments.performance', 'Performance')}</h3>
             <div dir={isRTL ? 'rtl' : 'ltr'} className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className={`bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>
-                <h4 className="font-semibold text-gray-900 mb-4">{t('academic.departments.gradeDistribution', 'Grade Distribution')}</h4>
+                <h4 className={`font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.departments.gradeDistribution', 'Grade Distribution')}</h4>
                 <div className="space-y-3">
-                  {['A', 'B', 'C', 'D/F'].map((grade, i) => (
-                    <div key={grade} className="flex items-center gap-3">
-                      <div className={`w-10 font-semibold text-gray-900 ${isRTL ? 'order-3 text-right' : 'order-1 text-left'}`}>{grade}</div>
-                      <div className="flex-1 h-6 bg-gray-200 rounded overflow-hidden">
-                        <div
-                          className="h-full bg-primary-600"
-                          style={{
-                            width: `${[35, 40, 19, 6][i]}%`,
-                            marginLeft: isRTL ? 'auto' : 0
-                          }}
-                        />
+                  {['A', 'B', 'C', 'D/F'].map((grade, i) => {
+                    const pct = [35, 40, 19, 6][i]
+                    return (
+                      <div
+                        key={grade}
+                        className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}
+                        dir="ltr"
+                      >
+                        <div className={`flex items-center gap-2 flex-shrink-0 ${isRTL ? 'text-right' : 'text-left'}`}>
+                          <span className="w-9 font-semibold text-gray-900 tabular-nums">{grade}</span>
+                          <span className="w-10 text-sm text-gray-500 tabular-nums">{pct}%</span>
+                        </div>
+                        <div className="flex-1 h-6 bg-gray-200 rounded overflow-hidden min-w-0">
+                          <div
+                            className="h-full bg-primary-600 rounded-sm"
+                            style={{
+                              width: `${pct}%`,
+                              ...(isRTL ? { marginLeft: 'auto' } : {}),
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className={`w-10 text-sm text-gray-500 ${isRTL ? 'order-1 text-left' : 'order-3 text-right'}`} dir="ltr">{[35, 40, 19, 6][i]}%</div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
               <div className={`bg-white rounded-xl border border-gray-200 p-6 ${isRTL ? 'text-right' : 'text-left'}`}>

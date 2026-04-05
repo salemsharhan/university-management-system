@@ -314,13 +314,29 @@ export default function Departments() {
                 </div>
                 <div className="mb-4">
                   <div className="text-xs text-gray-400 mb-1">{t('departmentsForm.head')}</div>
-                  <div className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
-                    <div className="w-7 h-7 bg-primary-gradient rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                      {getLocalizedName(dept.instructors, isRTL) ? getLocalizedName(dept.instructors, isRTL).split(' ').map(n => n[0]).join('').slice(0, 2) : '?'}
-                    </div>
-                    <span className="text-sm font-medium text-gray-900">
-                      {getLocalizedName(dept.instructors, isRTL) || t('academic.departments.notAssigned')}
-                    </span>
+                  <div
+                    className={`flex items-center gap-2 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}
+                    dir="ltr"
+                  >
+                    {isArabicLayout ? (
+                      <>
+                        <span className="text-sm font-medium text-gray-900 min-w-0 text-right">
+                          {getLocalizedName(dept.instructors, isRTL) || t('academic.departments.notAssigned')}
+                        </span>
+                        <div className="w-7 h-7 bg-primary-gradient rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                          {getLocalizedName(dept.instructors, isRTL) ? getLocalizedName(dept.instructors, isRTL).split(' ').map(n => n[0]).join('').slice(0, 2) : '?'}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-7 h-7 bg-primary-gradient rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+                          {getLocalizedName(dept.instructors, isRTL) ? getLocalizedName(dept.instructors, isRTL).split(' ').map(n => n[0]).join('').slice(0, 2) : '?'}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 min-w-0 text-left">
+                          {getLocalizedName(dept.instructors, isRTL) || t('academic.departments.notAssigned')}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50 rounded-xl mb-4">
@@ -339,33 +355,37 @@ export default function Departments() {
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <button
+                    type="button"
                     onClick={() => navigate(`/academic/departments/${dept.id}`)}
-                    className={`flex items-center justify-center gap-1.5 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium`}
+                    className={`flex items-center justify-center gap-1.5 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium ${isArabicLayout ? 'flex-row-reverse' : ''}`}
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-4 h-4 flex-shrink-0" />
                     {t('academic.departments.view')}
                   </button>
                   <button
+                    type="button"
                     onClick={() => navigate(`/academic/departments/${dept.id}/edit`)}
-                    className={`flex items-center justify-center gap-1.5 py-3 bg-primary-gradient text-white rounded-lg hover:shadow-lg text-sm font-medium`}
+                    className={`flex items-center justify-center gap-1.5 py-3 bg-primary-gradient text-white rounded-lg hover:shadow-lg text-sm font-medium ${isArabicLayout ? 'flex-row-reverse' : ''}`}
                   >
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-4 h-4 flex-shrink-0" />
                     {t('academic.departments.edit')}
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={() => navigate(`/academic/departments/${dept.id}`)}
-                    className="flex items-center justify-center gap-1.5 py-2.5 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs font-medium hover:bg-green-100"
+                    className={`flex items-center justify-center gap-1.5 py-2.5 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs font-medium hover:bg-green-100 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
                   >
-                    <BarChart3 className="w-3.5 h-3.5" />
+                    <BarChart3 className="w-3.5 h-3.5 flex-shrink-0" />
                     {t('academic.departments.performance')}
                   </button>
                   <button
+                    type="button"
                     onClick={() => navigate(`/academic/departments/${dept.id}/edit`)}
-                    className="flex items-center justify-center gap-1.5 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs font-medium hover:bg-blue-100"
+                    className={`flex items-center justify-center gap-1.5 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs font-medium hover:bg-blue-100 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
                   >
-                    <UserPlus className="w-3.5 h-3.5" />
+                    <UserPlus className="w-3.5 h-3.5 flex-shrink-0" />
                     {t('academic.departments.assignHoD')}
                   </button>
                 </div>

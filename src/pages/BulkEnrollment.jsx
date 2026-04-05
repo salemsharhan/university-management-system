@@ -494,48 +494,99 @@ export default function BulkEnrollment() {
 
   return (
     <div className="w-full max-w-none space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Header */}
-      <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
-          <div className="w-12 h-12 bg-primary-gradient rounded-lg flex items-center justify-center">
-            <ShoppingCart className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkEnrollmentTitle')}</h1>
-            <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkEnrollmentSubtitle')}</p>
-          </div>
-        </div>
-        <button
-          onClick={() => navigate('/enrollments')}
-          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-        >
-          {t('enrollments.backToList')}
-        </button>
+      {/* Header: dir=ltr on row so title block can be pinned to the visual right in Arabic */}
+      <div className="flex items-center justify-between gap-4" dir="ltr">
+        {isRTL ? (
+          <>
+            <button
+              type="button"
+              onClick={() => navigate('/enrollments')}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex-shrink-0"
+            >
+              {t('enrollments.backToList')}
+            </button>
+            <div className="flex flex-1 items-center justify-end gap-3 min-w-0">
+              <div className="min-w-0 text-right">
+                <h1 className="text-3xl font-bold text-gray-900 text-right">{t('enrollments.bulkEnrollmentTitle')}</h1>
+                <p className="text-gray-600 mt-1 text-right">{t('enrollments.bulkEnrollmentSubtitle')}</p>
+              </div>
+              <div className="w-12 h-12 bg-primary-gradient rounded-lg flex items-center justify-center flex-shrink-0">
+                <ShoppingCart className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-12 h-12 bg-primary-gradient rounded-lg flex items-center justify-center flex-shrink-0">
+                <ShoppingCart className="w-6 h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-3xl font-bold text-gray-900 text-left">{t('enrollments.bulkEnrollmentTitle')}</h1>
+                <p className="text-gray-600 mt-1 text-left">{t('enrollments.bulkEnrollmentSubtitle')}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/enrollments')}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex-shrink-0"
+            >
+              {t('enrollments.backToList')}
+            </button>
+          </>
+        )}
       </div>
 
       {/* College Selector for Admin */}
       {requiresCollegeSelection && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
-            <Building2 className="w-5 h-5 text-yellow-600" />
-            <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-              <p className="text-sm font-semibold text-yellow-900">{t('enrollments.collegeSelectionRequired')}</p>
-              <p className="text-xs text-yellow-700">{t('enrollments.collegeSelectionMessage')}</p>
+          {isRTL ? (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between" dir="ltr">
+              <select
+                value={selectedCollegeId || ''}
+                onChange={(e) => setSelectedCollegeId(parseInt(e.target.value))}
+                className="px-4 py-2 border border-yellow-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent min-w-[250px] w-full sm:w-auto flex-shrink-0"
+                required
+              >
+                <option value="">{t('enrollments.selectCollege')}</option>
+                {colleges.map(college => (
+                  <option key={college.id} value={college.id}>
+                    {getLocalizedName(college, isRTL)} ({college.code})
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-1 items-start gap-3 justify-end sm:flex-row-reverse min-w-0">
+                <Building2 className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0 text-right">
+                  <p className="text-sm font-semibold text-yellow-900">{t('enrollments.collegeSelectionRequired')}</p>
+                  <p className="text-xs text-yellow-700">{t('enrollments.collegeSelectionMessage')}</p>
+                </div>
+              </div>
             </div>
-            <select
-              value={selectedCollegeId || ''}
-              onChange={(e) => setSelectedCollegeId(parseInt(e.target.value))}
-              className="px-4 py-2 border border-yellow-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent min-w-[250px]"
-              required
-            >
-              <option value="">{t('enrollments.selectCollege')}</option>
-              {colleges.map(college => (
-                <option key={college.id} value={college.id}>
-                  {getLocalizedName(college, isRTL)} ({college.code})
-                </option>
-              ))}
-            </select>
-          </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between" dir="ltr">
+              <div className="flex flex-1 items-start gap-3 min-w-0">
+                <Building2 className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0 text-left">
+                  <p className="text-sm font-semibold text-yellow-900">{t('enrollments.collegeSelectionRequired')}</p>
+                  <p className="text-xs text-yellow-700">{t('enrollments.collegeSelectionMessage')}</p>
+                </div>
+              </div>
+              <select
+                value={selectedCollegeId || ''}
+                onChange={(e) => setSelectedCollegeId(parseInt(e.target.value))}
+                className="px-4 py-2 border border-yellow-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-yellow-500 focus:border-transparent min-w-[250px] w-full sm:w-auto flex-shrink-0"
+                required
+              >
+                <option value="">{t('enrollments.selectCollege')}</option>
+                {colleges.map(college => (
+                  <option key={college.id} value={college.id}>
+                    {getLocalizedName(college, isRTL)} ({college.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -558,9 +609,11 @@ export default function BulkEnrollment() {
           {/* Step 1: Select Academic Year and Semester */}
           {currentStep === 1 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
-                <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">1</span>
-                <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectSemester')}</h2>
+              <div className={`mb-4 flex w-full items-center ${isRTL ? 'justify-end' : 'justify-start'}`} dir="ltr">
+                <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">1</span>
+                  <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectSemester')}</h2>
+                </div>
               </div>
               <div className="mb-4">
                 <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>
@@ -607,9 +660,11 @@ export default function BulkEnrollment() {
           {/* Step 2: Select Student */}
           {currentStep === 2 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
-                <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">2</span>
-                <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectStudent')}</h2>
+              <div className={`mb-4 flex w-full items-center ${isRTL ? 'justify-end' : 'justify-start'}`} dir="ltr">
+                <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
+                  <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">2</span>
+                  <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('enrollments.bulkSelectStudent')}</h2>
+                </div>
               </div>
               <div className="mb-4">
                 <div className="relative">
@@ -652,12 +707,28 @@ export default function BulkEnrollment() {
           {/* Step 3: Select Classes */}
           {currentStep === 3 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-4`}>
-                <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold">3</span>
-                <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                  {t('enrollments.bulkAvailableClasses')}
-                </h2>
-                <span className={`text-sm text-gray-500 ${isRTL ? 'mr-auto' : 'ml-auto'}`}>({availableClasses.length} {t('enrollments.bulkClasses')})</span>
+              <div className="mb-4 flex w-full items-center justify-between gap-3" dir="ltr">
+                {isRTL ? (
+                  <>
+                    <span className="text-sm text-gray-500 flex-shrink-0">
+                      ({availableClasses.length} {t('enrollments.bulkClasses')})
+                    </span>
+                    <div className="flex items-center gap-2 flex-row-reverse min-w-0">
+                      <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">3</span>
+                      <h2 className="text-xl font-bold text-gray-900 text-right truncate">{t('enrollments.bulkAvailableClasses')}</h2>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-8 h-8 bg-primary-gradient rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">3</span>
+                      <h2 className="text-xl font-bold text-gray-900 text-left truncate">{t('enrollments.bulkAvailableClasses')}</h2>
+                    </div>
+                    <span className="text-sm text-gray-500 flex-shrink-0">
+                      ({availableClasses.length} {t('enrollments.bulkClasses')})
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Search and Filters */}

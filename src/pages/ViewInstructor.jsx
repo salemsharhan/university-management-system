@@ -133,32 +133,55 @@ export default function ViewInstructor() {
         </button>
       </div>
 
-      <div className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-8 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-        <div className="flex items-start gap-4 mb-7">
-          <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0">
-            <User className="w-10 h-10 text-white" />
-          </div>
-          <div className="flex-1">
-            <div className={`flex items-center gap-3 mb-2 ${isArabicLayout ? 'flex-row-reverse justify-end' : ''}`}>
-              <h1 className="text-3xl font-bold text-gray-900">{primaryName}</h1>
-              <span className={`px-4 py-1.5 rounded-full text-xs font-semibold ${status.cls}`}>{status.label}</span>
+      <div
+        className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 ${isArabicLayout ? 'text-right' : 'text-left'}`}
+      >
+        {isArabicLayout ? (
+          <div className="flex flex-col sm:flex-row-reverse sm:items-start gap-4 mb-6 sm:mb-8 w-full">
+            <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
+              <User className="w-10 h-10 text-white" />
             </div>
-            {!!secondaryName && (
-              <p className="text-gray-500 text-base">{secondaryName}</p>
-            )}
-            <p className="text-gray-600 mt-1">
-              {txt('الرقم الوظيفي', 'Employee ID')}: {valueOrDash(instructor?.employee_id)}
-            </p>
+            <div className="flex-1 min-w-0 text-right">
+              <div className="flex flex-wrap items-center gap-3 mb-2 justify-end">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{primaryName}</h1>
+                <span className={`px-4 py-1.5 rounded-full text-xs font-semibold ${status.cls}`}>{status.label}</span>
+              </div>
+              {!!secondaryName && <p className="text-gray-500 text-base">{secondaryName}</p>}
+              <p className="text-gray-600 mt-1">
+                <span className="text-gray-500">{txt('الرقم الوظيفي', 'Employee ID')}:</span>{' '}
+                <span dir="ltr" className="inline-block font-medium text-gray-900 tabular-nums">
+                  {valueOrDash(instructor?.employee_id)}
+                </span>
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-6 sm:mb-8" dir="ltr">
+            <div className="w-20 h-20 bg-primary-gradient rounded-2xl flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
+              <User className="w-10 h-10 text-white" />
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{primaryName}</h1>
+                <span className={`px-4 py-1.5 rounded-full text-xs font-semibold ${status.cls}`}>{status.label}</span>
+              </div>
+              {!!secondaryName && <p className="text-gray-500 text-base">{secondaryName}</p>}
+              <p className="text-gray-600 mt-1">
+                {txt('الرقم الوظيفي', 'Employee ID')}: {valueOrDash(instructor?.employee_id)}
+              </p>
+            </div>
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-5 ${isArabicLayout ? '[direction:rtl]' : ''}`}
+        >
           {infoItems.map((item, idx) => (
-            <div key={idx} className={isArabicLayout ? 'text-right' : 'text-left'}>
-              <div className="text-xs text-gray-500 mb-1.5">{item.label}</div>
+            <div key={idx} className={`min-w-0 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              <div className="text-xs text-gray-500 mb-1">{item.label}</div>
               <div
-                dir={item.dir || 'auto'}
-                className={`text-sm font-semibold ${item.className || 'text-gray-900'}`}
+                dir={item.dir || (isArabicLayout ? 'rtl' : 'ltr')}
+                className={`text-sm font-semibold break-words ${item.className || 'text-gray-900'} ${isArabicLayout ? 'text-right' : 'text-left'}`}
               >
                 {item.value}
               </div>
@@ -173,12 +196,31 @@ export default function ViewInstructor() {
             <Mail className="w-5 h-5" />
             <span>{txt('معلومات التواصل', 'Contact Information')}</span>
           </h2>
-          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-            <p><span className="text-gray-500">{txt('البريد:', 'Email:')}</span> <span dir="ltr">{valueOrDash(instructor?.email)}</span></p>
-            <p><span className="text-gray-500">{txt('الهاتف:', 'Phone:')}</span> <span dir="ltr">{valueOrDash(instructor?.phone)}</span></p>
-            <p><span className="text-gray-500">{txt('العنوان:', 'Address:')}</span> {valueOrDash(instructor?.address)}</p>
-            <p><span className="text-gray-500">{txt('المدينة:', 'City:')}</span> {valueOrDash(instructor?.city)}</p>
-            <p><span className="text-gray-500">{txt('الدولة:', 'Country:')}</span> {valueOrDash(instructor?.country)}</p>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('البريد الإلكتروني', 'Email')}</div>
+              <div dir="ltr" className={`font-medium text-gray-900 break-all ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {valueOrDash(instructor?.email)}
+              </div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('الهاتف', 'Phone')}</div>
+              <div dir="ltr" className={`font-medium text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {valueOrDash(instructor?.phone)}
+              </div>
+            </div>
+            <div className="min-w-0 sm:col-span-2">
+              <div className="text-xs text-gray-500 mb-1">{txt('العنوان', 'Address')}</div>
+              <div className="font-medium text-gray-900">{valueOrDash(instructor?.address)}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('المدينة', 'City')}</div>
+              <div className="font-medium text-gray-900">{valueOrDash(instructor?.city)}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('الدولة', 'Country')}</div>
+              <div className="font-medium text-gray-900">{valueOrDash(instructor?.country)}</div>
+            </div>
           </div>
         </section>
 
@@ -187,12 +229,31 @@ export default function ViewInstructor() {
             <BadgeCheck className="w-5 h-5" />
             <span>{txt('البيانات الشخصية', 'Personal Information')}</span>
           </h2>
-          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-            <p><span className="text-gray-500">{txt('تاريخ الميلاد:', 'Date of Birth:')}</span> {formatDate(instructor?.date_of_birth)}</p>
-            <p><span className="text-gray-500">{txt('الجنس:', 'Gender:')}</span> {valueOrDash(instructor?.gender)}</p>
-            <p><span className="text-gray-500">{txt('الجنسية:', 'Nationality:')}</span> {valueOrDash(instructor?.nationality)}</p>
-            <p><span className="text-gray-500">{txt('الهوية الوطنية:', 'National ID:')}</span> {valueOrDash(instructor?.national_id)}</p>
-            <p><span className="text-gray-500">{txt('رقم الجواز:', 'Passport Number:')}</span> {valueOrDash(instructor?.passport_number)}</p>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('تاريخ الميلاد', 'Date of Birth')}</div>
+              <div className="font-medium text-gray-900">{formatDate(instructor?.date_of_birth)}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('الجنس', 'Gender')}</div>
+              <div className="font-medium text-gray-900">{valueOrDash(instructor?.gender)}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('الجنسية', 'Nationality')}</div>
+              <div className="font-medium text-gray-900">{valueOrDash(instructor?.nationality)}</div>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs text-gray-500 mb-1">{txt('الهوية الوطنية', 'National ID')}</div>
+              <div dir="ltr" className={`font-medium text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {valueOrDash(instructor?.national_id)}
+              </div>
+            </div>
+            <div className="min-w-0 sm:col-span-2">
+              <div className="text-xs text-gray-500 mb-1">{txt('رقم الجواز', 'Passport Number')}</div>
+              <div dir="ltr" className={`font-medium text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {valueOrDash(instructor?.passport_number)}
+              </div>
+            </div>
           </div>
         </section>
       </div>

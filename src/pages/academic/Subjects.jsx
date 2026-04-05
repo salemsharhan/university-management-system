@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -48,6 +48,32 @@ export default function Subjects() {
     }
   }
 
+  const subjectsMatchingCollegeFilter = useMemo(
+    () =>
+      subjects.filter((subject) => {
+        if (!collegeFilter) return true
+        if (collegeFilter === 'university_wide') return subject.is_university_wide
+        return String(subject.college_id || subject.colleges?.id || '') === collegeFilter
+      }),
+    [subjects, collegeFilter]
+  )
+
+  const majorFilterOptions = useMemo(
+    () =>
+      [...new Map(
+        subjectsMatchingCollegeFilter
+          .filter((s) => s.majors?.id)
+          .map((s) => [s.majors.id, s.majors])
+      ).values()],
+    [subjectsMatchingCollegeFilter]
+  )
+
+  useEffect(() => {
+    if (!majorFilter) return
+    const allowed = new Set(majorFilterOptions.map((m) => String(m.id)))
+    if (!allowed.has(majorFilter)) setMajorFilter('')
+  }, [collegeFilter, majorFilterOptions, majorFilter])
+
   const filteredSubjects = subjects.filter(subject => {
     const name = getLocalizedName(subject, isRTL)
     const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,12 +87,6 @@ export default function Subjects() {
 
     return matchesSearch && matchesMajor && matchesCollege
   })
-
-  const majorFilterOptions = [...new Map(
-    subjects
-      .filter(s => s.majors?.id)
-      .map(s => [s.majors.id, s.majors])
-  ).values()]
 
   const collegeFilterOptions = [...new Map(
     subjects
@@ -106,27 +126,27 @@ export default function Subjects() {
             />
           </div>
           <select
-            value={majorFilter}
-            onChange={(e) => setMajorFilter(e.target.value)}
-            className={`px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white ${isArabicLayout ? 'text-right' : 'text-left'}`}
-          >
-            <option value="">{t('academic.subjects.allMajors')}</option>
-            {majorFilterOptions.map((major) => (
-              <option key={major.id} value={String(major.id)}>
-                {getLocalizedName(major, isRTL)}
-              </option>
-            ))}
-          </select>
-          <select
             value={collegeFilter}
             onChange={(e) => setCollegeFilter(e.target.value)}
-            className={`px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white ${isArabicLayout ? 'text-right' : 'text-left'}`}
+            className={`px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white min-w-[10rem] ${isArabicLayout ? 'text-right' : 'text-left'}`}
           >
             <option value="">{t('academic.subjects.allColleges')}</option>
             <option value="university_wide">{t('academic.subjects.universityWide')}</option>
             {collegeFilterOptions.map((college) => (
               <option key={college.id} value={String(college.id)}>
                 {getLocalizedName(college, isRTL)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={majorFilter}
+            onChange={(e) => setMajorFilter(e.target.value)}
+            className={`px-4 py-3 border border-gray-300 rounded-xl text-sm bg-white min-w-[10rem] ${isArabicLayout ? 'text-right' : 'text-left'}`}
+          >
+            <option value="">{t('academic.subjects.allMajors')}</option>
+            {majorFilterOptions.map((major) => (
+              <option key={major.id} value={String(major.id)}>
+                {getLocalizedName(major, isRTL)}
               </option>
             ))}
           </select>

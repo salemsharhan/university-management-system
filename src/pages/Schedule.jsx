@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
@@ -62,6 +62,20 @@ export default function Schedule() {
       fetchSchedule()
     }
   }, [selectedSemesterId, selectedCollegeId, student, instructor, userRole, colleges])
+
+  const semesterOptionsForSelect = useMemo(() => {
+    if (userRole !== 'admin') return semesters
+    if (!selectedCollegeId) return semesters
+    return semesters.filter(
+      (s) => s.is_university_wide || String(s.college_id || '') === String(selectedCollegeId)
+    )
+  }, [userRole, semesters, selectedCollegeId])
+
+  useEffect(() => {
+    if (userRole !== 'admin' || !selectedSemesterId) return
+    const allowed = semesterOptionsForSelect.some((s) => String(s.id) === String(selectedSemesterId))
+    if (!allowed) setSelectedSemesterId('')
+  }, [userRole, selectedCollegeId, semesterOptionsForSelect, selectedSemesterId])
 
   const fetchStudentData = async () => {
     try {
@@ -154,7 +168,7 @@ export default function Schedule() {
       // Fetch all semesters for admin (can filter later)
       const { data: semestersData, error: semestersError } = await supabase
         .from('semesters')
-        .select('id, name_en, name_ar, code, start_date, end_date, status, college_id')
+        .select('id, name_en, name_ar, code, start_date, end_date, status, college_id, is_university_wide')
         .order('start_date', { ascending: false })
 
       if (!semestersError && semestersData) {
@@ -431,12 +445,15 @@ export default function Schedule() {
           <p className="text-gray-600 mt-1">{t('navigation.scheduleSubtitle')}</p>
         </div>
         {((userRole === 'student' || userRole === 'instructor' || userRole === 'admin') && (semesters.length > 0 || colleges.length > 0)) && (
-          <div className="flex items-center flex-wrap gap-3 justify-start">
+          <div
+            className={`flex items-center flex-wrap gap-3 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}
+            dir={isArabicLayout ? 'rtl' : 'ltr'}
+          >
             {userRole === 'admin' && colleges.length > 0 && (
               <select
                 value={selectedCollegeId}
                 onChange={(e) => setSelectedCollegeId(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isArabicLayout ? 'text-right' : 'text-left'}`}
               >
                 <option value="">{t('navigation.allColleges')}</option>
                 {colleges.map(college => (
@@ -450,10 +467,10 @@ export default function Schedule() {
               <select
                 value={selectedSemesterId}
                 onChange={(e) => setSelectedSemesterId(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isArabicLayout ? 'text-right' : 'text-left'}`}
               >
                 <option value="">{t('common.allSemesters')}</option>
-                {semesters.map(semester => (
+                {semesterOptionsForSelect.map(semester => (
                   <option key={semester.id} value={semester.id}>
                     {getLocalizedName(semester, isArabicLayout)} ({semester.code})
                   </option>

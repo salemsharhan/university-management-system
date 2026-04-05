@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { ArrowLeft, Save, Check, Plus, Calendar, Clock, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Check, Plus, Calendar, Clock, Users } from 'lucide-react'
 
 export default function TakeAttendance() {
-  const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout = isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId } = useAuth()
@@ -52,7 +57,7 @@ export default function TakeAttendance() {
     try {
       let query = supabase
         .from('classes')
-        .select('id, code, section, subjects(name_en, code), semesters(name_en)')
+        .select('id, code, section, subjects(name_en, name_ar, code), semesters(name_en, name_ar)')
         .eq('status', 'active')
 
       if (userRole === 'user' && collegeId) {
@@ -86,7 +91,7 @@ export default function TakeAttendance() {
     try {
       const { data, error } = await supabase
         .from('enrollments')
-        .select('*, students(id, first_name, last_name, name_en, student_id)')
+        .select('*, students(id, first_name, last_name, first_name_ar, last_name_ar, name_en, name_ar, student_id)')
         .eq('class_id', selectedClassId)
         .eq('status', 'enrolled')
 
@@ -185,24 +190,67 @@ export default function TakeAttendance() {
   const selectedClass = classes.find(c => c.id === selectedClassId)
   const selectedSession = sessions.find(s => s.id === selectedSessionId)
 
+  const sessionDateLocale = isArabicLayout ? 'ar-SA' : undefined
+
+  const formatSessionOptionLabel = (session) => {
+    const dateStr = new Date(session.session_date).toLocaleDateString(sessionDateLocale)
+    return t('attendance.takeAttendance.sessionOptionLabel', {
+      date: dateStr,
+      start: session.start_time,
+      end: session.end_time,
+    })
+  }
+
+  const displayStudentName = (student) => {
+    if (!student) return 'N/A'
+    if (isArabicLayout) {
+      const ar = [student.first_name_ar, student.last_name_ar].filter(Boolean).join(' ').trim()
+      if (ar) return ar
+      if (student.name_ar?.trim()) return student.name_ar.trim()
+    }
+    if (student.name_en?.trim()) return student.name_en.trim()
+    const en = [student.first_name, student.last_name].filter(Boolean).join(' ').trim()
+    return en || 'N/A'
+  }
+
   return (
-    <div className="space-y-6">
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
-        <button
-          onClick={() => navigate('/attendance/sessions')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>{t('attendance.takeAttendance.backToSessions')}</span>
-        </button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('attendance.takeAttendance.title')}</h1>
-          <p className="text-gray-600 mt-1">{t('attendance.takeAttendance.subtitle')}</p>
-        </div>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className="flex items-start justify-between gap-4 w-full" dir="ltr">
+        {isArabicLayout ? (
+          <>
+            <div className="flex-1 min-w-0 text-right" dir="rtl">
+              <h1 className="text-3xl font-bold text-gray-900">{t('attendance.takeAttendance.title')}</h1>
+              <p className="text-gray-600 mt-1">{t('attendance.takeAttendance.subtitle')}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/attendance/sessions')}
+              className="flex items-center gap-2 flex-row-reverse flex-shrink-0 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowRight className="w-5 h-5" />
+              <span>{t('attendance.takeAttendance.backToSessions')}</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => navigate('/attendance/sessions')}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 flex-shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>{t('attendance.takeAttendance.backToSessions')}</span>
+            </button>
+            <div className="flex-1 min-w-0 text-left">
+              <h1 className="text-3xl font-bold text-gray-900">{t('attendance.takeAttendance.title')}</h1>
+              <p className="text-gray-600 mt-1">{t('attendance.takeAttendance.subtitle')}</p>
+            </div>
+          </>
+        )}
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8" dir={isArabicLayout ? 'rtl' : 'ltr'}>
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
               {error}
@@ -227,12 +275,12 @@ export default function TakeAttendance() {
                   setAttendance({})
                 }}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${isArabicLayout ? 'text-right' : 'text-left'}`}
               >
                 <option value="">{t('attendance.takeAttendance.chooseClass')}</option>
                 {classes.map(cls => (
                   <option key={cls.id} value={cls.id}>
-                    {cls.code}-{cls.section} - {cls.subjects?.name_en || cls.subjects?.code}
+                    {cls.code}-{cls.section} — {getLocalizedName(cls.subjects, isArabicLayout) || cls.subjects?.code}
                   </option>
                 ))}
               </select>
@@ -263,12 +311,12 @@ export default function TakeAttendance() {
                       setAttendance({})
                     }}
                     required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${isArabicLayout ? 'text-right' : 'text-left'}`}
                   >
                     <option value="">{t('attendance.takeAttendance.selectSessionPlaceholder')}</option>
                     {sessions.map(session => (
                       <option key={session.id} value={session.id}>
-                        {new Date(session.session_date).toLocaleDateString()} - {session.start_time} to {session.end_time}
+                        {formatSessionOptionLabel(session)}
                       </option>
                     ))}
                   </select>
@@ -283,14 +331,22 @@ export default function TakeAttendance() {
                   <h3 className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('attendance.takeAttendance.studentAttendance')}</h3>
                   <div className="text-sm text-gray-600">
                     {selectedSession && (
-                      <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-4'}`}>
-                        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}>
-                          <Calendar className="w-4 h-4" />
-                          <span>{new Date(selectedSession.session_date).toLocaleDateString()}</span>
+                      <div
+                        className={`flex flex-wrap items-center gap-4 ${isArabicLayout ? 'flex-row-reverse justify-end' : ''}`}
+                        dir={isArabicLayout ? 'rtl' : 'ltr'}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4 flex-shrink-0" />
+                          <span>{new Date(selectedSession.session_date).toLocaleDateString(sessionDateLocale)}</span>
                         </div>
-                        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'}`}>
-                          <Clock className="w-4 h-4" />
-                          <span>{selectedSession.start_time} - {selectedSession.end_time}</span>
+                        <div className="flex items-center gap-1" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+                          <Clock className="w-4 h-4 flex-shrink-0" />
+                          <span>
+                            {t('attendance.takeAttendance.sessionTimeOnly', {
+                              start: selectedSession.start_time,
+                              end: selectedSession.end_time,
+                            })}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -315,11 +371,14 @@ export default function TakeAttendance() {
                         const currentStatus = attendance[studentId] || 'absent'
                         return (
                           <tr key={enrollment.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <td
+                              className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}
+                              dir="ltr"
+                            >
                               {student?.student_id || 'N/A'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {student?.name_en || `${student?.first_name || ''} ${student?.last_name || ''}`.trim() || 'N/A'}
+                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                              {displayStudentName(student)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
                               <input
@@ -375,7 +434,7 @@ export default function TakeAttendance() {
           </div>
         </div>
 
-        <div className={`flex ${isRTL ? 'justify-start space-x-reverse' : 'justify-end space-x-4'} mt-6`}>
+        <div className={`flex flex-wrap gap-4 mt-6 ${isArabicLayout ? 'flex-row-reverse justify-end' : 'justify-end'}`}>
           <button
             type="button"
             onClick={() => navigate('/attendance/sessions')}
