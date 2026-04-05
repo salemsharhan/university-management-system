@@ -1,11 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
-import { ArrowLeft, Save, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Loader2, Plus, Trash2 } from 'lucide-react'
 
 export default function CreateFeeStructure() {
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout =
+    isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+  const alignStart = isArabicLayout ? 'text-right' : 'text-left'
+  const iconRow = isArabicLayout ? 'flex-row-reverse' : ''
+
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = !!id
@@ -102,7 +115,7 @@ export default function CreateFeeStructure() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code')
+        .select('id, name_en, name_ar, code')
         .order('start_date', { ascending: false })
         .limit(50)
 
@@ -162,7 +175,7 @@ export default function CreateFeeStructure() {
       }
     } catch (err) {
       console.error('Error fetching fee structure:', err)
-      setError('Failed to load fee structure')
+      setError(t('finance.feeStructureForm.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -246,41 +259,38 @@ export default function CreateFeeStructure() {
     setSuccess(false)
 
     if (!formData.fee_type || !formData.fee_name_en || !formData.amount) {
-      setError('Please fill in all required fields')
+      setError(t('finance.feeStructureForm.errors.required'))
       return
     }
 
-    // Check if semester is required for this fee type
     const requiresSemester = selectedFeeType?.requires_semester !== false
     if (requiresSemester && formData.applies_to_semester.length === 0) {
-      setError('Please select at least one semester for this fee type')
+      setError(t('finance.feeStructureForm.errors.semesterRequired'))
       return
     }
 
-    // Validate payment portions if defined
     if (formData.payment_portions.length > 0) {
       const totalPercentage = calculateTotalPercentage()
       if (Math.abs(totalPercentage - 100) > 0.01) {
-        setError(`Payment portions must total 100%. Current total: ${totalPercentage.toFixed(2)}%`)
+        setError(t('finance.feeStructureForm.errors.portionTotal', { pct: totalPercentage.toFixed(2) }))
         return
       }
 
-      // Validate each portion
       for (let i = 0; i < formData.payment_portions.length; i++) {
         const portion = formData.payment_portions[i]
         if (!portion.percentage || parseFloat(portion.percentage) <= 0) {
-          setError(`Portion ${i + 1}: Percentage is required and must be greater than 0`)
+          setError(t('finance.feeStructureForm.errors.portionPct', { n: i + 1 }))
           return
         }
 
         if (portion.deadline_type === 'days_from_invoice' || portion.deadline_type === 'days_from_previous') {
-          if (!portion.days || parseInt(portion.days) < 0) {
-            setError(`Portion ${i + 1}: Days must be specified and non-negative`)
+          if (!portion.days || parseInt(portion.days, 10) < 0) {
+            setError(t('finance.feeStructureForm.errors.portionDays', { n: i + 1 }))
             return
           }
         } else if (portion.deadline_type === 'custom_date') {
           if (!portion.custom_date) {
-            setError(`Portion ${i + 1}: Custom date is required`)
+            setError(t('finance.feeStructureForm.errors.portionDate', { n: i + 1 }))
             return
           }
         }
@@ -288,7 +298,7 @@ export default function CreateFeeStructure() {
     }
 
     if (!collegeId && !formData.is_university_wide && userRole !== 'admin') {
-      setError('Please select a college or mark as university-wide')
+      setError(t('finance.feeStructureForm.errors.collegeOrWide'))
       return
     }
 
@@ -348,95 +358,111 @@ export default function CreateFeeStructure() {
       }, 1500)
     } catch (err) {
       console.error('Error saving fee structure:', err)
-      setError(err.message || 'Failed to save fee structure')
+      setError(err.message || t('finance.feeStructureForm.errors.saveFailed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/finance/configuration')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {isEdit ? 'Edit Fee Structure' : 'Create Fee Structure'}
-            </h1>
-            <p className="text-gray-600 mt-1">Configure base fees and fee structures</p>
-          </div>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className="flex w-full flex-wrap items-center justify-between gap-4">
+        <div className={alignStart}>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isEdit ? t('finance.feeStructureForm.editTitle') : t('finance.feeStructureForm.createTitle')}
+          </h1>
+          <p className="text-gray-600 mt-1">{t('finance.feeStructureForm.subtitle')}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate('/finance/configuration')}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+          aria-label={t('common.back')}
+        >
+          {isArabicLayout ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+        </button>
       </div>
 
       {userRole === 'admin' && (
-        <div className={`bg-white rounded-2xl shadow-sm border p-4 ${
-          requiresCollegeSelection && !formData.is_university_wide
-            ? 'border-yellow-300 bg-yellow-50' 
-            : 'border-gray-200'
-        }`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select College {requiresCollegeSelection && !formData.is_university_wide && <span className="text-red-500">*</span>}
+        <div
+          className={`bg-white rounded-2xl shadow-sm border p-4 ${
+            requiresCollegeSelection && !formData.is_university_wide
+              ? 'border-yellow-300 bg-yellow-50'
+              : 'border-gray-200'
+          }`}
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.feeStructureForm.selectCollege')}{' '}
+            {requiresCollegeSelection && !formData.is_university_wide && <span className="text-red-500">*</span>}
           </label>
           <select
             value={selectedCollegeId || ''}
-            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value) : null)}
+            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value, 10) : null)}
             disabled={formData.is_university_wide}
-            className={`w-full md:w-64 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-primary-500 ${
-              formData.is_university_wide 
-                ? 'bg-gray-100 border-gray-300' 
+            className={`w-full md:max-w-md border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none ps-4 pe-10 py-2.5 ${alignStart} ${
+              formData.is_university_wide
+                ? 'bg-gray-100 border-gray-300'
                 : requiresCollegeSelection
-                ? 'border-yellow-300 bg-white'
-                : 'border-gray-300'
+                  ? 'border-yellow-300 bg-white'
+                  : 'border-gray-300 bg-white'
             }`}
             required={requiresCollegeSelection && !formData.is_university_wide}
           >
-            <option value="">Select College</option>
-            {colleges.map(college => (
-              <option key={college.id} value={college.id}>{college.name_en}</option>
+            <option value="">{t('finance.feeStructureForm.collegePlaceholder')}</option>
+            {colleges.map((college) => (
+              <option key={college.id} value={college.id}>
+                {getLocalizedName(college, isArabicLayout) || college.name_en}
+              </option>
             ))}
           </select>
           {requiresCollegeSelection && !formData.is_university_wide && (
-            <p className="text-xs text-yellow-600 mt-1">Please select a college or mark as university-wide</p>
+            <p className={`text-xs text-yellow-600 mt-1 ${alignStart}`}>{t('finance.feeStructureForm.collegeWideHint')}</p>
           )}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6"
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+      >
         {/* Basic Information */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fee Type *</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.feeType')} *
+            </label>
             <select
               value={formData.fee_type}
               onChange={(e) => handleFeeTypeChange(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
               required
             >
-              <option value="">Select Type</option>
-              {feeTypes.map(feeType => (
+              <option value="">{t('finance.feeStructureForm.selectType')}</option>
+              {feeTypes.map((feeType) => (
                 <option key={feeType.id} value={feeType.code}>
-                  {feeType.name_en} {feeType.category && `(${feeType.category})`}
+                  {getLocalizedName(feeType, isArabicLayout) || feeType.name_en}{' '}
+                  {feeType.category && `(${feeType.category})`}
                 </option>
               ))}
             </select>
             {selectedFeeType && (
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedFeeType.description || `Category: ${selectedFeeType.category}`}
-                {selectedFeeType.requires_semester && ' • Semester required'}
+              <p className={`text-xs text-gray-500 mt-1 ${alignStart}`}>
+                {selectedFeeType.description ||
+                  t('finance.feeStructureForm.categoryLabel', { cat: selectedFeeType.category || '—' })}
+                {selectedFeeType.requires_semester && t('finance.feeStructureForm.semesterRequiredBadge')}
               </p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Currency *</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.currency')} *
+            </label>
             <select
               value={formData.currency}
               onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
               required
             >
               <option value="USD">USD</option>
@@ -446,33 +472,40 @@ export default function CreateFeeStructure() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fee Name (English) *</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.feeNameEn')} *
+            </label>
             <input
               type="text"
               value={formData.fee_name_en}
               onChange={(e) => setFormData({ ...formData, fee_name_en: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fee Name (Arabic)</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.feeNameAr')}
+            </label>
             <input
               type="text"
               value={formData.fee_name_ar}
               onChange={(e) => setFormData({ ...formData, fee_name_ar: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Amount *</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.amount')} *
+            </label>
             <input
               type="number"
               min="0"
               step="0.01"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              dir="ltr"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 tabular-nums"
               required
             />
           </div>
@@ -480,19 +513,24 @@ export default function CreateFeeStructure() {
 
         {/* Semesters Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Semesters {selectedFeeType?.requires_semester !== false ? '*' : ''}
-            {selectedFeeType?.requires_semester === false && ' (Optional)'}
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.feeStructureForm.semesters')}
+            {selectedFeeType?.requires_semester !== false ? ' *' : ''}
+            {selectedFeeType?.requires_semester === false && t('finance.feeStructureForm.semestersOptional')}
           </label>
           <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3">
             {semesters.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">No semesters available</p>
+              <p className={`text-sm text-gray-500 py-4 ${isArabicLayout ? 'text-right' : 'text-center'}`}>
+                {t('finance.feeStructureForm.noSemesters')}
+              </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {semesters.map(semester => (
+                {semesters.map((semester) => (
                   <label
                     key={semester.id}
-                    className={`flex items-center space-x-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors ${
+                      iconRow
+                    } ${
                       formData.applies_to_semester?.includes(semester.id)
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-300 hover:bg-gray-50'
@@ -502,11 +540,13 @@ export default function CreateFeeStructure() {
                       type="checkbox"
                       checked={formData.applies_to_semester?.includes(semester.id) || false}
                       onChange={() => handleSemesterToggle(semester.id)}
-                      className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                      className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
                     />
-                    <div className="flex-1">
-                      <span className="text-sm font-medium">{semester.name_en}</span>
-                      <span className="text-xs text-gray-500 ml-1">({semester.code})</span>
+                    <div className={`flex-1 min-w-0 ${alignStart}`}>
+                      <span className="text-sm font-medium">
+                        {getLocalizedName(semester, isArabicLayout) || semester.name_en}
+                      </span>
+                      <span className="text-xs text-gray-500 ms-1">({semester.code})</span>
                     </div>
                   </label>
                 ))}
@@ -514,124 +554,131 @@ export default function CreateFeeStructure() {
             )}
           </div>
           {formData.applies_to_semester.length > 0 && (
-            <p className="text-xs text-blue-600 mt-2">
-              Selected {formData.applies_to_semester.length} semester{formData.applies_to_semester.length !== 1 ? 's' : ''}
+            <p className={`text-xs text-blue-600 mt-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.selectedSemesters', { count: formData.applies_to_semester.length })}
             </p>
           )}
           {selectedFeeType?.requires_semester !== false && (
-            <p className="text-xs text-gray-500 mt-1">
-              Select one or more semesters. Financial milestones (30%, 60%, etc.) are calculated per semester.
-            </p>
+            <p className={`text-xs text-gray-500 mt-1 ${alignStart}`}>{t('finance.feeStructureForm.semesterHelp')}</p>
           )}
           {selectedFeeType?.requires_semester === false && (
-            <p className="text-xs text-gray-500 mt-1">
-              This fee type does not require a semester (e.g., Admission Fee, Application Fee)
-            </p>
+            <p className={`text-xs text-gray-500 mt-1 ${alignStart}`}>{t('finance.feeStructureForm.noSemesterFeeHelp')}</p>
           )}
         </div>
 
-        {/* Scope */}
         <div>
-          <label className="flex items-center space-x-2 mb-4">
+          <label className={`flex items-center gap-2 mb-4 ${iconRow}`}>
             <input
               type="checkbox"
               checked={formData.is_university_wide}
               onChange={(e) => setFormData({ ...formData, is_university_wide: e.target.checked })}
-              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
             />
-            <span className="text-sm font-medium text-gray-700">University Wide (applies to all colleges)</span>
+            <span className="text-sm font-medium text-gray-700">{t('finance.feeStructureForm.universityWide')}</span>
           </label>
         </div>
 
-        {/* Applies To */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Applies To (Optional - leave empty for all)</h3>
-          
-          {/* Degree Levels */}
+          <h3 className={`text-lg font-semibold text-gray-900 ${alignStart}`}>
+            {t('finance.feeStructureForm.appliesToTitle')}
+          </h3>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Degree Levels</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.degreeLevels')}
+            </label>
             <div className="flex flex-wrap gap-2">
-              {['bachelor', 'master', 'phd', 'diploma'].map(level => (
-                <label key={level} className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+              {['bachelor', 'master', 'phd', 'diploma'].map((level) => (
+                <label
+                  key={level}
+                  className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 ${iconRow}`}
+                >
                   <input
                     type="checkbox"
                     checked={formData.applies_to_degree_level?.includes(level)}
                     onChange={() => handleDegreeLevelToggle(level)}
-                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
                   />
-                  <span className="text-sm capitalize">{level}</span>
+                  <span className="text-sm">{t(`finance.feeStructureForm.degree.${level}`)}</span>
                 </label>
               ))}
             </div>
           </div>
 
-          {/* Majors */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Majors</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.majors')}
+            </label>
             <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
-              {majors.map(major => (
-                <label key={major.id} className="flex items-center space-x-2 px-3 py-2 hover:bg-gray-50 rounded cursor-pointer">
+              {majors.map((major) => (
+                <label
+                  key={major.id}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 rounded cursor-pointer ${iconRow}`}
+                >
                   <input
                     type="checkbox"
                     checked={formData.applies_to_major?.includes(major.id)}
                     onChange={() => handleMajorToggle(major.id)}
-                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
                   />
-                  <span className="text-sm">{major.name_en} ({major.code})</span>
+                  <span className="text-sm">
+                    {getLocalizedName(major, isArabicLayout) || major.name_en} ({major.code})
+                  </span>
                 </label>
               ))}
             </div>
           </div>
-
         </div>
 
-        {/* Validity Period */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Valid From</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.validFrom')}
+            </label>
             <input
               type="date"
               value={formData.valid_from}
               onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Valid To</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.feeStructureForm.validTo')}
+            </label>
             <input
               type="date"
               value={formData.valid_to}
               onChange={(e) => setFormData({ ...formData, valid_to: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
             />
           </div>
         </div>
 
-        {/* Payment Portions */}
         <div className="border-t border-gray-200 pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Payment Portions (Optional)</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Define payment installments with percentages and deadlines. If not set, a single invoice will be created.
-              </p>
+          <div className={`flex flex-wrap items-center justify-between gap-4 mb-4 ${iconRow}`}>
+            <div className={`min-w-0 ${alignStart}`}>
+              <h3 className="text-lg font-semibold text-gray-900">{t('finance.feeStructureForm.paymentPortionsTitle')}</h3>
+              <p className="text-sm text-gray-600 mt-1">{t('finance.feeStructureForm.paymentPortionsHint')}</p>
             </div>
             <button
               type="button"
               onClick={addPaymentPortion}
-              className="flex items-center space-x-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+              className={`flex items-center gap-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 ${iconRow}`}
             >
               <Plus className="w-4 h-4" />
-              <span>Add Portion</span>
+              <span>{t('finance.feeStructureForm.addPortion')}</span>
             </button>
           </div>
 
           {formData.payment_portions.length > 0 && (
             <div className="space-y-4">
               {formData.payment_portions.map((portion, index) => (
-                <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-semibold text-gray-900">Portion {portion.portion_number}</h4>
+                <div key={index} className="border border-gray-200 rounded-xl p-4 bg-gray-50" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+                  <div className={`flex items-center justify-between mb-4 ${iconRow}`}>
+                    <h4 className={`font-semibold text-gray-900 ${alignStart}`}>
+                      {t('finance.feeStructureForm.portionTitle', { n: portion.portion_number })}
+                    </h4>
                     {formData.payment_portions.length > 1 && (
                       <button
                         type="button"
@@ -642,11 +689,14 @@ export default function CreateFeeStructure() {
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Percentage * (Total: {calculateTotalPercentage().toFixed(2)}%)
+                      <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                        {t('finance.feeStructureForm.percentage')} * —{' '}
+                        {t('finance.feeStructureForm.percentageTotal', {
+                          pct: calculateTotalPercentage().toFixed(2),
+                        })}
                       </label>
                       <input
                         type="number"
@@ -655,54 +705,62 @@ export default function CreateFeeStructure() {
                         step="0.01"
                         value={portion.percentage}
                         onChange={(e) => updatePaymentPortion(index, 'percentage', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        dir="ltr"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 tabular-nums"
                         required
-                        placeholder="e.g., 10.00"
+                        placeholder="10.00"
                       />
                     </div>
-                    
+
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Deadline Type *</label>
+                      <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                        {t('finance.feeStructureForm.deadlineType')} *
+                      </label>
                       <select
                         value={portion.deadline_type}
                         onChange={(e) => updatePaymentPortion(index, 'deadline_type', e.target.value)}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                        className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${alignStart}`}
                         required
                       >
-                        <option value="days_from_invoice">Days from Invoice Creation</option>
-                        <option value="days_from_previous">Days from Previous Payment</option>
-                        <option value="custom_date">Custom Date</option>
+                        <option value="days_from_invoice">{t('finance.feeStructureForm.deadlineFromInvoice')}</option>
+                        <option value="days_from_previous">{t('finance.feeStructureForm.deadlineFromPrevious')}</option>
+                        <option value="custom_date">{t('finance.feeStructureForm.deadlineCustom')}</option>
                       </select>
                     </div>
 
                     {portion.deadline_type !== 'custom_date' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Days *</label>
+                        <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                          {t('finance.feeStructureForm.days')} *
+                        </label>
                         <input
                           type="number"
                           min="0"
                           value={portion.days}
                           onChange={(e) => updatePaymentPortion(index, 'days', e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                          dir="ltr"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 tabular-nums"
                           required
-                          placeholder="e.g., 10"
+                          placeholder="10"
                         />
-                        <p className="text-xs text-gray-500 mt-1">
-                          {portion.deadline_type === 'days_from_invoice' 
-                            ? 'Days from invoice creation date'
-                            : 'Days from previous portion payment date'}
+                        <p className={`text-xs text-gray-500 mt-1 ${alignStart}`}>
+                          {portion.deadline_type === 'days_from_invoice'
+                            ? t('finance.feeStructureForm.daysHintInvoice')
+                            : t('finance.feeStructureForm.daysHintPrevious')}
                         </p>
                       </div>
                     )}
 
                     {portion.deadline_type === 'custom_date' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Custom Date *</label>
+                        <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                          {t('finance.feeStructureForm.customDate')} *
+                        </label>
                         <input
                           type="date"
                           value={portion.custom_date}
                           onChange={(e) => updatePaymentPortion(index, 'custom_date', e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                          className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 ${alignStart}`}
                           required
                         />
                       </div>
@@ -712,92 +770,90 @@ export default function CreateFeeStructure() {
               ))}
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Total Percentage:</strong> {calculateTotalPercentage().toFixed(2)}% 
+                <p className={`text-sm text-blue-800 ${alignStart}`}>
+                  <strong>{t('finance.feeStructureForm.totalPctTitle')}:</strong>{' '}
+                  <span dir="ltr" className="tabular-nums">
+                    {calculateTotalPercentage().toFixed(2)}%
+                  </span>
                   {Math.abs(calculateTotalPercentage() - 100) > 0.01 && (
-                    <span className="text-red-600 ml-2">
-                      (Must equal 100% - Current difference: {(100 - calculateTotalPercentage()).toFixed(2)}%)
+                    <span className="text-red-600 ms-2">
+                      {t('finance.feeStructureForm.totalPctMust100', {
+                        diff: Math.abs(100 - calculateTotalPercentage()).toFixed(2),
+                      })}
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-blue-700 mt-2">
-                  When an invoice is created using this fee structure, multiple invoices will be generated (one per portion).
-                  Financial milestones will be calculated based on the total percentage paid across all portions.
-                </p>
+                <p className={`text-xs text-blue-700 mt-2 ${alignStart}`}>{t('finance.feeStructureForm.portionsFootnote')}</p>
               </div>
             </div>
           )}
 
           {formData.payment_portions.length === 0 && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-600">
-                No payment portions defined. A single invoice will be created when this fee structure is used.
-              </p>
+            <div className={`bg-gray-50 border border-gray-200 rounded-lg p-4 ${isArabicLayout ? 'text-right' : 'text-center'}`}>
+              <p className="text-sm text-gray-600">{t('finance.feeStructureForm.noPortionsHint')}</p>
             </div>
           )}
         </div>
 
-        {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.feeStructureForm.description')}
+          </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+            className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
             rows="3"
           />
         </div>
 
-        {/* Active Status */}
         <div>
-          <label className="flex items-center space-x-2">
+          <label className={`flex items-center gap-2 ${iconRow}`}>
             <input
               type="checkbox"
               checked={formData.is_active}
               onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
             />
-            <span className="text-sm font-medium text-gray-700">Active</span>
+            <span className="text-sm font-medium text-gray-700">{t('finance.feeStructureForm.active')}</span>
           </label>
         </div>
 
-        {/* Error and Success Messages */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl">
+          <div className={`bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl ${alignStart}`}>
             {error}
           </div>
         )}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl">
-            Fee structure {isEdit ? 'updated' : 'created'} successfully! Redirecting...
+          <div className={`bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl ${alignStart}`}>
+            {isEdit ? t('finance.feeStructureForm.successUpdate') : t('finance.feeStructureForm.successCreate')}
           </div>
         )}
 
-        {/* Submit Button */}
-        <div className="flex items-center justify-end space-x-4">
+        <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <span>{t('finance.feeStructureForm.saving')}</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5 shrink-0" />
+                <span>{isEdit ? t('finance.feeStructureForm.saveUpdate') : t('finance.feeStructureForm.saveCreate')}</span>
+              </>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => navigate('/finance/configuration')}
             className="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
           >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                <span>{isEdit ? 'Update' : 'Create'} Fee Structure</span>
-              </>
-            )}
+            {t('finance.feeStructureForm.cancel')}
           </button>
         </div>
       </form>

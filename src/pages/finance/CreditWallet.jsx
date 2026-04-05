@@ -1,15 +1,62 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
-import { ArrowLeft, Save, Search, DollarSign, Wallet, Loader2 } from 'lucide-react'
+import { getLocalizedName } from '../../utils/localizedName'
+import { getCollegeCurrencyCode } from '../../utils/getCollegeSettings'
+import { ArrowLeft, ArrowRight, Save, Search, Wallet, Loader2 } from 'lucide-react'
+
+function displayPersonName(person, isArabicLayout) {
+  if (!person) return ''
+  if (isArabicLayout) {
+    const ar = [person.first_name_ar, person.last_name_ar].filter(Boolean).join(' ').trim()
+    if (ar) return ar
+    if (person.name_ar?.trim()) return person.name_ar.trim()
+  }
+  if (person.first_name && person.last_name) return `${person.first_name} ${person.last_name}`.trim()
+  return person.name_en?.trim() || ''
+}
+
+function RtlMoney({ isArabicLayout, inline = false, className = '', children }) {
+  const inner = (
+    <span dir="ltr" className={`tabular-nums ${className}`}>
+      {children}
+    </span>
+  )
+  if (!isArabicLayout) return inner
+  if (inline) {
+    return (
+      <span className="inline-flex min-w-0 max-w-full justify-start align-middle">
+        {inner}
+      </span>
+    )
+  }
+  return (
+    <div className="flex w-full min-w-0 justify-start">
+      {inner}
+    </div>
+  )
+}
 
 export default function CreditWallet() {
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout =
+    isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
+
+  const alignStart = isArabicLayout ? 'text-right' : 'text-left'
+  const iconRow = isArabicLayout ? 'flex-row-reverse' : ''
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -20,6 +67,18 @@ export default function CreditWallet() {
   const [walletBalance, setWalletBalance] = useState(0)
   const [creditAmount, setCreditAmount] = useState('')
   const [description, setDescription] = useState('')
+  const [currencyCode, setCurrencyCode] = useState('USD')
+
+  useEffect(() => {
+    const cid = selectedStudent?.college_id ?? collegeId
+    if (!cid) {
+      setCurrencyCode('USD')
+      return
+    }
+    getCollegeCurrencyCode(cid)
+      .then(setCurrencyCode)
+      .catch(() => setCurrencyCode('USD'))
+  }, [selectedStudent?.college_id, collegeId])
 
   useEffect(() => {
     if (studentSearch && studentSearch.length >= 3) {
@@ -34,6 +93,15 @@ export default function CreditWallet() {
       fetchWalletBalance()
     }
   }, [selectedStudent])
+
+  const formatMoney = (n) => {
+    const code = currencyCode || 'USD'
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(Number(n))
+    } catch {
+      return `${code} ${Number(n).toFixed(2)}`
+    }
+  }
 
   const searchStudents = async () => {
     if (!collegeId && userRole !== 'admin') return
@@ -51,8 +119,8 @@ export default function CreditWallet() {
         query = query.eq('college_id', collegeId)
       }
 
-      const { data, error } = await query
-      if (error) throw error
+      const { data, error: qErr } = await query
+      if (qErr) throw qErr
       setStudents(data || [])
     } catch (err) {
       console.error('Error searching students:', err)
@@ -61,13 +129,13 @@ export default function CreditWallet() {
 
   const fetchWalletBalance = async () => {
     try {
-      const { data, error } = await supabase
+      const { data, error: qErr } = await supabase
         .from('wallets')
         .select('balance')
         .eq('student_id', selectedStudent.id)
         .single()
 
-      if (error && error.code !== 'PGRST116') throw error
+      if (qErr && qErr.code !== 'PGRST116') throw qErr
       setWalletBalance(data?.balance || 0)
     } catch (err) {
       console.error('Error fetching wallet balance:', err)
@@ -80,20 +148,19 @@ export default function CreditWallet() {
     setSuccess(false)
 
     if (!selectedStudent) {
-      setError('Please select a student')
+      setError(t('finance.creditWallet.errors.selectStudent'))
       return
     }
 
     const amount = parseFloat(creditAmount)
     if (!amount || amount <= 0) {
-      setError('Please enter a valid credit amount')
+      setError(t('finance.creditWallet.errors.invalidAmount'))
       return
     }
 
     setLoading(true)
 
     try {
-      // Get or create wallet
       let { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('id, balance')
@@ -101,13 +168,12 @@ export default function CreditWallet() {
         .single()
 
       if (walletError && walletError.code === 'PGRST116') {
-        // Wallet doesn't exist, create it
         const { data: newWallet, error: createError } = await supabase
           .from('wallets')
           .insert({
             student_id: selectedStudent.id,
             college_id: selectedStudent.college_id,
-            balance: 0
+            balance: 0,
           })
           .select()
           .single()
@@ -121,7 +187,6 @@ export default function CreditWallet() {
       const balanceBefore = parseFloat(wallet.balance || 0)
       const balanceAfter = balanceBefore + amount
 
-      // Create wallet transaction
       const { data: transaction, error: transactionError } = await supabase
         .from('wallet_transactions')
         .insert({
@@ -131,16 +196,15 @@ export default function CreditWallet() {
           amount: amount,
           balance_before: balanceBefore,
           balance_after: balanceAfter,
-          description: description || 'Wallet top-up'
+          description: description || 'Wallet top-up',
         })
         .select()
         .single()
 
       if (transactionError) throw transactionError
 
-      // Generate invoice for wallet credit (audit trail)
       const invoiceNumber = await supabase.rpc('generate_invoice_number', {
-        college_id_param: selectedStudent.college_id
+        college_id_param: selectedStudent.college_id,
       })
 
       if (invoiceNumber.error) throw invoiceNumber.error
@@ -161,30 +225,27 @@ export default function CreditWallet() {
           total_amount: amount,
           paid_amount: amount,
           pending_amount: 0,
-          notes: `Wallet credit transaction: ${transaction.id}`
+          currency: currencyCode || 'USD',
+          notes: `Wallet credit transaction: ${transaction.id}`,
         })
         .select()
         .single()
 
       if (invoiceError) throw invoiceError
 
-      // Create invoice item
-      await supabase
-        .from('invoice_items')
-        .insert({
-          invoice_id: invoice.id,
-          item_type: 'wallet_credit',
-          item_name_en: 'Wallet Credit',
-          item_name_ar: 'رصيد المحفظة',
-          description: description || 'Wallet top-up',
-          quantity: 1,
-          unit_price: amount,
-          discount_amount: 0,
-          scholarship_amount: 0,
-          total_amount: amount
-        })
+      await supabase.from('invoice_items').insert({
+        invoice_id: invoice.id,
+        item_type: 'wallet_credit',
+        item_name_en: 'Wallet Credit',
+        item_name_ar: 'رصيد المحفظة',
+        description: description || 'Wallet top-up',
+        quantity: 1,
+        unit_price: amount,
+        discount_amount: 0,
+        scholarship_amount: 0,
+        total_amount: amount,
+      })
 
-      // Update transaction with invoice reference
       await supabase
         .from('wallet_transactions')
         .update({ reference_invoice_id: invoice.id })
@@ -194,82 +255,95 @@ export default function CreditWallet() {
       setCreditAmount('')
       setDescription('')
       fetchWalletBalance()
-      
+
       setTimeout(() => {
         setSuccess(false)
       }, 3000)
     } catch (err) {
       console.error('Error crediting wallet:', err)
-      setError(err.message || 'Failed to credit wallet')
+      setError(err.message || t('finance.creditWallet.errors.failed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/finance')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Credit Wallet</h1>
-            <p className="text-gray-600 mt-1">Add credit to student wallet</p>
-          </div>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className="flex w-full flex-wrap items-center justify-between gap-4">
+        <div className={alignStart}>
+          <h1 className="text-3xl font-bold text-gray-900">{t('finance.creditWallet.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('finance.creditWallet.subtitle')}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate('/finance')}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+          aria-label={t('common.back')}
+        >
+          {isArabicLayout ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+        </button>
       </div>
 
       {userRole === 'admin' && (
-        <div className={`bg-white rounded-2xl shadow-sm border p-4 ${
-          requiresCollegeSelection
-            ? 'border-yellow-300 bg-yellow-50' 
-            : 'border-gray-200'
-        }`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select College {requiresCollegeSelection && <span className="text-red-500">*</span>}
+        <div
+          className={`bg-white rounded-2xl shadow-sm border p-4 ${
+            requiresCollegeSelection ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'
+          }`}
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.creditWallet.selectCollege')}{' '}
+            {requiresCollegeSelection && <span className="text-red-500">*</span>}
           </label>
           <select
             value={selectedCollegeId || ''}
-            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value) : null)}
-            className={`w-full md:w-64 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-primary-500 ${
-              requiresCollegeSelection
-                ? 'border-yellow-300 bg-white'
-                : 'border-gray-300'
+            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value, 10) : null)}
+            className={`w-full md:max-w-md border rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none ps-4 pe-10 py-2.5 ${alignStart} ${
+              requiresCollegeSelection ? 'border-yellow-300 bg-white' : 'border-gray-300 bg-white'
             }`}
             required={requiresCollegeSelection}
           >
-            <option value="">Select College</option>
-            {colleges.map(college => (
-              <option key={college.id} value={college.id}>{college.name_en}</option>
+            <option value="">{t('finance.creditWallet.collegePlaceholder')}</option>
+            {colleges.map((college) => (
+              <option key={college.id} value={college.id}>
+                {getLocalizedName(college, isArabicLayout) || college.name_en}
+              </option>
             ))}
           </select>
           {requiresCollegeSelection && (
-            <p className="text-xs text-yellow-600 mt-1">Please select a college to continue</p>
+            <p className={`text-xs text-yellow-600 mt-1 ${alignStart}`}>{t('finance.creditWallet.collegeHint')}</p>
           )}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
-        {/* Student Search */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6"
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+      >
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Student Number *</label>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.creditWallet.studentNumber')} *
+          </label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search
+              className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 ${
+                isArabicLayout ? 'right-3' : 'left-3'
+              }`}
+            />
             <input
               type="text"
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              placeholder="Search by student number..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              placeholder={t('finance.creditWallet.searchPlaceholder')}
+              className={`w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 py-3 ${
+                isArabicLayout ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'
+              }`}
             />
           </div>
           {students.length > 0 && (
             <div className="mt-2 border border-gray-200 rounded-xl bg-white shadow-lg max-h-60 overflow-y-auto">
-              {students.map(student => (
+              {students.map((student) => (
                 <button
                   key={student.id}
                   type="button"
@@ -278,34 +352,36 @@ export default function CreditWallet() {
                     setStudentSearch(student.student_id)
                     setStudents([])
                   }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                  className={`w-full px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${alignStart}`}
                 >
-                  <div className="font-semibold">{student.student_id}</div>
-                  <div className="text-sm text-gray-600">
-                    {student.first_name && student.last_name
-                      ? `${student.first_name} ${student.last_name}`
-                      : student.name_en}
+                  <div className="font-semibold" dir="ltr">
+                    {student.student_id}
                   </div>
+                  <div className="text-sm text-gray-600">{displayPersonName(student, isArabicLayout)}</div>
                 </button>
               ))}
             </div>
           )}
           {selectedStudent && (
             <div className="mt-4 p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Selected Student</p>
+              <div className={`flex flex-wrap items-center justify-between gap-4 ${iconRow}`}>
+                <div className={`min-w-0 ${alignStart}`}>
+                  <p className="text-sm text-gray-600">{t('finance.creditWallet.selectedStudent')}</p>
                   <p className="font-semibold">
-                    {selectedStudent.student_id} - {selectedStudent.first_name && selectedStudent.last_name
-                      ? `${selectedStudent.first_name} ${selectedStudent.last_name}`
-                      : selectedStudent.name_en}
+                    <span dir="ltr" className="tabular-nums">
+                      {selectedStudent.student_id}
+                    </span>
+                    {' — '}
+                    {displayPersonName(selectedStudent, isArabicLayout)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Current Balance</p>
-                  <p className="text-2xl font-bold text-primary-600">
-                    <Wallet className="w-6 h-6 inline mr-2" />
-                    {walletBalance.toFixed(2)} USD
+                <div className={`min-w-0 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                  <p className="text-sm text-gray-600">{t('finance.creditWallet.currentBalance')}</p>
+                  <p className="text-2xl font-bold text-primary-600 inline-flex items-center gap-2">
+                    <Wallet className="w-6 h-6 shrink-0" />
+                    <RtlMoney isArabicLayout={isArabicLayout} className="text-2xl font-bold text-primary-600">
+                      {formatMoney(walletBalance)}
+                    </RtlMoney>
                   </p>
                 </div>
               </div>
@@ -313,89 +389,85 @@ export default function CreditWallet() {
           )}
         </div>
 
-        {/* Credit Amount */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Credit Amount (USD) *</label>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={creditAmount}
-              onChange={(e) => setCreditAmount(e.target.value)}
-              placeholder="0.00"
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
-              required
-            />
-          </div>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.creditWallet.creditAmount')} ({currencyCode}) *
+          </label>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={creditAmount}
+            onChange={(e) => setCreditAmount(e.target.value)}
+            placeholder="0.00"
+            dir="ltr"
+            className="w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 py-3 px-4 tabular-nums bg-white"
+            required
+          />
         </div>
 
-        {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.creditWallet.description')}
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional description for this transaction..."
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+            placeholder={t('finance.creditWallet.descriptionPlaceholder')}
+            className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
             rows="3"
           />
         </div>
 
-        {/* New Balance Preview */}
         {selectedStudent && creditAmount && parseFloat(creditAmount) > 0 && (
           <div className="bg-primary-50 p-4 rounded-xl">
-            <p className="text-sm text-gray-600">New Balance After Credit</p>
+            <p className={`text-sm text-gray-600 ${alignStart}`}>{t('finance.creditWallet.newBalance')}</p>
             <p className="text-2xl font-bold text-primary-600">
-              {(walletBalance + parseFloat(creditAmount || 0)).toFixed(2)} USD
+              <RtlMoney isArabicLayout={isArabicLayout}>
+                {formatMoney(walletBalance + parseFloat(creditAmount || 0))}
+              </RtlMoney>
             </p>
           </div>
         )}
 
-        {/* Error and Success Messages */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl">
+          <div className={`bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl ${alignStart}`}>
             {error}
           </div>
         )}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl">
-            Wallet credited successfully! Invoice has been generated for audit purposes.
+          <div className={`bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl ${alignStart}`}>
+            {t('finance.creditWallet.success')}
           </div>
         )}
 
-        {/* Submit Button */}
-        <div className="flex items-center justify-end space-x-4">
+        <div className="flex w-full flex-wrap items-center justify-between gap-4 pt-2">
+          <button
+            type="submit"
+            disabled={loading || !selectedStudent}
+            className="flex items-center gap-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <span>{t('finance.creditWallet.processing')}</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5 shrink-0" />
+                <span>{t('finance.creditWallet.submit')}</span>
+              </>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => navigate('/finance')}
             className="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
           >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading || !selectedStudent}
-            className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                <span>Credit Wallet</span>
-              </>
-            )}
+            {t('finance.creditWallet.cancel')}
           </button>
         </div>
       </form>
     </div>
   )
 }
-
-
-
