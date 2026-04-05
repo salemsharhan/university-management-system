@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { getGradingScaleFromUniversitySettings, calculateGpaWithScale } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,15 +10,19 @@ import { useCollege } from '../../contexts/CollegeContext'
 import { Search, GraduationCap, FileText, TrendingUp } from 'lucide-react'
 
 export default function StudentGrades() {
-  const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout = isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId, departmentId } = useAuth()
-  const { selectedCollegeId } = useCollege()
+  const { selectedCollegeId, colleges, setSelectedCollegeId } = useCollege()
   const [students, setStudents] = useState([])
   const [filteredStudents, setFilteredStudents] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedProgram, setSelectedProgram] = useState('All Programs')
+  const [selectedProgram, setSelectedProgram] = useState('')
   const [loading, setLoading] = useState(false)
   const [collegeId, setCollegeId] = useState(null)
   const [gradingScale, setGradingScale] = useState([])
@@ -117,11 +122,15 @@ export default function StudentGrades() {
           id,
           student_id,
           name_en,
+          name_ar,
           first_name,
           last_name,
-          majors(id, name_en),
+          first_name_ar,
+          last_name_ar,
+          major_id,
+          majors(id, name_en, name_ar),
           college_id,
-          colleges(id, name_en)
+          colleges(id, name_en, name_ar)
         `)
         .eq('status', 'active')
 
@@ -174,16 +183,19 @@ export default function StudentGrades() {
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(s =>
+      filtered = filtered.filter((s) =>
         s.student_id?.toLowerCase().includes(term) ||
         s.name_en?.toLowerCase().includes(term) ||
+        s.name_ar?.toLowerCase().includes(term) ||
         s.first_name?.toLowerCase().includes(term) ||
-        s.last_name?.toLowerCase().includes(term)
+        s.last_name?.toLowerCase().includes(term) ||
+        s.first_name_ar?.toLowerCase().includes(term) ||
+        s.last_name_ar?.toLowerCase().includes(term)
       )
     }
 
-    if (selectedProgram && selectedProgram !== 'All Programs') {
-      filtered = filtered.filter(s => s.majors?.name_en === selectedProgram)
+    if (selectedProgram) {
+      filtered = filtered.filter((s) => String(s.major_id || s.majors?.id || '') === String(selectedProgram))
     }
 
     setFilteredStudents(filtered)
@@ -201,47 +213,95 @@ export default function StudentGrades() {
     }
   }
 
-  const getPrograms = () => {
-    const programs = new Set()
-    students.forEach(s => {
-      if (s.majors?.name_en) {
-        programs.add(s.majors.name_en)
-      }
+  const programOptions = useMemo(() => {
+    const map = new Map()
+    students.forEach((s) => {
+      if (s.majors?.id) map.set(s.majors.id, s.majors)
     })
-    return Array.from(programs).sort()
+    return [...map.values()].sort((a, b) =>
+      (getLocalizedName(a, isArabicLayout) || '').localeCompare(getLocalizedName(b, isArabicLayout) || '', isArabicLayout ? 'ar' : 'en')
+    )
+  }, [students, isArabicLayout])
+
+  const displayStudentName = (student) => {
+    if (!student) return '—'
+    if (isArabicLayout) {
+      const ar = [student.first_name_ar, student.last_name_ar].filter(Boolean).join(' ').trim()
+      if (ar) return ar
+      if (student.name_ar?.trim()) return student.name_ar.trim()
+    }
+    if (student.name_en?.trim()) return student.name_en.trim()
+    return [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || '—'
   }
 
   return (
-    <div className="space-y-6">
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('grading.studentGrades.title')}</h1>
-          <p className="text-gray-600 mt-1">{t('grading.studentGrades.subtitle')}</p>
-        </div>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className={isArabicLayout ? 'text-right' : 'text-left'} dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <h1 className="text-3xl font-bold text-gray-900">{t('grading.studentGrades.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('grading.studentGrades.subtitle')}</p>
       </div>
 
       {/* Search and Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="relative">
-            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5`} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={t('grading.studentGrades.searchPlaceholder')}
-              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-            />
+        <div
+          className={`grid grid-cols-1 gap-4 ${userRole === 'admin' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          {userRole === 'admin' && (
+            <div>
+              <label
+                className={`block text-sm font-medium text-gray-700 mb-2 ${isArabicLayout ? 'text-right' : 'text-left'}`}
+              >
+                {t('grading.gradeManagement.selectCollege')}
+              </label>
+              <select
+                value={selectedCollegeId ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setSelectedCollegeId(v ? parseInt(v, 10) : null)
+                }}
+                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isArabicLayout ? 'text-right' : 'text-left'}`}
+              >
+                <option value="">{t('grading.gradeManagement.allColleges')}</option>
+                {colleges.map((college) => (
+                  <option key={college.id} value={college.id}>
+                    {getLocalizedName(college, isArabicLayout)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              {t('common.search')}
+            </label>
+            <div className="relative">
+              <Search
+                className={`absolute ${isArabicLayout ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none`}
+              />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder={t('grading.studentGrades.searchPlaceholder')}
+                className={`w-full ${isArabicLayout ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'} py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+              />
+            </div>
           </div>
           <div>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              {t('grading.studentGrades.program')}
+            </label>
             <select
               value={selectedProgram}
               onChange={(e) => setSelectedProgram(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isArabicLayout ? 'text-right' : 'text-left'}`}
             >
-              <option value="All Programs">{t('grading.studentGrades.allPrograms')}</option>
-              {getPrograms().map(program => (
-                <option key={program} value={program}>{program}</option>
+              <option value="">{t('grading.studentGrades.allPrograms')}</option>
+              {programOptions.map((major) => (
+                <option key={major.id} value={String(major.id)}>
+                  {getLocalizedName(major, isArabicLayout)}
+                </option>
               ))}
             </select>
           </div>
@@ -250,7 +310,7 @@ export default function StudentGrades() {
 
       {/* Students List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className={`text-xl font-bold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.students')} ({filteredStudents.length})</h2>
+        <h2 className={`text-xl font-bold text-gray-900 mb-4 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.students')} ({filteredStudents.length})</h2>
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -262,45 +322,44 @@ export default function StudentGrades() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.studentId')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.name')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.program')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.currentSemesterGpa')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.totalGpa')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.status')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('common.actions')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.studentId')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.name')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.program')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.currentSemesterGpa')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.totalGpa')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.studentGrades.status')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`} dir="ltr">
                       {student.student_id}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {student.name_en || `${student.first_name} ${student.last_name}`}
-                      </div>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                      {displayStudentName(student)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {student.majors?.name_en || '-'}
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                      {getLocalizedName(student.majors, isArabicLayout) || '—'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${isArabicLayout ? 'text-right' : 'text-left'}`} dir="ltr">
                       {getStudentGpas(student.id).currentSemesterGpa}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${isArabicLayout ? 'text-right' : 'text-left'}`} dir="ltr">
                       {getStudentGpas(student.id).totalGpa}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className={`px-6 py-4 whitespace-nowrap ${isArabicLayout ? 'text-right' : 'text-left'}`}>
                       <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                         {t('grading.studentGrades.active')}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${isArabicLayout ? 'text-right' : 'text-left'}`}>
                       <button
+                        type="button"
                         onClick={() => navigate(`/grading/students/${student.id}/report`)}
                         className="text-primary-600 hover:text-primary-900"
                       >

@@ -1,28 +1,85 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import {
   getGradingScaleFromUniversitySettings,
   getSubjectGpaFromEnrollment,
   calculateGpaWithScale,
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../contexts/AuthContext'
 import { FileText, Download, Printer, Calendar } from 'lucide-react'
+
+function displayStudentName(student, isArabicLayout) {
+  if (!student) return '—'
+  if (isArabicLayout) {
+    const ar = [student.first_name_ar, student.last_name_ar].filter(Boolean).join(' ').trim()
+    if (ar) return ar
+    if (student.name_ar?.trim()) return student.name_ar.trim()
+  }
+  if (student.name_en?.trim()) return student.name_en.trim()
+  return [student.first_name, student.last_name].filter(Boolean).join(' ').trim() || '—'
+}
+
+function formatGpaDisplay(gpa) {
+  if (gpa == null || gpa === '') return '0.00'
+  const n = typeof gpa === 'number' ? gpa : parseFloat(String(gpa))
+  if (Number.isNaN(n)) return String(gpa)
+  return n.toFixed(2)
+}
+
+/**
+ * Keeps digits/LTR symbols correct while placing them on the “start” of the line.
+ * Under dir=rtl, flex-start is the physical right — more reliable than text-end on dir=ltr blocks.
+ */
+function TranscriptValueRow({ className = '', numeric = false, children }) {
+  return (
+    <div className="flex w-full min-w-0 justify-start">
+      <span dir={numeric ? 'ltr' : undefined} className={className}>
+        {children}
+      </span>
+    </div>
+  )
+}
 
 export default function Transcripts() {
   const { studentId } = useParams()
   const navigate = useNavigate()
-  const { userRole, collegeId: authCollegeId } = useAuth()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout =
+    isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+
   const [student, setStudent] = useState(null)
   const [enrollments, setEnrollments] = useState([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
   const [gradingScale, setGradingScale] = useState([])
 
+  const dateLocale = isArabicLayout ? 'ar' : undefined
+
+  const gradeStatusLabel = (status) => {
+    if (!status) return '—'
+    const key = `grading.transcripts.gradeComponentStatus.${status}`
+    const translated = t(key)
+    return translated === key ? status : translated
+  }
+
   useEffect(() => {
-    if (studentId) {
-      fetchStudentData()
-      fetchEnrollments()
+    if (!studentId) {
+      setStudent(null)
+      setEnrollments([])
+      setLoadError(false)
+      setLoading(false)
+      return
     }
+    setLoadError(false)
+    fetchStudentData()
+    fetchEnrollments()
   }, [studentId])
 
   useEffect(() => {
@@ -34,25 +91,34 @@ export default function Transcripts() {
   }, [])
 
   const fetchStudentData = async () => {
+    if (!studentId) return
     try {
+      setLoading(true)
+      setLoadError(false)
       const { data, error } = await supabase
         .from('students')
         .select(`
           *,
-          majors(id, name_en),
-          colleges(id, name_en)
+          majors(id, name_en, name_ar),
+          colleges(id, name_en, name_ar)
         `)
         .eq('id', studentId)
         .single()
 
       if (error) throw error
+      if (!data) throw new Error('Student not found')
       setStudent(data)
     } catch (err) {
       console.error('Error fetching student:', err)
+      setStudent(null)
+      setLoadError(true)
+    } finally {
+      setLoading(false)
     }
   }
 
   const fetchEnrollments = async () => {
+    if (!studentId) return
     try {
       const { data, error } = await supabase
         .from('enrollments')
@@ -61,9 +127,9 @@ export default function Transcripts() {
           classes(
             id,
             code,
-            subjects(id, name_en, code, credit_hours)
+            subjects(id, name_en, name_ar, code, credit_hours)
           ),
-          semesters(id, name_en, code, start_date, end_date),
+          semesters(id, name_en, name_ar, code, start_date, end_date),
           grade_components(
             numeric_grade,
             letter_grade,
@@ -81,9 +147,9 @@ export default function Transcripts() {
     }
   }
 
-  const groupBySemester = (enrollments) => {
+  const groupBySemester = (list) => {
     const grouped = {}
-    enrollments.forEach(enrollment => {
+    list.forEach((enrollment) => {
       const semesterId = enrollment.semester_id
       if (!grouped[semesterId]) {
         grouped[semesterId] = {
@@ -101,162 +167,270 @@ export default function Transcripts() {
   }
 
   const handleExportPDF = () => {
-    // TODO: Implement PDF export
-    alert('PDF export functionality will be implemented')
+    alert(t('grading.transcripts.exportSoon'))
   }
 
-  if (!student) {
+  const semesterGroups = useMemo(() => groupBySemester(enrollments), [enrollments])
+  const cumulativeGpaResult = useMemo(
+    () => calculateGpaWithScale(enrollments, gradingScale),
+    [enrollments, gradingScale]
+  )
+  const cumulativeGPA = cumulativeGpaResult.gpa
+  const totalCreditsAttempted = enrollments.reduce(
+    (sum, e) => sum + (e.classes?.subjects?.credit_hours || 0),
+    0
+  )
+  const totalCreditsEarned = enrollments
+    .filter((e) => {
+      const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
+      return points != null && points > 0
+    })
+    .reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
+
+  const thClass = `px-4 py-3 text-xs font-medium text-gray-500 uppercase ${isArabicLayout ? 'text-right' : 'text-left'}`
+  const cellClass = `px-4 py-3 text-sm text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`
+
+  if (!studentId) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
+          <h1 className="text-3xl font-bold text-gray-900">{t('grading.transcripts.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('grading.transcripts.subtitle')}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-w-lg">
+          <h2 className={`text-lg font-semibold text-gray-900 mb-2 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            {t('grading.transcripts.pickStudentTitle')}
+          </h2>
+          <p className={`text-gray-600 mb-6 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            {t('grading.transcripts.pickStudentBody')}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/grading/students')}
+            className="px-4 py-2 bg-primary-gradient text-white rounded-lg font-medium hover:shadow-lg transition-all"
+          >
+            {t('grading.transcripts.goToStudentGrades')}
+          </button>
+        </div>
       </div>
     )
   }
 
-  const semesterGroups = groupBySemester(enrollments)
-  const cumulativeGpaResult = calculateGpaWithScale(enrollments, gradingScale)
-  const cumulativeGPA = cumulativeGpaResult.gpa
-  const totalCreditsAttempted = enrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
-  const totalCreditsEarned = enrollments.filter(e => {
-    const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
-    return points != null && points > 0
-  }).reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
+  if (loading && !student) {
+    return (
+      <div className="flex items-center justify-center min-h-screen" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+      </div>
+    )
+  }
+
+  if (!student && loadError) {
+    return (
+      <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
+          <h1 className="text-3xl font-bold text-gray-900">{t('grading.transcripts.title')}</h1>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-red-200 p-8 max-w-lg">
+          <p className={`text-red-700 mb-4 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            {t('grading.transcripts.loadFailed')}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/grading/students')}
+            className="px-4 py-2 bg-primary-gradient text-white rounded-lg font-medium hover:shadow-lg transition-all"
+          >
+            {t('grading.transcripts.goToStudentGrades')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!student) {
+    return (
+      <div className="flex items-center justify-center min-h-screen" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Academic Transcript</h1>
-          <p className="text-gray-600 mt-1">Official academic record</p>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className={isArabicLayout ? 'text-right' : 'text-left'}>
+          <h1 className="text-3xl font-bold text-gray-900">{t('grading.transcripts.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('grading.transcripts.subtitle')}</p>
         </div>
-        <div className="flex space-x-3">
+        <div className={`flex flex-wrap gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
           <button
+            type="button"
             onClick={handlePrint}
-            className="flex items-center space-x-2 px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
           >
-            <Printer className="w-5 h-5" />
-            <span>Print Transcript</span>
+            <Printer className="w-5 h-5 shrink-0" />
+            <span>{t('grading.transcripts.print')}</span>
           </button>
           <button
+            type="button"
             onClick={handleExportPDF}
-            className="flex items-center space-x-2 px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
           >
-            <Download className="w-5 h-5" />
-            <span>Export PDF</span>
+            <Download className="w-5 h-5 shrink-0" />
+            <span>{t('grading.transcripts.exportPdf')}</span>
           </button>
         </div>
       </div>
 
-      {/* Transcript Card */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 print:shadow-none">
-        {/* Header */}
+      <div
+        className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 print:shadow-none"
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+      >
         <div className="bg-primary-gradient text-white p-6 rounded-lg mb-6">
-          <h2 className="text-2xl font-bold">Academic Transcript</h2>
-          <p className="text-sm opacity-90">Official Student Record</p>
+          <h2 className={`text-2xl font-bold ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            {t('grading.transcripts.cardTitle')}
+          </h2>
+          <p className={`text-sm opacity-90 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            {t('grading.transcripts.cardSubtitle')}
+          </p>
         </div>
 
-        {/* Student Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Student Name</h3>
-            <p className="text-lg font-semibold text-gray-900">{student.name_en}</p>
-            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Student ID</h3>
-            <p className="text-lg font-semibold text-gray-900">{student.student_id}</p>
-            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Program</h3>
-            <p className="text-lg font-semibold text-gray-900">{student.majors?.name_en || '-'}</p>
-            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Major</h3>
-            <p className="text-lg font-semibold text-gray-900">{student.majors?.name_en || '-'}</p>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Total All Semesters GPA</h3>
-            <div className="flex items-center space-x-2">
-              <p className="text-2xl font-bold text-gray-900">{cumulativeGPA}</p>
-              <button className="text-sm text-primary-600 hover:text-primary-800">Edit</button>
-            </div>
-            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Credits Attempted</h3>
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          <div className={`min-w-0 w-full ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">{t('grading.transcripts.studentName')}</h3>
+            <p className="text-lg font-semibold text-gray-900">{displayStudentName(student, isArabicLayout)}</p>
+            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">{t('grading.transcripts.studentId')}</h3>
+            <TranscriptValueRow className="text-lg font-semibold text-gray-900" numeric>
+              {student.student_id}
+            </TranscriptValueRow>
+            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">{t('grading.transcripts.program')}</h3>
             <p className="text-lg font-semibold text-gray-900">
+              {getLocalizedName(student.colleges, isArabicLayout) || '—'}
+            </p>
+            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">{t('grading.transcripts.major')}</h3>
+            <p className="text-lg font-semibold text-gray-900">
+              {getLocalizedName(student.majors, isArabicLayout) || '—'}
+            </p>
+          </div>
+          <div className={`min-w-0 w-full ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+            <h3 className="text-sm font-medium text-gray-500 mb-2">{t('grading.transcripts.totalGpa')}</h3>
+            <TranscriptValueRow className="text-2xl font-bold text-gray-900" numeric>
+              {formatGpaDisplay(cumulativeGPA)}
+            </TranscriptValueRow>
+            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">{t('grading.transcripts.creditsAttempted')}</h3>
+            <TranscriptValueRow className="text-lg font-semibold text-gray-900" numeric>
               {totalCreditsAttempted}
-              <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">0</span>
-            </p>
-            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Credits Earned</h3>
-            <p className="text-lg font-semibold text-gray-900">
+            </TranscriptValueRow>
+            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">{t('grading.transcripts.creditsEarned')}</h3>
+            <TranscriptValueRow className="text-lg font-semibold text-gray-900" numeric>
               {totalCreditsEarned}
-              <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">0</span>
-            </p>
-            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">Academic Standing</h3>
-            <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-              Academic Good Standing
-            </span>
+            </TranscriptValueRow>
+            <h3 className="text-sm font-medium text-gray-500 mb-2 mt-4">{t('grading.transcripts.academicStanding')}</h3>
+            <TranscriptValueRow className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+              {t('grading.transcripts.goodStanding')}
+            </TranscriptValueRow>
           </div>
         </div>
 
-        {/* Semester Details */}
-        {Object.values(semesterGroups).map((group, idx) => {
+        {Object.values(semesterGroups).map((group) => {
           const semester = group.semester
           const semesterEnrollments = group.enrollments
-          const semesterGpaResult = calculateGpaWithScale(semesterEnrollments, gradingScale, semester.id)
+          const semesterGpaResult = calculateGpaWithScale(semesterEnrollments, gradingScale, semester?.id)
           const semesterGPA = semesterGpaResult.gpa
-          const semesterCredits = semesterEnrollments.reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
-          const semesterEarned = semesterEnrollments.filter(e => {
-            const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
-            return points != null && points > 0
-          }).reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
+          const semesterCredits = semesterEnrollments.reduce(
+            (sum, e) => sum + (e.classes?.subjects?.credit_hours || 0),
+            0
+          )
+          const semesterEarned = semesterEnrollments
+            .filter((e) => {
+              const { points } = getSubjectGpaFromEnrollment(e, gradingScale)
+              return points != null && points > 0
+            })
+            .reduce((sum, e) => sum + (e.classes?.subjects?.credit_hours || 0), 0)
+
+          const semName = getLocalizedName(semester, isArabicLayout) || semester?.code || '—'
+          const semYear = semester?.start_date ? new Date(semester.start_date).getFullYear() : ''
 
           return (
-            <div key={semester.id} className="mb-8">
-              <div className="flex items-center space-x-2 mb-4">
-                <Calendar className="w-5 h-5 text-primary-600" />
-                <h3 className="text-xl font-bold text-gray-900">{semester.name_en} - {new Date(semester.start_date).getFullYear()}</h3>
+            <div key={semester?.id || semName} className="mb-8">
+              <div
+                className={`flex items-center gap-2 mb-4 ${isArabicLayout ? 'flex-row-reverse justify-end' : ''}`}
+              >
+                <Calendar className="w-5 h-5 text-primary-600 shrink-0" />
+                <h3 className="text-xl font-bold text-gray-900">
+                  {t('grading.transcripts.semesterHeader', { name: semName, year: semYear })}
+                </h3>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Current Semester GPA: {semesterGPA} Credits: {semesterEarned}/{semesterCredits}
+              <p className={`text-sm text-gray-600 mb-4 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {t('grading.transcripts.semesterSummary', {
+                  gpa: formatGpaDisplay(semesterGPA),
+                  earned: semesterEarned,
+                  attempted: semesterCredits,
+                })}
               </p>
-              
+
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course Code</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Course Title</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credits</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grade</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject GPA</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className={thClass}>{t('grading.transcripts.courseCode')}</th>
+                      <th className={thClass}>{t('grading.transcripts.courseTitle')}</th>
+                      <th className={thClass}>{t('grading.transcripts.creditsCol')}</th>
+                      <th className={thClass}>{t('grading.transcripts.grade')}</th>
+                      <th className={thClass}>{t('grading.transcripts.subjectGpa')}</th>
+                      <th className={thClass}>{t('grading.transcripts.status')}</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {semesterEnrollments.map((enrollment) => {
                       const grade = enrollment.grade_components?.[0]
                       const { points: subjectGpa } = getSubjectGpaFromEnrollment(enrollment, gradingScale)
+                      const subj = enrollment.classes?.subjects
                       return (
                         <tr key={enrollment.id}>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {enrollment.classes?.subjects?.code || '-'}
+                          <td className={`${cellClass} whitespace-nowrap`}>
+                            <TranscriptValueRow className="text-sm text-gray-900" numeric>
+                              {subj?.code || '—'}
+                            </TranscriptValueRow>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {enrollment.classes?.subjects?.name_en || '-'}
+                          <td className={cellClass}>{getLocalizedName(subj, isArabicLayout) || '—'}</td>
+                          <td className={`${cellClass} whitespace-nowrap`}>
+                            <TranscriptValueRow className="text-sm text-gray-900" numeric>
+                              {subj?.credit_hours ?? 0}
+                            </TranscriptValueRow>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {enrollment.classes?.subjects?.credit_hours || 0}
+                          <td className={`${cellClass} whitespace-nowrap`}>
+                            <TranscriptValueRow className="text-sm text-gray-900" numeric>
+                              {grade?.letter_grade || '—'}
+                            </TranscriptValueRow>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {grade?.letter_grade || '-'}
+                          <td className={`${cellClass} whitespace-nowrap`}>
+                            <TranscriptValueRow className="text-sm text-gray-900" numeric>
+                              {subjectGpa != null ? subjectGpa.toFixed(2) : '—'}
+                            </TranscriptValueRow>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
-                            {subjectGpa != null ? subjectGpa.toFixed(2) : '-'}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="w-2 h-2 bg-yellow-400 rounded-full inline-block"></span>
-                          </td>
+                          <td className={cellClass}>{gradeStatusLabel(grade?.status)}</td>
                         </tr>
                       )
                     })}
                     <tr className="bg-gray-50 font-semibold">
-                      <td colSpan="2" className="px-4 py-3 text-sm text-gray-900">Semester Totals:</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{semesterCredits}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">Current Semester GPA: {semesterGPA}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">Earned: {semesterEarned}</td>
-                      <td className="px-4 py-3"></td>
+                      <td colSpan={2} className={cellClass}>
+                        {t('grading.transcripts.semesterTotals')}
+                      </td>
+                      <td className={`${cellClass} whitespace-nowrap`}>
+                        <TranscriptValueRow className="text-sm text-gray-900" numeric>
+                          {semesterCredits}
+                        </TranscriptValueRow>
+                      </td>
+                      <td className={cellClass}>
+                        {t('grading.transcripts.semesterTotalsGpa', { gpa: formatGpaDisplay(semesterGPA) })}
+                      </td>
+                      <td className={cellClass}>
+                        {t('grading.transcripts.semesterTotalsEarned', { earned: semesterEarned })}
+                      </td>
+                      <td className={cellClass} />
                     </tr>
                   </tbody>
                 </table>
@@ -265,61 +439,97 @@ export default function Transcripts() {
           )
         })}
 
-        {/* Overall Totals */}
         <div className="border-t pt-6 mt-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Credits Attempted</h3>
-              <p className="text-lg font-semibold text-gray-900">{totalCreditsAttempted}</p>
+          <div
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
+            dir={isArabicLayout ? 'rtl' : 'ltr'}
+          >
+            <div className={`min-w-0 w-full ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">
+                {t('grading.transcripts.totalCreditsAttempted')}
+              </h3>
+              <TranscriptValueRow className="text-lg font-semibold text-gray-900" numeric>
+                {totalCreditsAttempted}
+              </TranscriptValueRow>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Total Credits Earned</h3>
-              <p className="text-lg font-semibold text-gray-900">{totalCreditsEarned}</p>
+            <div className={`min-w-0 w-full ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">
+                {t('grading.transcripts.totalCreditsEarned')}
+              </h3>
+              <TranscriptValueRow className="text-lg font-semibold text-gray-900" numeric>
+                {totalCreditsEarned}
+              </TranscriptValueRow>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Total All Semesters GPA</h3>
-              <div className="flex items-center space-x-2">
-                <p className="text-lg font-semibold text-gray-900">{cumulativeGPA}</p>
-                <button className="text-sm text-primary-600 hover:text-primary-800">Edit</button>
-              </div>
+            <div className={`min-w-0 w-full ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">{t('grading.transcripts.totalGpa')}</h3>
+              <TranscriptValueRow className="text-lg font-semibold text-gray-900" numeric>
+                {formatGpaDisplay(cumulativeGPA)}
+              </TranscriptValueRow>
             </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Academic Standing</h3>
-              <span className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                Academic Good Standing
-              </span>
+            <div className={`min-w-0 w-full ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">{t('grading.transcripts.academicStanding')}</h3>
+              <TranscriptValueRow className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                {t('grading.transcripts.goodStanding')}
+              </TranscriptValueRow>
             </div>
           </div>
         </div>
 
-        {/* Grading Scale Reference - From University Settings */}
         {gradingScale.length > 0 && (
-          <div className="border-t pt-6 mt-6">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">Grading Scale (University)</h3>
-            <div className="flex flex-wrap gap-2">
+          <div
+            className={`border-t pt-6 mt-6 ${isArabicLayout ? 'text-right' : 'text-left'}`}
+            dir={isArabicLayout ? 'rtl' : 'ltr'}
+          >
+            <h3 className="text-sm font-medium text-gray-500 mb-2">{t('grading.transcripts.gradingScaleUni')}</h3>
+            <p className="text-xs text-gray-600 leading-relaxed">
               {gradingScale.map((g, idx) => (
-                <span key={idx} className="text-xs text-gray-600">
-                  {g.letter} ({g.minPercent}-{g.maxPercent}%): {g.points}
-                  {idx < gradingScale.length - 1 ? ',' : ''}
+                <span key={idx}>
+                  {t('grading.transcripts.scaleItem', {
+                    letter: g.letter,
+                    min: g.minPercent,
+                    max: g.maxPercent,
+                    points: g.points,
+                  })}
+                  {idx < gradingScale.length - 1 ? (isArabicLayout ? ' ،' : ', ') : ''}
                 </span>
               ))}
-            </div>
+            </p>
           </div>
         )}
 
-        {/* Footer */}
-        <div className="border-t pt-6 mt-6 text-center text-sm text-gray-500">
-          <p>Generated on {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-          <p className="mt-2 flex items-center justify-center space-x-1">
-            <FileText className="w-4 h-4" />
-            <span>This is an official transcript issued by the university.</span>
+        <div
+          className={`border-t pt-6 mt-6 text-sm text-gray-500 ${isArabicLayout ? 'text-right' : 'text-center'}`}
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          <p>
+            {t('grading.transcripts.generatedOn', {
+              date: new Date().toLocaleDateString(dateLocale || 'en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              }),
+            })}
           </p>
-          <p className="mt-4">Registrar's Signature: _________________</p>
+          <p className={`mt-2 ${isArabicLayout ? 'text-right' : ''}`} dir={isArabicLayout ? 'rtl' : 'ltr'}>
+            <span className="inline-flex items-center gap-1.5 align-middle">
+              {isArabicLayout ? (
+                <>
+                  <span>{t('grading.transcripts.officialStatement')}</span>
+                  <FileText className="w-4 h-4 shrink-0" />
+                </>
+              ) : (
+                <>
+                  <FileText className="w-4 h-4 shrink-0" />
+                  <span>{t('grading.transcripts.officialStatement')}</span>
+                </>
+              )}
+            </span>
+          </p>
+          <p className="mt-4">
+            {t('grading.transcripts.registrarSignature')}
+          </p>
         </div>
       </div>
     </div>
   )
 }
-
-
-

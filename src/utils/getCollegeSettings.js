@@ -322,6 +322,98 @@ export function mergeGradeConfigWithTypes(gradeConfiguration, gradeTypes) {
  * @param {any} defaultValue - Default value if setting not found
  * @returns {Promise<any>} - The setting value
  */
+const DEFAULT_CURRENCY_CODE = 'USD'
+
+/**
+ * Returns a valid ISO 4217 code for Intl, or USD if invalid.
+ */
+export function normalizeCurrencyCode(code) {
+  if (code == null || code === '') return DEFAULT_CURRENCY_CODE
+  const s = String(code)
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+  const three = s.length >= 3 ? s.slice(0, 3) : s
+  if (!/^[A-Z]{3}$/.test(three)) return DEFAULT_CURRENCY_CODE
+  try {
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: three }).format(0)
+    return three
+  } catch {
+    return DEFAULT_CURRENCY_CODE
+  }
+}
+
+/**
+ * Reads currency from a financial_settings JSONB blob when explicitly set.
+ * Returns null if no currency is configured (so callers can fall back).
+ */
+export function tryExtractCurrencyFromFinancial(financial) {
+  if (!financial || typeof financial !== 'object') return null
+  const cur = financial.currency
+  if (cur != null && typeof cur === 'object') {
+    const raw = cur.code
+    if (raw != null && String(raw).trim() !== '') {
+      return normalizeCurrencyCode(raw)
+    }
+  }
+  if (financial.currency_code != null && String(financial.currency_code).trim() !== '') {
+    return normalizeCurrencyCode(financial.currency_code)
+  }
+  return null
+}
+
+/**
+ * Reads currency code from college financial_settings JSON (currency.code).
+ */
+export function getCurrencyCodeFromFinancialSettings(financial) {
+  return tryExtractCurrencyFromFinancial(financial) || DEFAULT_CURRENCY_CODE
+}
+
+/**
+ * Currency for invoices/UI for a college.
+ * Always reads the college row's financial_settings.currency first (even when
+ * use_university_settings is true — other modules may inherit university
+ * settings, but fee currency is normally per-college). Falls back to
+ * university financial_settings, then USD.
+ */
+export async function getCollegeCurrencyCode(collegeId) {
+  if (!collegeId) return DEFAULT_CURRENCY_CODE
+  try {
+    const { data: college, error } = await supabase
+      .from('colleges')
+      .select('use_university_settings, financial_settings')
+      .eq('id', collegeId)
+      .single()
+
+    if (error || !college) {
+      if (error) console.warn('getCollegeCurrencyCode: college fetch', error.message)
+      return DEFAULT_CURRENCY_CODE
+    }
+
+    const fromCollege = tryExtractCurrencyFromFinancial(college.financial_settings)
+    if (fromCollege) return fromCollege
+
+    if (college.use_university_settings) {
+      const { data: uni, error: uniErr } = await supabase
+        .from('university_settings')
+        .select('financial_settings')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!uniErr && uni?.financial_settings) {
+        const fromUni = tryExtractCurrencyFromFinancial(uni.financial_settings)
+        if (fromUni) return fromUni
+      }
+    }
+
+    return DEFAULT_CURRENCY_CODE
+  } catch (e) {
+    console.error('getCollegeCurrencyCode:', e)
+    return DEFAULT_CURRENCY_CODE
+  }
+}
+
 export async function getCollegeSetting(collegeId, category, path, defaultValue = null) {
   try {
     const settings = await getCollegeSettings(collegeId)

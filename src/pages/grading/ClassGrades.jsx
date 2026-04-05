@@ -2,14 +2,20 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { getGradingScaleFromUniversitySettings, getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes, GRADE_COMPONENT_DB_COLUMNS } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { ArrowLeft, Save, Check, FileText, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Save, Check, FileText, Users } from 'lucide-react'
 
 export default function ClassGrades() {
-  const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { t, i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout =
+    isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const { classId } = useParams()
   const [searchParams] = useSearchParams()
   const enrollmentIdParam = searchParams.get('enrollmentId')
@@ -37,10 +43,10 @@ export default function ClassGrades() {
         .from('classes')
         .select(`
           *,
-          subjects(id, name_en, code, grade_configuration),
-          semesters(id, name_en, code),
-          instructors(id, name_en),
-          colleges(id, name_en)
+          subjects(id, name_en, name_ar, code, grade_configuration),
+          semesters(id, name_en, name_ar, code),
+          instructors(id, name_en, name_ar),
+          colleges(id, name_en, name_ar)
         `)
         .eq('id', classId)
         .single()
@@ -73,7 +79,7 @@ export default function ClassGrades() {
         .from('enrollments')
         .select(`
           *,
-          students(id, student_id, name_en, first_name, last_name)
+          students(id, student_id, name_en, name_ar, first_name, last_name, first_name_ar, last_name_ar)
         `)
         .eq('class_id', classId)
         .eq('status', 'enrolled')
@@ -327,42 +333,57 @@ export default function ClassGrades() {
       ? enrollments.filter((e) => e.id === singleEnrollmentId)
       : enrollments
   const singleStudentMode = userRole === 'instructor' && singleEnrollmentId && displayEnrollments.length === 1
-  const singleStudentName = singleStudentMode && displayEnrollments[0]?.students
-    ? (displayEnrollments[0].students.name_en || `${displayEnrollments[0].students.first_name || ''} ${displayEnrollments[0].students.last_name || ''}`).trim() || displayEnrollments[0].students.student_id
-    : ''
+  const displayStudentName = (student) => {
+    if (!student) return ''
+    if (isArabicLayout) {
+      const ar = [student.first_name_ar, student.last_name_ar].filter(Boolean).join(' ').trim()
+      if (ar) return ar
+      if (student.name_ar?.trim()) return student.name_ar.trim()
+    }
+    if (student.name_en?.trim()) return student.name_en.trim()
+    return `${student.first_name || ''} ${student.last_name || ''}`.trim() || student.student_id
+  }
+
+  const singleStudentName =
+    singleStudentMode && displayEnrollments[0]?.students
+      ? displayStudentName(displayEnrollments[0].students)
+      : ''
 
   return (
-    <div className="space-y-6">
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className="flex items-center justify-between gap-4">
         <button
+          type="button"
           onClick={() => navigate(backTo)}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-gray-600 hover:text-gray-900`}
+          className={`flex items-center gap-2 text-gray-600 hover:text-gray-900 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
         >
-          <ArrowLeft className="w-5 h-5" />
+          {isArabicLayout ? <ArrowRight className="w-5 h-5 shrink-0" /> : <ArrowLeft className="w-5 h-5 shrink-0" />}
           <span>{t('grading.classGrades.back')}</span>
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">{t('grading.classGrades.title')}</h1>
-        <div></div>
+        <h1 className={`text-3xl font-bold text-gray-900 flex-1 ${isArabicLayout ? 'text-right' : 'text-center'}`}>
+          {t('grading.classGrades.title')}
+        </h1>
+        <div className="w-10 shrink-0" aria-hidden />
       </div>
 
       {/* Class Info */}
       {classData && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" dir={isArabicLayout ? 'rtl' : 'ltr'}>
             <div>
-              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classCode')}</h3>
-              <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{classData.code}</p>
+              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classCode')}</h3>
+              <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{classData.code}</p>
             </div>
             <div>
-              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.subject')}</h3>
-              <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                {classData.subjects?.name_en || 'N/A'}
+              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.subject')}</h3>
+              <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {getLocalizedName(classData.subjects, isArabicLayout) || 'N/A'}
               </p>
             </div>
             <div>
-              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.instructorLabel')}</h3>
-              <p className={`text-lg font-semibold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-                {classData.instructors?.name_en || t('grading.classGrades.tba')}
+              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.instructorLabel')}</h3>
+              <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {getLocalizedName(classData.instructors, isArabicLayout) || t('grading.classGrades.tba')}
               </p>
             </div>
           </div>
@@ -370,15 +391,21 @@ export default function ClassGrades() {
       )}
 
       {/* Grading Scale Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className={`text-sm font-medium text-blue-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradingScale')}</h3>
-        <div className={`flex flex-wrap gap-2 ${isRTL ? 'justify-end' : 'justify-start'}`}>
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <h3 className={`text-sm font-medium text-blue-900 mb-2 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradingScale')}</h3>
+        <div className={`flex flex-wrap gap-2 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
           {gradingScale.map((scale, idx) => (
             <span
               key={idx}
               className="px-3 py-1 bg-white rounded-lg text-sm font-medium text-blue-700 border border-blue-200"
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
             >
-              {scale.letter}: {scale.minPercent}-{scale.maxPercent}% ({scale.points} pts)
+              {t('grading.classGrades.scaleBadge', {
+                letter: scale.letter,
+                min: scale.minPercent,
+                max: scale.maxPercent,
+                points: scale.points,
+              })}
             </span>
           ))}
         </div>
@@ -391,7 +418,7 @@ export default function ClassGrades() {
         </div>
       )}
       {success && (
-        <div className={`bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
+        <div className={`bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
           <Check className="w-5 h-5" />
           <span>{t('grading.classGrades.savedSuccess')}</span>
         </div>
@@ -399,7 +426,7 @@ export default function ClassGrades() {
 
       {/* Single-student mode: show who we're grading and link back to gradebook */}
       {singleStudentMode && (
-        <div className={`flex flex-wrap items-center gap-3 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl ${isRTL ? 'flex-row-reverse' : ''}`}>
+        <div className={`flex flex-wrap items-center gap-3 mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
           <span className="text-sm font-medium text-blue-900">
             {t('grading.classGrades.enteringGradesFor')}: <strong>{singleStudentName}</strong>
           </span>
@@ -416,8 +443,8 @@ export default function ClassGrades() {
       {/* Grade Entry Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-6 border-b border-gray-200">
-          <h2 className={`text-xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradeEntry')}</h2>
-          <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
+          <h2 className={`text-xl font-bold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradeEntry')}</h2>
+          <p className={`text-sm text-gray-600 mt-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
             {singleStudentMode ? t('grading.classGrades.gradeEntrySingleStudent') : t('grading.classGrades.gradeEntryDesc')}
           </p>
         </div>
@@ -429,30 +456,34 @@ export default function ClassGrades() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
               <thead className="bg-gray-50">
                 <tr>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.student')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.numericGrade')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.letterGrade')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gpaPoints')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.student')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.numericGrade')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.letterGrade')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gpaPoints')}</th>
                   {gradeConfiguration.length > 0 ? (
                     gradeConfiguration.map((config) => (
-                      <th key={config.grade_type_id} className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>
-                        {config.grade_type_name_en} {config.weight ? `(${config.weight}%)` : ''}
+                      <th key={config.grade_type_id} className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                        {getLocalizedName(
+                          { name_en: config.grade_type_name_en, name_ar: config.grade_type_name_ar },
+                          isArabicLayout
+                        ) || config.grade_type_name_en}{' '}
+                        {config.weight ? `(${config.weight}%)` : ''}
                       </th>
                     ))
                   ) : (
                     <>
-                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.midterm')}</th>
-                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.final')}</th>
-                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.assignments')}</th>
-                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.quizzes')}</th>
-                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classParticipation')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.midterm')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.final')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.assignments')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.quizzes')}</th>
+                      <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classParticipation')}</th>
                     </>
                   )}
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.notes')}</th>
-                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.status')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.notes')}</th>
+                  <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.status')}</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -464,7 +495,7 @@ export default function ClassGrades() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {student?.name_en || `${student?.first_name} ${student?.last_name}`}
+                            {displayStudentName(student)}
                           </div>
                           <div className="text-sm text-gray-500">{student?.student_id}</div>
                         </div>
@@ -607,11 +638,11 @@ export default function ClassGrades() {
           </div>
         )}
 
-        <div className={`p-6 border-t border-gray-200 flex ${isRTL ? 'justify-start' : 'justify-end'}`}>
+        <div className={`p-6 border-t border-gray-200 flex ${isArabicLayout ? 'justify-start' : 'justify-end'}`}>
           <button
             onClick={handleSave}
             disabled={loading}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Save className="w-5 h-5" />
             <span>{loading ? t('grading.classGrades.saving') : t('grading.classGrades.saveGrades')}</span>

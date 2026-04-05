@@ -4,22 +4,26 @@ import { useAuth } from './AuthContext'
 
 const CollegeContext = createContext()
 
+function readStoredCollegeId() {
+  if (typeof window === 'undefined' || !window.localStorage) return null
+  const raw = localStorage.getItem('selectedCollegeId')
+  if (!raw) return null
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) ? n : null
+}
+
 export function CollegeProvider({ children }) {
   const { userRole } = useAuth()
-  const [selectedCollegeId, setSelectedCollegeId] = useState(null)
+  const [selectedCollegeId, setSelectedCollegeId] = useState(() =>
+    readStoredCollegeId()
+  )
   const [colleges, setColleges] = useState([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (userRole === 'admin') {
       fetchColleges()
-      // Load from localStorage if available
-      const savedCollegeId = localStorage.getItem('selectedCollegeId')
-      if (savedCollegeId) {
-        setSelectedCollegeId(parseInt(savedCollegeId))
-      }
     } else {
-      // Clear selection for non-admin users
       setSelectedCollegeId(null)
       localStorage.removeItem('selectedCollegeId')
     }

@@ -157,8 +157,6 @@ const navigation = [
     submenu: [
       { name: 'Grade Management', translationKey: 'navigation.gradeManagement', href: '/grading' },
       { name: 'Student Grades', translationKey: 'navigation.studentGrades', href: '/grading/students' },
-      { name: 'Transcripts', translationKey: 'navigation.transcripts', href: '/grading/transcripts' },
-      { name: 'Grade Entry', translationKey: 'navigation.gradeEntry', href: '/grading' },
       { name: 'Analytics', translationKey: 'navigation.analytics', href: '/grading/analytics' },
     ]
   },

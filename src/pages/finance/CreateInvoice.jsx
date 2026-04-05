@@ -1,12 +1,84 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { calculateFinancialMilestone } from '../../utils/financePermissions'
-import { ArrowLeft, Save, Search, Plus, Trash2, DollarSign, Loader2 } from 'lucide-react'
+import { getCollegeCurrencyCode } from '../../utils/getCollegeSettings'
+import { ArrowLeft, ArrowRight, Save, Search, Plus, Trash2, Loader2 } from 'lucide-react'
+
+const FEE_CODE_TO_I18N = {
+  admission_fee: 'admissionFee',
+  application_fee: 'applicationFee',
+  registration_fee: 'registrationFee',
+  course_fee: 'courseFee',
+  subject_fee: 'subjectFee',
+  tuition_fee: 'tuitionFee',
+  onboarding_fee: 'onboardingFee',
+  lab_fee: 'labFee',
+  library_fee: 'libraryFee',
+  sports_fee: 'sportsFee',
+  late_payment_penalty: 'latePaymentPenalty',
+  penalty: 'penalty',
+  miscellaneous: 'miscellaneous',
+  other: 'other',
+}
+
+function feeTypeI18nLabel(code, t) {
+  const k = FEE_CODE_TO_I18N[code]
+  return k ? t(`finance.feeTypes.${k}`) : (code || '').replace(/_/g, ' ')
+}
+
+function feeTypeDisplayLabel(code, feeTypes, isArabic, t) {
+  const ft = feeTypes.find((f) => f.code === code)
+  if (ft) {
+    const primary = isArabic ? ft.name_ar || ft.name_en : ft.name_en || ft.name_ar
+    return (primary || '').trim() || feeTypeI18nLabel(code, t)
+  }
+  return feeTypeI18nLabel(code, t)
+}
+
+function displayPersonName(person, isArabicLayout) {
+  if (!person) return ''
+  if (isArabicLayout) {
+    const ar = [person.first_name_ar, person.last_name_ar].filter(Boolean).join(' ').trim()
+    if (ar) return ar
+    if (person.name_ar?.trim()) return person.name_ar.trim()
+  }
+  if (person.first_name && person.last_name) return `${person.first_name} ${person.last_name}`.trim()
+  return person.name_en?.trim() || ''
+}
+
+function RtlMoney({ isArabicLayout, inline = false, className = '', children }) {
+  const inner = (
+    <span dir="ltr" className={`tabular-nums ${className}`}>
+      {children}
+    </span>
+  )
+  if (!isArabicLayout) return inner
+  if (inline) {
+    return (
+      <span className="inline-flex min-w-0 max-w-full justify-start align-middle">
+        {inner}
+      </span>
+    )
+  }
+  return (
+    <div className="flex w-full min-w-0 justify-start">
+      {inner}
+    </div>
+  )
+}
 
 export default function CreateInvoice() {
+  const { t } = useTranslation()
+  const { isRTL } = useLanguage()
+  const isArabicLayout = isRTL
+  const alignStart = isArabicLayout ? 'text-right' : 'text-left'
+  const iconRow = isArabicLayout ? 'flex-row-reverse' : ''
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId, user } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId } = useCollege()
@@ -24,6 +96,7 @@ export default function CreateInvoice() {
   const [semesters, setSemesters] = useState([])
   const [feeTypes, setFeeTypes] = useState([])
   const [selectedFeeStructures, setSelectedFeeStructures] = useState([]) // Array of selected fee structure IDs
+  const [collegeCurrencyCode, setCollegeCurrencyCode] = useState('USD')
 
   const [formData, setFormData] = useState({
     student_id: '',
@@ -75,6 +148,21 @@ export default function CreateInvoice() {
   }, [studentSearch, collegeId])
 
   useEffect(() => {
+    const cid = selectedStudent?.college_id || collegeId
+    if (!cid) {
+      setCollegeCurrencyCode('USD')
+      return
+    }
+    let cancelled = false
+    getCollegeCurrencyCode(cid).then((code) => {
+      if (!cancelled) setCollegeCurrencyCode(code)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedStudent?.college_id, collegeId])
+
+  useEffect(() => {
     fetchFeeTypes()
   }, [collegeId])
 
@@ -99,28 +187,7 @@ export default function CreateInvoice() {
   // Also fetch fee structures when invoice type changes (for non-semester fees)
   useEffect(() => {
     if (selectedStudent && studentData && formData.invoice_type && !formData.semester_id) {
-      // Check if invoice type requires semester
-      const selectedType = feeTypes.find(ft => {
-        const typeMap = {
-          'Admission Fees': 'admission_fee',
-          'Application Fees': 'application_fee',
-          'Registration Fees': 'registration_fee',
-          'Course Fees': 'course_fee',
-          'Subject Fees': 'subject_fee',
-          'Tuition Fees': 'tuition_fee',
-          'Onboarding Fees': 'onboarding_fee',
-          'Laboratory Fees': 'lab_fee',
-          'Library Fees': 'library_fee',
-          'Sports Fees': 'sports_fee',
-          'Late Payment Penalties': 'late_payment_penalty',
-          'Penalties': 'penalty',
-          'Miscellaneous': 'miscellaneous',
-          'Other': 'other'
-        }
-        return ft.code === (typeMap[formData.invoice_type] || formData.invoice_type.toLowerCase().replace(' ', '_'))
-      })
-      
-      // If invoice type doesn't require semester, fetch fee structures immediately
+      const selectedType = feeTypes.find((ft) => ft.code === formData.invoice_type)
       if (selectedType?.requires_semester === false) {
         setTimeout(() => {
           fetchFeeStructures()
@@ -160,7 +227,7 @@ export default function CreateInvoice() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date')
+        .select('id, name_en, name_ar, code, start_date')
         .order('start_date', { ascending: false })
         .limit(10)
 
@@ -188,11 +255,17 @@ export default function CreateInvoice() {
           id,
           student_id,
           name_en,
+          name_ar,
+          first_name,
+          last_name,
+          first_name_ar,
+          last_name_ar,
           college_id,
           major_id,
           majors (
             id,
             name_en,
+            name_ar,
             degree_level
           )
         `)
@@ -257,27 +330,7 @@ export default function CreateInvoice() {
           if (fee.applies_to_semester && Array.isArray(fee.applies_to_semester) && fee.applies_to_semester.length > 0) {
             // Fee has semesters assigned - check if current invoice type requires semester
             if (formData.invoice_type) {
-              const selectedType = feeTypes.find(ft => {
-                const typeMap = {
-                  'Admission Fees': 'admission_fee',
-                  'Application Fees': 'application_fee',
-                  'Registration Fees': 'registration_fee',
-                  'Course Fees': 'course_fee',
-                  'Subject Fees': 'subject_fee',
-                  'Tuition Fees': 'tuition_fee',
-                  'Onboarding Fees': 'onboarding_fee',
-                  'Laboratory Fees': 'lab_fee',
-                  'Library Fees': 'library_fee',
-                  'Sports Fees': 'sports_fee',
-                  'Late Payment Penalties': 'late_payment_penalty',
-                  'Penalties': 'penalty',
-                  'Miscellaneous': 'miscellaneous',
-                  'Other': 'other'
-                }
-                return ft.code === (typeMap[formData.invoice_type] || formData.invoice_type.toLowerCase().replace(' ', '_'))
-              })
-              
-              // If invoice type requires semester, skip this fee structure
+              const selectedType = feeTypes.find((ft) => ft.code === formData.invoice_type)
               if (selectedType?.requires_semester !== false) {
                 return false
               }
@@ -304,31 +357,6 @@ export default function CreateInvoice() {
             if (!fee.applies_to_degree_level.includes(studentData.majors.degree_level)) {
               return false
             }
-          }
-        }
-
-        // Filter by invoice type if selected
-        if (formData.invoice_type) {
-          const typeMap = {
-            'Admission Fees': 'admission_fee',
-            'Application Fees': 'application_fee',
-            'Registration Fees': 'registration_fee',
-            'Course Fees': 'course_fee',
-            'Subject Fees': 'subject_fee',
-            'Tuition Fees': 'tuition_fee',
-            'Onboarding Fees': 'onboarding_fee',
-            'Laboratory Fees': 'lab_fee',
-            'Library Fees': 'library_fee',
-            'Sports Fees': 'sports_fee',
-            'Late Payment Penalties': 'late_payment_penalty',
-            'Penalties': 'penalty',
-            'Miscellaneous': 'miscellaneous',
-            'Other': 'other'
-          }
-          const expectedFeeType = typeMap[formData.invoice_type] || formData.invoice_type.toLowerCase().replace(' ', '_')
-          if (fee.fee_type !== expectedFeeType) {
-            // Don't filter by type - allow showing all structures and let user choose
-            // return false
           }
         }
 
@@ -373,29 +401,12 @@ export default function CreateInvoice() {
     // Get existing manual items (not from fee structures)
     const manualItems = formData.items.filter(item => !item.from_fee_structure)
 
-    // Determine invoice type from first selected structure
     const firstStructure = selectedStructures[0]
-    const typeMap = {
-      'admission_fee': 'Admission Fees',
-      'application_fee': 'Application Fees',
-      'registration_fee': 'Registration Fees',
-      'course_fee': 'Course Fees',
-      'subject_fee': 'Subject Fees',
-      'tuition_fee': 'Tuition Fees',
-      'onboarding_fee': 'Onboarding Fees',
-      'lab_fee': 'Laboratory Fees',
-      'library_fee': 'Library Fees',
-      'sports_fee': 'Sports Fees',
-      'late_payment_penalty': 'Late Payment Penalties',
-      'penalty': 'Penalties',
-      'miscellaneous': 'Miscellaneous',
-      'other': 'Other'
-    }
 
     setFormData({
       ...formData,
-      invoice_type: typeMap[firstStructure.fee_type] || 'Other',
-      items: [...feeStructureItems, ...manualItems] // Fee structure items first, then manual items
+      invoice_type: firstStructure.fee_type || 'other',
+      items: [...feeStructureItems, ...manualItems]
     })
   }
 
@@ -410,7 +421,7 @@ export default function CreateInvoice() {
     try {
       let query = supabase
         .from('students')
-        .select('id, student_id, name_en, first_name, last_name, email, college_id')
+        .select('id, student_id, name_en, name_ar, first_name, last_name, first_name_ar, last_name_ar, email, college_id')
         .ilike('student_id', `%${studentSearch}%`)
         .limit(10)
 
@@ -657,44 +668,24 @@ export default function CreateInvoice() {
     setSuccess(false)
 
     if (!selectedStudent) {
-      setError('Please select a student')
+      setError(t('finance.createInvoicePage.errors.selectStudent'))
       return
     }
 
     if (!formData.invoice_type) {
-      setError('Please select an invoice type')
+      setError(t('finance.createInvoicePage.errors.selectInvoiceType'))
       return
     }
 
-    // Check if selected invoice type requires semester
-    const selectedType = feeTypes.find(ft => {
-      const typeMap = {
-        'Admission Fees': 'admission_fee',
-        'Application Fees': 'application_fee',
-        'Registration Fees': 'registration_fee',
-        'Course Fees': 'course_fee',
-        'Subject Fees': 'subject_fee',
-        'Tuition Fees': 'tuition_fee',
-        'Onboarding Fees': 'onboarding_fee',
-        'Laboratory Fees': 'lab_fee',
-        'Library Fees': 'library_fee',
-        'Sports Fees': 'sports_fee',
-        'Late Payment Penalties': 'late_payment_penalty',
-        'Penalties': 'penalty',
-        'Miscellaneous': 'miscellaneous',
-        'Other': 'other'
-      }
-      return ft.code === (typeMap[formData.invoice_type] || formData.invoice_type.toLowerCase().replace(' ', '_'))
-    })
+    const selectedType = feeTypes.find((ft) => ft.code === formData.invoice_type)
 
-    // For semester-based fees, require semester_id
     if (selectedType?.requires_semester && !formData.semester_id) {
-      setError(`Please select a semester for ${formData.invoice_type}`)
+      setError(t('finance.createInvoicePage.errors.selectSemester'))
       return
     }
 
-    if (formData.items.some(item => !item.item_name_en || !item.unit_price)) {
-      setError('Please fill in all required item fields')
+    if (formData.items.some((item) => !item.item_name_en || item.unit_price === '' || item.unit_price == null)) {
+      setError(t('finance.createInvoicePage.errors.fillItems'))
       return
     }
 
@@ -708,31 +699,8 @@ export default function CreateInvoice() {
 
       if (invoiceNumber.error) throw invoiceNumber.error
 
-      // Map invoice type to enum (use fee type code if available, otherwise map from display name)
-      const typeMap = {
-        'Admission Fees': 'admission_fee',
-        'Application Fees': 'application_fee',
-        'Registration Fees': 'registration_fee',
-        'Course Fees': 'course_fee',
-        'Subject Fees': 'subject_fee',
-        'Tuition Fees': 'tuition_fee',
-        'Onboarding Fees': 'onboarding_fee',
-        'Laboratory Fees': 'lab_fee',
-        'Library Fees': 'library_fee',
-        'Sports Fees': 'sports_fee',
-        'Late Payment Penalties': 'late_payment_penalty',
-        'Penalties': 'penalty',
-        'Miscellaneous': 'miscellaneous',
-        'Other': 'other'
-      }
-
-      // Get invoice type enum from first item if available, otherwise from type selection
-      let invoiceTypeEnum = formData.items[0]?.item_type || typeMap[formData.invoice_type] || 'other'
-      
-      // Ensure it's a valid enum value
-      if (!invoiceTypeEnum || !typeMap[formData.invoice_type] && !formData.items[0]?.item_type) {
-        invoiceTypeEnum = 'other'
-      }
+      let invoiceTypeEnum = formData.items[0]?.item_type || formData.invoice_type || 'other'
+      if (!invoiceTypeEnum) invoiceTypeEnum = 'other'
       const subtotal = formData.items.reduce((sum, item) => sum + (parseFloat(item.total_amount) || 0), 0)
       const discount = parseFloat(formData.discount_amount) || 0
       const total = subtotal - discount
@@ -776,6 +744,7 @@ export default function CreateInvoice() {
           total_amount: total,
           paid_amount: 0,
           pending_amount: total,
+          currency: collegeCurrencyCode,
           payment_method: paymentMethodValue,
           notes: formData.notes || null,
           semester_id: semesterId,
@@ -826,6 +795,7 @@ export default function CreateInvoice() {
             total_amount: portionAmount,
             paid_amount: isPaid ? portionAmount : 0,
             pending_amount: isPaid ? 0 : portionAmount,
+            currency: collegeCurrencyCode,
             payment_method: paymentMethodValue,
             notes: `Portion ${portion.portion_number} (${portion.percentage}%) - ${formData.notes || ''}`.trim() || null,
             semester_id: semesterId,
@@ -924,6 +894,7 @@ export default function CreateInvoice() {
           total_amount: total,
           paid_amount: isPaid ? total : 0,
           pending_amount: isPaid ? 0 : total,
+          currency: collegeCurrencyCode,
           payment_method: paymentMethodValue,
           notes: formData.notes || null,
           semester_id: semesterId
@@ -983,7 +954,7 @@ export default function CreateInvoice() {
             }
           }
           if (!adminUserId) {
-            setError('Unable to identify admin user. Please refresh and try again.')
+            setError(t('finance.createInvoicePage.errors.adminUser'))
             setLoading(false)
             return
           }
@@ -1012,6 +983,7 @@ export default function CreateInvoice() {
               payment_date: formData.invoice_date,
               payment_method: paymentMethodValue || 'cash',
               amount: invoice.total_amount,
+              currency: collegeCurrencyCode,
               status: paymentStatus,
               verified_by: verifiedBy,
               verified_at: verifiedAt,
@@ -1040,76 +1012,108 @@ export default function CreateInvoice() {
       }, 2000)
     } catch (err) {
       console.error('Error creating invoice:', err)
-      setError(err.message || 'Failed to create invoice')
+      setError(err.message || t('finance.createInvoicePage.errors.createFailed'))
     } finally {
       setLoading(false)
     }
   }
 
+  const fieldInputClass = `w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${isArabicLayout ? 'text-right' : 'text-left'}`
+  const fieldInputClassSm = `w-full px-4 py-2 border border-gray-300 rounded-lg ${isArabicLayout ? 'text-right' : 'text-left'}`
+
+  const localeForMoney = isArabicLayout ? 'ar' : 'en-US'
+  let grandTotalFormatted
+  try {
+    grandTotalFormatted = new Intl.NumberFormat(localeForMoney, {
+      style: 'currency',
+      currency: collegeCurrencyCode,
+    }).format(calculateTotal())
+  } catch {
+    grandTotalFormatted = `${calculateTotal().toFixed(2)} ${collegeCurrencyCode}`
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate('/finance/invoices')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Create Invoice</h1>
-            <p className="text-gray-600 mt-1">Create a new invoice for a student</p>
-          </div>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      <div className={`flex items-center gap-4 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+        <button
+          type="button"
+          onClick={() => navigate('/finance/invoices')}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+          aria-label={t('common.back')}
+        >
+          {isArabicLayout ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+        </button>
+        <div className="min-w-0 flex-1">
+          <h1 className={`text-3xl font-bold text-gray-900 ${alignStart}`}>
+            {t('finance.createInvoicePage.title')}
+          </h1>
+          <p className={`text-gray-600 mt-1 ${alignStart}`}>{t('finance.createInvoicePage.subtitle')}</p>
         </div>
       </div>
 
       {userRole === 'admin' && (
-        <div className={`bg-white rounded-2xl shadow-sm border p-4 ${
-          requiresCollegeSelection
-            ? 'border-yellow-300 bg-yellow-50' 
-            : 'border-gray-200'
-        }`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select College {requiresCollegeSelection && <span className="text-red-500">*</span>}
+        <div
+          className={`bg-white rounded-2xl shadow-sm border p-4 ${
+            requiresCollegeSelection ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200'
+          }`}
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.createInvoicePage.selectCollege')}{' '}
+            {requiresCollegeSelection && <span className="text-red-500">*</span>}
           </label>
           <select
             value={selectedCollegeId || ''}
-            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value) : null)}
-            className={`w-full md:w-64 px-4 py-2 border rounded-xl focus:ring-2 focus:ring-primary-500 ${
-              requiresCollegeSelection
-                ? 'border-yellow-300 bg-white'
-                : 'border-gray-300'
+            onChange={(e) => setSelectedCollegeId(e.target.value ? parseInt(e.target.value, 10) : null)}
+            className={`w-full md:w-64 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${
+              isArabicLayout ? 'text-right' : 'text-left'
             }`}
             required={requiresCollegeSelection}
           >
-            <option value="">Select College</option>
-            {colleges.map(college => (
-              <option key={college.id} value={college.id}>{college.name_en}</option>
+            <option value="">{t('finance.createInvoicePage.selectCollegePlaceholder')}</option>
+            {colleges.map((college) => (
+              <option key={college.id} value={college.id}>
+                {getLocalizedName(college, isArabicLayout) || college.name_en}
+              </option>
             ))}
           </select>
           {requiresCollegeSelection && (
-            <p className="text-xs text-yellow-600 mt-1">Please select a college to continue</p>
+            <p className={`text-xs text-yellow-600 mt-1 ${alignStart}`}>
+              {t('finance.createInvoicePage.selectCollegeContinue')}
+            </p>
           )}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6">
-        {/* Student Search */}
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6"
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+      >
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Student Number *</label>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.createInvoicePage.studentNumber')} *
+          </label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search
+              className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 ${
+                isArabicLayout ? 'right-3' : 'left-3'
+              }`}
+            />
             <input
               type="text"
               value={studentSearch}
               onChange={(e) => setStudentSearch(e.target.value)}
-              placeholder="Search by student number..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              placeholder={t('finance.createInvoicePage.searchStudentPlaceholder')}
+              dir="ltr"
+              className={`w-full py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${
+                isArabicLayout ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'
+              }`}
             />
           </div>
           {students.length > 0 && (
             <div className="mt-2 border border-gray-200 rounded-xl bg-white shadow-lg max-h-60 overflow-y-auto">
-              {students.map(student => (
+              {students.map((student) => (
                 <button
                   key={student.id}
                   type="button"
@@ -1118,51 +1122,49 @@ export default function CreateInvoice() {
                     setStudentSearch(student.student_id)
                     setStudents([])
                   }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                  className={`w-full px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${alignStart}`}
                 >
-                  <div className="font-semibold">{student.student_id}</div>
-                  <div className="text-sm text-gray-600">
-                    {student.first_name && student.last_name
-                      ? `${student.first_name} ${student.last_name}`
-                      : student.name_en}
+                  <div className="font-semibold" dir="ltr">
+                    {student.student_id}
                   </div>
+                  <div className="text-sm text-gray-600">{displayPersonName(student, isArabicLayout)}</div>
                 </button>
               ))}
             </div>
           )}
           {selectedStudent && (
-            <div className="mt-2 p-3 bg-green-50 rounded-lg">
+            <div className={`mt-2 p-3 bg-green-50 rounded-lg ${alignStart}`}>
               <span className="text-sm text-green-800">
-                Selected: {selectedStudent.student_id} - {selectedStudent.first_name && selectedStudent.last_name
-                  ? `${selectedStudent.first_name} ${selectedStudent.last_name}`
-                  : selectedStudent.name_en}
+                {t('finance.createInvoicePage.selectedStudent', {
+                  id: selectedStudent.student_id,
+                  name: displayPersonName(selectedStudent, isArabicLayout) || '—',
+                })}
               </span>
             </div>
           )}
         </div>
 
-        {/* Fee Structure Selection - Multiple Selection */}
         {selectedStudent && studentData && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Fee Structures (Optional - Multiple Selection)
+            <label className={`block text-sm font-semibold text-gray-900 mb-1 ${alignStart}`}>
+              {t('finance.createInvoicePage.feeStructuresTitle')}
             </label>
-            <p className="text-xs text-gray-600 mb-3">
-              Select one or more fee structures to auto-fill invoice items. Item names and amounts are editable after selection.
+            <p className={`text-xs text-gray-600 mb-3 ${alignStart}`}>
+              {t('finance.createInvoicePage.feeStructuresHint')}
               {!formData.semester_id && (
-                <span className="block mt-1 text-yellow-700 font-medium">
-                  Note: Select a semester to see semester-based fee structures, or fee structures will be shown for non-semester fees.
+                <span className="block mt-2 text-yellow-800 font-medium">
+                  {t('finance.createInvoicePage.feeStructuresSemesterNote')}
                 </span>
               )}
             </p>
-            
+
             {feeStructures.length > 0 ? (
               <>
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
-                  {feeStructures.map(fee => (
+                  {feeStructures.map((fee) => (
                     <label
                       key={fee.id}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-2 ${
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors mb-2 ${
                         selectedFeeStructures.includes(fee.id)
                           ? 'bg-primary-50 border-2 border-primary-500'
                           : 'border border-gray-200 hover:bg-gray-50'
@@ -1175,80 +1177,89 @@ export default function CreateInvoice() {
                           if (e.target.checked) {
                             handleFeeStructureSelection([...selectedFeeStructures, fee.id])
                           } else {
-                            const updated = selectedFeeStructures.filter(id => id !== fee.id)
+                            const updated = selectedFeeStructures.filter((id) => id !== fee.id)
                             setSelectedFeeStructures(updated)
                             applyFeeStructures(updated)
                           }
                         }}
-                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                        className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
                       />
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">{fee.fee_name_en}</div>
-                        <div className="text-xs text-gray-600">
-                          {fee.currency} {parseFloat(fee.amount || 0).toFixed(2)} • {fee.fee_type.replace('_', ' ')}
-                          {fee.applies_to_semester && Array.isArray(fee.applies_to_semester) && fee.applies_to_semester.length > 0 && (
-                            <span> • {fee.applies_to_semester.length} semester{fee.applies_to_semester.length !== 1 ? 's' : ''}</span>
-                          )}
-                          {fee.payment_portions && Array.isArray(fee.payment_portions) && fee.payment_portions.length > 0 && (
-                            <span> • {fee.payment_portions.length} payment portion{fee.payment_portions.length !== 1 ? 's' : ''}</span>
-                          )}
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm ${alignStart}`}>
+                          {getLocalizedName(
+                            { name_en: fee.fee_name_en, name_ar: fee.fee_name_ar },
+                            isArabicLayout
+                          ) || fee.fee_name_en}
+                        </div>
+                        <div className={`text-xs text-gray-600 ${alignStart}`}>
+                          <span dir="ltr" className="tabular-nums inline-block">
+                            {fee.currency} {parseFloat(fee.amount || 0).toFixed(2)}
+                          </span>
+                          <span> • {feeTypeDisplayLabel(fee.fee_type, feeTypes, isArabicLayout, t)}</span>
+                          {fee.applies_to_semester &&
+                            Array.isArray(fee.applies_to_semester) &&
+                            fee.applies_to_semester.length > 0 && (
+                              <span>
+                                {' '}
+                                •{' '}
+                                {fee.applies_to_semester.length === 1
+                                  ? t('finance.createInvoicePage.semestersCountOne')
+                                  : t('finance.createInvoicePage.semestersCount', {
+                                      count: fee.applies_to_semester.length,
+                                    })}
+                              </span>
+                            )}
+                          {fee.payment_portions &&
+                            Array.isArray(fee.payment_portions) &&
+                            fee.payment_portions.length > 0 && (
+                              <span>
+                                {' '}
+                                •{' '}
+                                {fee.payment_portions.length === 1
+                                  ? t('finance.createInvoicePage.paymentPortionsCountOne')
+                                  : t('finance.createInvoicePage.paymentPortionsCount', {
+                                      count: fee.payment_portions.length,
+                                    })}
+                              </span>
+                            )}
                         </div>
                       </div>
                     </label>
                   ))}
                 </div>
                 {selectedFeeStructures.length > 0 && (
-                  <p className="text-xs text-blue-600 mt-2">
-                    {selectedFeeStructures.length} fee structure{selectedFeeStructures.length !== 1 ? 's' : ''} selected. Items are editable below (highlighted in blue).
+                  <p className={`text-xs text-blue-700 mt-2 font-medium ${alignStart}`}>
+                    {selectedFeeStructures.length === 1
+                      ? t('finance.createInvoicePage.feeStructuresSelectedOne')
+                      : t('finance.createInvoicePage.feeStructuresSelectedMany', {
+                          count: selectedFeeStructures.length,
+                        })}
                   </p>
                 )}
               </>
             ) : (
               <div className="border border-gray-200 rounded-lg p-4 bg-white">
                 {formData.semester_id ? (
-                  <p className="text-sm text-gray-600 text-center py-2">
-                    No fee structures found for this student matching the selected semester and criteria.
-                    You can manually add invoice items below.
+                  <p className={`text-sm text-gray-600 py-2 ${isArabicLayout ? 'text-right' : 'text-center'}`}>
+                    {t('finance.createInvoicePage.noFeeStructuresSemester')}
                   </p>
                 ) : formData.invoice_type ? (
                   (() => {
-                    const selectedType = feeTypes.find(ft => {
-                      const typeMap = {
-                        'Admission Fees': 'admission_fee',
-                        'Application Fees': 'application_fee',
-                        'Registration Fees': 'registration_fee',
-                        'Course Fees': 'course_fee',
-                        'Subject Fees': 'subject_fee',
-                        'Tuition Fees': 'tuition_fee',
-                        'Onboarding Fees': 'onboarding_fee',
-                        'Laboratory Fees': 'lab_fee',
-                        'Library Fees': 'library_fee',
-                        'Sports Fees': 'sports_fee',
-                        'Late Payment Penalties': 'late_payment_penalty',
-                        'Penalties': 'penalty',
-                        'Miscellaneous': 'miscellaneous',
-                        'Other': 'other'
-                      }
-                      return ft.code === (typeMap[formData.invoice_type] || formData.invoice_type.toLowerCase().replace(' ', '_'))
-                    })
-                    const requiresSemester = selectedType?.requires_semester !== false
-                    
+                    const st = feeTypes.find((ft) => ft.code === formData.invoice_type)
+                    const requiresSemester = st?.requires_semester !== false
                     return requiresSemester ? (
-                      <p className="text-sm text-yellow-800 text-center py-2">
-                        <strong>Note:</strong> Please select a semester first to see applicable fee structures for this invoice type.
-                        Fee structures will appear here once a semester is selected.
+                      <p className={`text-sm text-yellow-900 py-2 ${alignStart}`}>
+                        {t('finance.createInvoicePage.noFeeStructuresNeedSemester')}
                       </p>
                     ) : (
-                      <p className="text-sm text-gray-600 text-center py-2">
-                        No fee structures found for this invoice type (non-semester based).
-                        You can manually add invoice items below.
+                      <p className={`text-sm text-gray-600 py-2 ${alignStart}`}>
+                        {t('finance.createInvoicePage.noFeeStructuresNonSemester')}
                       </p>
                     )
                   })()
                 ) : (
-                  <p className="text-sm text-gray-600 text-center py-2">
-                    Select an invoice type and semester (if required) to see applicable fee structures.
-                    You can also manually add invoice items below.
+                  <p className={`text-sm text-gray-600 py-2 ${alignStart}`}>
+                    {t('finance.createInvoicePage.noFeeStructuresPrompt')}
                   </p>
                 )}
               </div>
@@ -1256,170 +1267,123 @@ export default function CreateInvoice() {
           </div>
         )}
 
-        {/* Invoice Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Date *</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.createInvoicePage.invoiceDate')} *
+            </label>
             <input
               type="date"
               value={formData.invoice_date}
               onChange={(e) => setFormData({ ...formData, invoice_date: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={fieldInputClass}
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Invoice Type *</label>
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.createInvoicePage.invoiceType')} *
+            </label>
             <select
               value={formData.invoice_type}
               onChange={(e) => {
                 const newType = e.target.value
-                const selectedType = feeTypes.find(ft => {
-                  const typeMap = {
-                    'Admission Fees': 'admission_fee',
-                    'Application Fees': 'application_fee',
-                    'Registration Fees': 'registration_fee',
-                    'Course Fees': 'course_fee',
-                    'Subject Fees': 'subject_fee',
-                    'Tuition Fees': 'tuition_fee',
-                    'Onboarding Fees': 'onboarding_fee',
-                    'Laboratory Fees': 'lab_fee',
-                    'Library Fees': 'library_fee',
-                    'Sports Fees': 'sports_fee',
-                    'Late Payment Penalties': 'late_payment_penalty',
-                    'Penalties': 'penalty',
-                    'Miscellaneous': 'miscellaneous',
-                    'Other': 'other'
-                  }
-                  return ft.code === (typeMap[newType] || newType.toLowerCase().replace(' ', '_'))
-                })
-                
-                // Clear semester if the new type doesn't require it
-                const needsSemester = selectedType?.requires_semester !== false
-                setFormData({ 
-                  ...formData, 
+                const st = feeTypes.find((ft) => ft.code === newType)
+                const needsSemester = st?.requires_semester !== false
+                setFormData({
+                  ...formData,
                   invoice_type: newType,
-                  semester_id: needsSemester ? formData.semester_id : ''
+                  semester_id: needsSemester ? formData.semester_id : '',
                 })
-                
-                // Refresh fee structures when semester changes
                 if (needsSemester && formData.semester_id && selectedStudent) {
                   setTimeout(() => fetchFeeStructures(), 100)
                 }
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={fieldInputClass}
               required
             >
-              <option value="">Select Type</option>
-              {feeTypes.map(feeType => {
-                const displayNames = {
-                  'admission_fee': 'Admission Fees',
-                  'application_fee': 'Application Fees',
-                  'registration_fee': 'Registration Fees',
-                  'course_fee': 'Course Fees',
-                  'subject_fee': 'Subject Fees',
-                  'tuition_fee': 'Tuition Fees',
-                  'onboarding_fee': 'Onboarding Fees',
-                  'lab_fee': 'Laboratory Fees',
-                  'library_fee': 'Library Fees',
-                  'sports_fee': 'Sports Fees',
-                  'late_payment_penalty': 'Late Payment Penalties',
-                  'penalty': 'Penalties',
-                  'miscellaneous': 'Miscellaneous',
-                  'other': 'Other'
-                }
-                return (
-                  <option key={feeType.id} value={displayNames[feeType.code] || feeType.name_en}>
-                    {feeType.name_en} {feeType.requires_semester === false && '(No Semester Required)'}
-                  </option>
-                )
-              })}
+              <option value="">{t('finance.createInvoicePage.selectTypePlaceholder')}</option>
+              {feeTypes.map((feeType) => (
+                <option key={feeType.id} value={feeType.code}>
+                  {feeTypeDisplayLabel(feeType.code, feeTypes, isArabicLayout, t)}
+                  {feeType.requires_semester === false
+                    ? ` ${t('finance.createInvoicePage.noSemesterRequired')}`
+                    : ''}
+                </option>
+              ))}
             </select>
           </div>
-          {formData.invoice_type && (() => {
-            const selectedType = feeTypes.find(ft => {
-              const typeMap = {
-                'Admission Fees': 'admission_fee',
-                'Application Fees': 'application_fee',
-                'Registration Fees': 'registration_fee',
-                'Course Fees': 'course_fee',
-                'Subject Fees': 'subject_fee',
-                'Tuition Fees': 'tuition_fee',
-                'Onboarding Fees': 'onboarding_fee',
-                'Laboratory Fees': 'lab_fee',
-                'Library Fees': 'library_fee',
-                'Sports Fees': 'sports_fee',
-                'Late Payment Penalties': 'late_payment_penalty',
-                'Penalties': 'penalty',
-                'Miscellaneous': 'miscellaneous',
-                'Other': 'other'
-              }
-              return ft.code === (typeMap[formData.invoice_type] || formData.invoice_type.toLowerCase().replace(' ', '_'))
-            })
-            const requiresSemester = selectedType?.requires_semester !== false
-            
-            return requiresSemester && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Semester *</label>
-                <select
-                  value={formData.semester_id}
-                  onChange={(e) => {
-                    setFormData({ ...formData, semester_id: e.target.value })
-                    // Refresh fee structures when semester changes
-                    if (e.target.value && selectedStudent) {
-                      setTimeout(() => fetchFeeStructures(), 100)
-                    }
-                  }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
-                  required
-                >
-                  <option value="">Select Semester...</option>
-                  {semesters.map(semester => (
-                    <option key={semester.id} value={semester.id}>
-                      {semester.name_en} ({semester.code})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Fees are semester-specific. Financial milestones (30%, 60%, etc.) are calculated per semester.
-                </p>
-              </div>
-            )
-          })()}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method *</label>
+          {formData.invoice_type &&
+            (() => {
+              const st = feeTypes.find((ft) => ft.code === formData.invoice_type)
+              const requiresSemester = st?.requires_semester !== false
+              return (
+                requiresSemester && (
+                  <div className="md:col-span-2">
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                      {t('finance.createInvoicePage.semester')} *
+                    </label>
+                    <select
+                      value={formData.semester_id}
+                      onChange={(e) => {
+                        setFormData({ ...formData, semester_id: e.target.value })
+                        if (e.target.value && selectedStudent) {
+                          setTimeout(() => fetchFeeStructures(), 100)
+                        }
+                      }}
+                      className={fieldInputClass}
+                      required
+                    >
+                      <option value="">{t('finance.createInvoicePage.selectSemesterPlaceholder')}</option>
+                      {semesters.map((semester) => (
+                        <option key={semester.id} value={semester.id}>
+                          {getLocalizedName(semester, isArabicLayout) || semester.name_en} ({semester.code})
+                        </option>
+                      ))}
+                    </select>
+                    <p className={`text-xs text-gray-500 mt-1 ${alignStart}`}>
+                      {t('finance.createInvoicePage.semesterHelp')}
+                    </p>
+                  </div>
+                )
+              )
+            })()}
+          <div className="md:col-span-2">
+            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+              {t('finance.createInvoicePage.paymentMethod')} *
+            </label>
             <select
               value={formData.payment_method}
               onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+              className={fieldInputClass}
               required
             >
-              <option value="pending">Pending (Online/Bank Transfer)</option>
-              <option value="cash">Cash Payment (Mark as Paid)</option>
+              <option value="pending">{t('finance.createInvoicePage.paymentPending')}</option>
+              <option value="cash">{t('finance.createInvoicePage.paymentCash')}</option>
               {(userRole === 'admin' || userRole === 'user') && (
-                <option value="admin_payment">Admin Payment (Mark as Paid by Admin)</option>
+                <option value="admin_payment">{t('finance.createInvoicePage.paymentAdmin')}</option>
               )}
             </select>
             {(userRole === 'admin' || userRole === 'user') && formData.payment_method === 'admin_payment' && (
-              <p className="text-xs text-blue-600 mt-2">
-                <strong>Note:</strong> This will mark the invoice as paid and record you as the verifier. 
-                The student will be able to login and access the portal immediately.
+              <p className={`text-xs text-blue-700 mt-2 ${alignStart}`}>
+                {t('finance.createInvoicePage.adminPaymentNote')}
               </p>
             )}
           </div>
         </div>
 
-        {/* Invoice Items */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <label className="block text-sm font-medium text-gray-700">Invoice Items *</label>
+          <div className={`flex flex-wrap items-center justify-between gap-3 mb-4 ${iconRow}`}>
+            <label className={`block text-sm font-semibold text-gray-900 ${alignStart}`}>
+              {t('finance.createInvoicePage.invoiceItems')} *
+            </label>
             <button
               type="button"
               onClick={addItem}
-              className="flex items-center space-x-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100"
+              className={`inline-flex items-center gap-2 px-4 py-2 bg-primary-50 text-primary-600 rounded-lg hover:bg-primary-100 ${iconRow}`}
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Item</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>{t('finance.createInvoicePage.addItem')}</span>
             </button>
           </div>
           <div className="space-y-4">
@@ -1427,44 +1391,53 @@ export default function CreateInvoice() {
               <div key={index} className="border border-gray-200 rounded-xl p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Item Name (EN) *
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                      {t('finance.createInvoicePage.itemNameEn')} *
                       {item.from_fee_structure && (
-                        <span className="ml-2 text-xs text-blue-600 font-normal">(from fee structure - editable)</span>
+                        <span className="ms-2 text-xs text-blue-600 font-normal">
+                          {t('finance.createInvoicePage.itemNameEnHint')}
+                        </span>
                       )}
                     </label>
                     <input
                       type="text"
                       value={item.item_name_en}
                       onChange={(e) => handleItemChange(index, 'item_name_en', e.target.value)}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
+                      dir="ltr"
+                      className={`${fieldInputClassSm} ${
                         item.from_fee_structure ? 'bg-blue-50 border-blue-200' : ''
                       }`}
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                      {t('finance.createInvoicePage.quantity')} *
+                    </label>
                     <input
                       type="number"
                       min="1"
                       value={item.quantity}
                       onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
+                      dir="ltr"
+                      className={`${fieldInputClassSm} ${
                         item.from_fee_structure ? 'bg-blue-50 border-blue-200' : ''
                       }`}
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Unit Price *</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                      {t('finance.createInvoicePage.unitPrice')} *
+                    </label>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={item.unit_price}
                       onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg ${
+                      dir="ltr"
+                      className={`${fieldInputClassSm} ${
                         item.from_fee_structure ? 'bg-blue-50 border-blue-200' : ''
                       }`}
                       required
@@ -1473,41 +1446,50 @@ export default function CreateInvoice() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Item Name (AR)</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                      {t('finance.createInvoicePage.itemNameAr')}
+                    </label>
                     <input
                       type="text"
                       value={item.item_name_ar}
                       onChange={(e) => handleItemChange(index, 'item_name_ar', e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                      className={fieldInputClassSm}
+                      dir={isArabicLayout ? 'rtl' : 'ltr'}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Amount</label>
+                    <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                      {t('finance.createInvoicePage.lineTotal')}
+                    </label>
                     <input
                       type="number"
                       value={item.total_amount}
                       readOnly
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      dir="ltr"
+                      className={`${fieldInputClassSm} bg-gray-50`}
                     />
                   </div>
                 </div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                    {t('finance.createInvoicePage.description')}
+                  </label>
                   <textarea
                     value={item.description}
                     onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    rows="2"
+                    className={fieldInputClassSm}
+                    rows={2}
+                    dir="auto"
                   />
                 </div>
                 {formData.items.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeItem(index)}
-                    className="flex items-center space-x-2 text-red-600 hover:text-red-700"
+                    className={`inline-flex items-center gap-2 text-red-600 hover:text-red-700 ${iconRow}`}
                   >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Remove Item</span>
+                    <Trash2 className="w-4 h-4 shrink-0" />
+                    <span>{t('finance.createInvoicePage.removeItem')}</span>
                   </button>
                 )}
               </div>
@@ -1515,73 +1497,78 @@ export default function CreateInvoice() {
           </div>
         </div>
 
-        {/* Discount */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Discount Amount</label>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.createInvoicePage.discountAmount')}
+          </label>
           <input
             type="number"
             min="0"
             step="0.01"
             value={formData.discount_amount}
             onChange={(e) => setFormData({ ...formData, discount_amount: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
+            dir="ltr"
+            className={fieldInputClass}
           />
         </div>
 
-        {/* Notes */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+          <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+            {t('finance.createInvoicePage.notes')}
+          </label>
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500"
-            rows="3"
+            className={fieldInputClass}
+            rows={3}
+            dir="auto"
           />
         </div>
 
-        {/* Total */}
         <div className="bg-gray-50 p-4 rounded-xl">
-          <div className="flex items-center justify-between text-lg font-bold">
-            <span>Total Amount:</span>
-            <span className="text-primary-600">{calculateTotal().toFixed(2)} USD</span>
+          <div
+            className={`flex flex-wrap items-center justify-between gap-2 text-lg font-bold ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+          >
+            <span className={alignStart}>{t('finance.createInvoicePage.grandTotal')}</span>
+            <RtlMoney isArabicLayout={isArabicLayout} inline className="text-primary-600 font-bold">
+              {grandTotalFormatted}
+            </RtlMoney>
           </div>
         </div>
 
-        {/* Error and Success Messages */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl">
+          <div className={`bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl ${alignStart}`}>
             {error}
           </div>
         )}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl">
-            Invoice created successfully! Redirecting...
+          <div className={`bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl ${alignStart}`}>
+            {t('finance.createInvoicePage.successRedirect')}
           </div>
         )}
 
-        {/* Submit Button */}
-        <div className="flex items-center justify-end space-x-4">
+        <div className={`flex flex-wrap items-center justify-end gap-4 ${iconRow}`}>
           <button
             type="button"
             onClick={() => navigate('/finance/invoices')}
             className="px-6 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
           >
-            Cancel
+            {t('finance.createInvoicePage.cancel')}
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`inline-flex items-center gap-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${iconRow}`}
           >
             {loading ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Creating...</span>
+                <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+                <span>{t('finance.createInvoicePage.creating')}</span>
               </>
             ) : (
               <>
-                <Save className="w-5 h-5" />
-                <span>Create Invoice</span>
+                <Save className="w-5 h-5 shrink-0" />
+                <span>{t('finance.createInvoicePage.submit')}</span>
               </>
             )}
           </button>
