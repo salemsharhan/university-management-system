@@ -252,9 +252,12 @@ export default function GradeAnalytics() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <div className={`flex items-center gap-2 mb-2 ${isArabicLayout ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <div
+                  className="flex items-center gap-2 mb-2 w-full justify-between"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
                   <span className="text-sm text-gray-600">{t('grading.gradeAnalytics.passRate')}</span>
-                  <span className="text-lg font-bold text-green-600 tabular-nums" dir="ltr">
+                  <span className="text-lg font-bold text-green-600 tabular-nums shrink-0" dir="ltr">
                     {analytics.passRate}%
                   </span>
                 </div>
@@ -266,9 +269,12 @@ export default function GradeAnalytics() {
                 </div>
               </div>
               <div>
-                <div className={`flex items-center gap-2 mb-2 ${isArabicLayout ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                <div
+                  className="flex items-center gap-2 mb-2 w-full justify-between"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
                   <span className="text-sm text-gray-600">{t('grading.gradeAnalytics.failRate')}</span>
-                  <span className="text-lg font-bold text-red-600 tabular-nums" dir="ltr">
+                  <span className="text-lg font-bold text-red-600 tabular-nums shrink-0" dir="ltr">
                     {analytics.failRate}%
                   </span>
                 </div>
@@ -306,7 +312,8 @@ export default function GradeAnalytics() {
                       return (
                         <div
                           key={grade}
-                          className={`flex items-center gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+                          className="flex items-center gap-3"
+                          dir={isArabicLayout ? 'rtl' : 'ltr'}
                         >
                           <div
                             className={`w-14 shrink-0 text-sm font-medium text-gray-700 tabular-nums ${isArabicLayout ? 'text-right' : 'text-left'}`}
@@ -315,7 +322,10 @@ export default function GradeAnalytics() {
                             {grade}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className={`flex items-center gap-2 mb-1 ${isArabicLayout ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
+                            <div
+                              className="flex items-center gap-2 mb-1 w-full justify-between"
+                              dir={isArabicLayout ? 'rtl' : 'ltr'}
+                            >
                               <span className="text-sm text-gray-600">
                                 {count} {t('grading.gradeAnalytics.students')}
                               </span>

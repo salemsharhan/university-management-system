@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
-import { Save, X, CheckCircle, XCircle, Clock, AlertCircle, Calendar } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
+import { Save, X, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 
 export default function AttendanceManagement({ classId, sessionId, enrollmentIds, onClose, onSave }) {
+  const { t } = useTranslation()
+  const { userRole } = useAuth()
+  const canRecordAttendance = userRole === 'instructor'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [students, setStudents] = useState([])
@@ -72,6 +77,7 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
   }
 
   const handleAttendanceChange = (enrollmentId, status) => {
+    if (!canRecordAttendance) return
     setAttendanceRecords(prev => ({
       ...prev,
       [enrollmentId]: status
@@ -79,6 +85,7 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
   }
 
   const handleSave = async () => {
+    if (!canRecordAttendance) return
     setLoading(true)
     setError('')
 
@@ -130,10 +137,10 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
   }
 
   const statusOptions = [
-    { value: 'present', label: 'Present', icon: CheckCircle, color: 'text-green-600' },
-    { value: 'absent', label: 'Absent', icon: XCircle, color: 'text-red-600' },
-    { value: 'late', label: 'Late', icon: Clock, color: 'text-yellow-600' },
-    { value: 'excused', label: 'Excused', icon: AlertCircle, color: 'text-blue-600' },
+    { value: 'present', labelKey: 'attendance.takeAttendance.present', icon: CheckCircle, color: 'text-green-600' },
+    { value: 'absent', labelKey: 'attendance.takeAttendance.absent', icon: XCircle, color: 'text-red-600' },
+    { value: 'late', labelKey: 'attendance.takeAttendance.late', icon: Clock, color: 'text-yellow-600' },
+    { value: 'excused', labelKey: 'attendance.takeAttendance.excused', icon: AlertCircle, color: 'text-blue-600' },
   ]
 
   return (
@@ -141,8 +148,12 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
       <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Take Attendance</h2>
-            <p className="text-sm text-gray-600 mt-1">{students.length} students</p>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {canRecordAttendance ? t('attendance.takeAttendance.title') : t('attendance.takeAttendance.viewTitle')}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {students.length} {t('common.students')}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -159,16 +170,25 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
             </div>
           )}
 
+          {!canRecordAttendance && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-amber-900 text-sm">
+              {t('attendance.takeAttendance.viewOnlyHint')}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Session Date *
+              {t('attendance.takeAttendance.sessionDateLabel')}
+              {canRecordAttendance ? ' *' : ''}
             </label>
             <input
               type="date"
               value={sessionDate}
               onChange={(e) => setSessionDate(e.target.value)}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              readOnly={!canRecordAttendance}
+              disabled={!canRecordAttendance}
+              required={canRecordAttendance}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -191,15 +211,16 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
                         <button
                           key={option.value}
                           type="button"
+                          disabled={!canRecordAttendance}
                           onClick={() => handleAttendanceChange(student.enrollmentId, option.value)}
                           className={`flex items-center justify-center space-x-2 p-3 border-2 rounded-lg transition-all ${
                             isSelected
                               ? 'border-primary-600 bg-primary-50 text-primary-900'
                               : 'border-gray-200 hover:border-gray-300 text-gray-700'
-                          }`}
+                          } disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-gray-200`}
                         >
                           <OptionIcon className={`w-5 h-5 ${option.color}`} />
-                          <span className="font-medium">{option.label}</span>
+                          <span className="font-medium">{t(option.labelKey)}</span>
                         </button>
                       )
                     })}
@@ -215,16 +236,21 @@ export default function AttendanceManagement({ classId, sessionId, enrollmentIds
               onClick={onClose}
               className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              Cancel
+              {canRecordAttendance ? t('attendance.takeAttendance.cancel') : t('common.close')}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Save className="w-5 h-5" />
-              <span>{loading ? 'Saving...' : 'Save Attendance'}</span>
-            </button>
+            {canRecordAttendance && (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={loading}
+                className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-5 h-5" />
+                <span>
+                  {loading ? t('attendance.takeAttendance.saving') : t('attendance.takeAttendance.saveAttendance')}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>

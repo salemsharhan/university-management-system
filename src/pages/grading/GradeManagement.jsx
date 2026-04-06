@@ -254,71 +254,156 @@ export default function GradeManagement() {
                   dir={isArabicLayout ? 'rtl' : 'ltr'}
                 >
                   <div className="flex items-start gap-3 mb-4">
-                    <BookOpen className="w-8 h-8 text-primary-600 flex-shrink-0" />
-                    <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                      <h3 className="text-lg font-bold text-gray-900">{classItem.code}</h3>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {getLocalizedName(classItem.subjects, isArabicLayout) || classItem.subjects?.code || 'N/A'}
-                      </p>
-                    </div>
+                    {isArabicLayout ? (
+                      <>
+                        <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                          <h3 className="text-lg font-bold text-gray-900">{classItem.code}</h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {getLocalizedName(classItem.subjects, isArabicLayout) || classItem.subjects?.code || 'N/A'}
+                          </p>
+                        </div>
+                        <BookOpen className="w-8 h-8 text-primary-600 flex-shrink-0" />
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="w-8 h-8 text-primary-600 flex-shrink-0" />
+                        <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                          <h3 className="text-lg font-bold text-gray-900">{classItem.code}</h3>
+                          <p className="text-sm text-gray-600 mt-1">
+                            {getLocalizedName(classItem.subjects, isArabicLayout) || classItem.subjects?.code || 'N/A'}
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className={`space-y-2 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                    <div className={`flex items-center gap-2 text-gray-600 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                      <Users className="w-4 h-4 flex-shrink-0" />
-                      <span>
-                        {t('grading.gradeManagement.instructor')}:{' '}
-                        {getLocalizedName(classItem.instructors, isArabicLayout) || t('grading.classGrades.tba')}
-                      </span>
+                    <div className="flex items-center gap-2 text-gray-600 w-full">
+                      {isArabicLayout ? (
+                        <>
+                          <span className="min-w-0 flex-1">
+                            {t('grading.gradeManagement.instructor')}:{' '}
+                            {getLocalizedName(classItem.instructors, isArabicLayout) || t('grading.classGrades.tba')}
+                          </span>
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                        </>
+                      ) : (
+                        <>
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            {t('grading.gradeManagement.instructor')}:{' '}
+                            {getLocalizedName(classItem.instructors, isArabicLayout) || t('grading.classGrades.tba')}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <div className={`flex items-center gap-2 text-gray-600 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                      <Calendar className="w-4 h-4 flex-shrink-0" />
-                      <span>
-                        {t('grading.gradeManagement.schedule')}: {formatSchedule(classItem.class_schedules)}
-                      </span>
+                    <div className="flex items-center gap-2 text-gray-600 w-full">
+                      {isArabicLayout ? (
+                        <>
+                          <span className="min-w-0 flex-1">
+                            {t('grading.gradeManagement.schedule')}: {formatSchedule(classItem.class_schedules)}
+                          </span>
+                          <Calendar className="w-4 h-4 flex-shrink-0" />
+                        </>
+                      ) : (
+                        <>
+                          <Calendar className="w-4 h-4 flex-shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            {t('grading.gradeManagement.schedule')}: {formatSchedule(classItem.class_schedules)}
+                          </span>
+                        </>
+                      )}
                     </div>
-                    <div className={`flex items-center gap-2 text-gray-600 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                      <GraduationCap className="w-4 h-4 flex-shrink-0" />
-                      <span>
-                        {t('grading.gradeManagement.capacity')}: {classItem.enrolled || 0}/{classItem.capacity || 0}
-                      </span>
+                    <div className="flex items-center gap-2 text-gray-600 w-full">
+                      {isArabicLayout ? (
+                        <>
+                          <span className="min-w-0 flex-1">
+                            {t('grading.gradeManagement.capacity')}: {classItem.enrolled || 0}/{classItem.capacity || 0}
+                          </span>
+                          <GraduationCap className="w-4 h-4 flex-shrink-0" />
+                        </>
+                      ) : (
+                        <>
+                          <GraduationCap className="w-4 h-4 flex-shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            {t('grading.gradeManagement.capacity')}: {classItem.enrolled || 0}/{classItem.capacity || 0}
+                          </span>
+                        </>
+                      )}
                     </div>
                     {classItem.subjects?.grade_configuration && 
                      Array.isArray(classItem.subjects.grade_configuration) && 
                      classItem.subjects.grade_configuration.length > 0 && (() => {
                       const mergedConfig = mergeGradeConfigWithTypes(classItem.subjects.grade_configuration, gradeTypes)
                       return (
-                      <div className={`flex items-start gap-2 text-gray-600 mt-2 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                        <Award className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-xs font-medium text-gray-700 block mb-1">
-                            {t('grading.gradeManagement.gradeTypes')}:
-                          </span>
-                          <div className={`flex flex-wrap gap-1 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
-                            {mergedConfig.map((config, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800"
-                                title={`${t('grading.gradeManagement.max')}: ${config.maximum || 'N/A'}, ${t('grading.gradeManagement.pass')}: ${config.pass_score || 'N/A'}, ${t('grading.gradeManagement.weight')}: ${config.weight || 0}%`}
-                              >
-                                {gradeTypeDisplayName(config)}
-                                {config.weight && ` (${config.weight}%)`}
+                      <div className="flex items-start gap-2 text-gray-600 mt-2 w-full">
+                        {isArabicLayout ? (
+                          <>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-medium text-gray-700 block mb-1">
+                                {t('grading.gradeManagement.gradeTypes')}:
                               </span>
-                            ))}
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            {mergedConfig.map((config, idx) => (
-                              <div key={idx} className="truncate">
-                                <span className="font-medium">{gradeTypeDisplayName(config)}:</span>
-                                {' '}
-                                {t('grading.gradeManagement.max')} {config.maximum || 'N/A'}, 
-                                {' '}
-                                {t('grading.gradeManagement.pass')} {config.pass_score || 'N/A'}
-                                {config.fail_score && `, ${t('grading.gradeManagement.fail')} ${config.fail_score}`}
+                              <div className="flex flex-wrap gap-1 justify-start" dir="rtl">
+                                {mergedConfig.map((config, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800"
+                                    title={`${t('grading.gradeManagement.max')}: ${config.maximum || 'N/A'}, ${t('grading.gradeManagement.pass')}: ${config.pass_score || 'N/A'}, ${t('grading.gradeManagement.weight')}: ${config.weight || 0}%`}
+                                  >
+                                    {gradeTypeDisplayName(config)}
+                                    {config.weight && ` (${config.weight}%)`}
+                                  </span>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        </div>
+                              <div className="mt-1 text-xs text-gray-500">
+                                {mergedConfig.map((config, idx) => (
+                                  <div key={idx} className="truncate">
+                                    <span className="font-medium">{gradeTypeDisplayName(config)}:</span>
+                                    {' '}
+                                    {t('grading.gradeManagement.max')} {config.maximum || 'N/A'}, 
+                                    {' '}
+                                    {t('grading.gradeManagement.pass')} {config.pass_score || 'N/A'}
+                                    {config.fail_score && `, ${t('grading.gradeManagement.fail')} ${config.fail_score}`}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <Award className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          </>
+                        ) : (
+                          <>
+                            <Award className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-medium text-gray-700 block mb-1">
+                                {t('grading.gradeManagement.gradeTypes')}:
+                              </span>
+                              <div className="flex flex-wrap gap-1 justify-start">
+                                {mergedConfig.map((config, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-800"
+                                    title={`${t('grading.gradeManagement.max')}: ${config.maximum || 'N/A'}, ${t('grading.gradeManagement.pass')}: ${config.pass_score || 'N/A'}, ${t('grading.gradeManagement.weight')}: ${config.weight || 0}%`}
+                                  >
+                                    {gradeTypeDisplayName(config)}
+                                    {config.weight && ` (${config.weight}%)`}
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-500">
+                                {mergedConfig.map((config, idx) => (
+                                  <div key={idx} className="truncate">
+                                    <span className="font-medium">{gradeTypeDisplayName(config)}:</span>
+                                    {' '}
+                                    {t('grading.gradeManagement.max')} {config.maximum || 'N/A'}, 
+                                    {' '}
+                                    {t('grading.gradeManagement.pass')} {config.pass_score || 'N/A'}
+                                    {config.fail_score && `, ${t('grading.gradeManagement.fail')} ${config.fail_score}`}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )})()}
                   </div>

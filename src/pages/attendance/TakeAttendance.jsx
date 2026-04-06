@@ -17,6 +17,7 @@ export default function TakeAttendance() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { userRole, collegeId } = useAuth()
+  const canRecordAttendance = userRole === 'instructor'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
@@ -122,6 +123,7 @@ export default function TakeAttendance() {
   }
 
   const handleAttendanceChange = (studentId, status) => {
+    if (!canRecordAttendance) return
     setAttendance(prev => ({
       ...prev,
       [studentId]: status
@@ -130,6 +132,7 @@ export default function TakeAttendance() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!canRecordAttendance) return
     if (!selectedClassId || !selectedSessionId) {
       setError(t('attendance.takeAttendance.selectClassSessionError'))
       return
@@ -219,8 +222,12 @@ export default function TakeAttendance() {
         {isArabicLayout ? (
           <>
             <div className="flex-1 min-w-0 text-right" dir="rtl">
-              <h1 className="text-3xl font-bold text-gray-900">{t('attendance.takeAttendance.title')}</h1>
-              <p className="text-gray-600 mt-1">{t('attendance.takeAttendance.subtitle')}</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {canRecordAttendance ? t('attendance.takeAttendance.title') : t('attendance.takeAttendance.viewTitle')}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {canRecordAttendance ? t('attendance.takeAttendance.subtitle') : t('attendance.takeAttendance.viewSubtitle')}
+              </p>
             </div>
             <button
               type="button"
@@ -242,8 +249,12 @@ export default function TakeAttendance() {
               <span>{t('attendance.takeAttendance.backToSessions')}</span>
             </button>
             <div className="flex-1 min-w-0 text-left">
-              <h1 className="text-3xl font-bold text-gray-900">{t('attendance.takeAttendance.title')}</h1>
-              <p className="text-gray-600 mt-1">{t('attendance.takeAttendance.subtitle')}</p>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {canRecordAttendance ? t('attendance.takeAttendance.title') : t('attendance.takeAttendance.viewTitle')}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {canRecordAttendance ? t('attendance.takeAttendance.subtitle') : t('attendance.takeAttendance.viewSubtitle')}
+              </p>
             </div>
           </>
         )}
@@ -254,6 +265,11 @@ export default function TakeAttendance() {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
               {error}
+            </div>
+          )}
+          {!canRecordAttendance && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-sm">
+              {t('attendance.takeAttendance.viewOnlyHint')}
             </div>
           )}
           {success && (
@@ -294,14 +310,16 @@ export default function TakeAttendance() {
                   <div className="p-6 border border-gray-200 rounded-lg text-center">
                     <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                     <p className="text-gray-600 mb-4">{t('attendance.takeAttendance.noSessionsAvailable')}</p>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/attendance/sessions/create?classId=${selectedClassId}`)}
-                      className={`px-4 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mx-auto`}
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>{t('attendance.takeAttendance.createSession')}</span>
-                    </button>
+                    {canRecordAttendance && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/attendance/sessions/create?classId=${selectedClassId}`)}
+                        className={`px-4 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mx-auto`}
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>{t('attendance.takeAttendance.createSession')}</span>
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <select
@@ -386,7 +404,8 @@ export default function TakeAttendance() {
                                 name={`attendance-${studentId}`}
                                 checked={currentStatus === 'present'}
                                 onChange={() => handleAttendanceChange(studentId, 'present')}
-                                className="w-4 h-4 text-primary-600"
+                                disabled={!canRecordAttendance}
+                                className="w-4 h-4 text-primary-600 disabled:cursor-not-allowed"
                               />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -395,7 +414,8 @@ export default function TakeAttendance() {
                                 name={`attendance-${studentId}`}
                                 checked={currentStatus === 'absent'}
                                 onChange={() => handleAttendanceChange(studentId, 'absent')}
-                                className="w-4 h-4 text-primary-600"
+                                disabled={!canRecordAttendance}
+                                className="w-4 h-4 text-primary-600 disabled:cursor-not-allowed"
                               />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -404,7 +424,8 @@ export default function TakeAttendance() {
                                 name={`attendance-${studentId}`}
                                 checked={currentStatus === 'late'}
                                 onChange={() => handleAttendanceChange(studentId, 'late')}
-                                className="w-4 h-4 text-primary-600"
+                                disabled={!canRecordAttendance}
+                                className="w-4 h-4 text-primary-600 disabled:cursor-not-allowed"
                               />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -413,7 +434,8 @@ export default function TakeAttendance() {
                                 name={`attendance-${studentId}`}
                                 checked={currentStatus === 'excused'}
                                 onChange={() => handleAttendanceChange(studentId, 'excused')}
-                                className="w-4 h-4 text-primary-600"
+                                disabled={!canRecordAttendance}
+                                className="w-4 h-4 text-primary-600 disabled:cursor-not-allowed"
                               />
                             </td>
                           </tr>
@@ -442,14 +464,16 @@ export default function TakeAttendance() {
           >
             {t('attendance.takeAttendance.cancel')}
           </button>
-          <button
-            type="submit"
-            disabled={loading || !selectedSessionId || enrollments.length === 0}
-            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            <Save className="w-5 h-5" />
-            <span>{loading ? t('attendance.takeAttendance.saving') : t('attendance.takeAttendance.saveAttendance')}</span>
-          </button>
+          {canRecordAttendance && (
+            <button
+              type="submit"
+              disabled={loading || !selectedSessionId || enrollments.length === 0}
+              className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <Save className="w-5 h-5" />
+              <span>{loading ? t('attendance.takeAttendance.saving') : t('attendance.takeAttendance.saveAttendance')}</span>
+            </button>
+          )}
         </div>
       </form>
     </div>

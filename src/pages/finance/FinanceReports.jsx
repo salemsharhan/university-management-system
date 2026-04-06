@@ -550,51 +550,6 @@ export default function FinanceReports() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
             <h2 className={`text-lg font-semibold mb-4 ${alignStart}`}>{t('finance.financeReports.reportData')}</h2>
 
-            <div className={`flex flex-wrap items-center gap-3 mb-4 ${alignStart}`}>
-              <label className={`flex items-center gap-2 text-sm text-gray-700 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                <span>{t('finance.financeReports.pagination.rowsPerPage')}</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="border border-gray-300 rounded-lg ps-2 pe-8 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {PAGE_SIZE_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <span className="text-sm text-gray-600">
-                {t('finance.financeReports.pagination.showing', {
-                  from: rangeFrom,
-                  to: rangeTo,
-                  total: totalRows,
-                })}
-              </span>
-              {totalRows > 0 && (
-                <button
-                  type="button"
-                  onClick={selectAllFiltered}
-                  className="text-sm font-medium text-primary-600 hover:text-primary-800"
-                >
-                  {t('finance.financeReports.selection.selectAllFiltered', { count: totalRows })}
-                </button>
-              )}
-              {selectedIds.size > 0 && (
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="text-sm font-medium text-gray-600 hover:text-gray-900"
-                >
-                  {t('finance.financeReports.selection.clear')}
-                </button>
-              )}
-              <span className="text-sm text-gray-500">
-                {t('finance.financeReports.selection.selectedCount', { count: selectedIds.size })}
-              </span>
-            </div>
-
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px]">
                 <thead>
@@ -688,10 +643,55 @@ export default function FinanceReports() {
               </table>
             </div>
 
-            {totalRows > 0 && (
-              <div
-                className={`mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 ${alignStart}`}
-              >
+            <div
+              className={`mt-4 space-y-4 border-t border-gray-200 pt-4 ${alignStart}`}
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <div className={`flex flex-wrap items-center gap-3 ${alignStart}`}>
+                <label className={`flex items-center gap-2 text-sm text-gray-700 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+                  <span>{t('finance.financeReports.pagination.rowsPerPage')}</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="border border-gray-300 rounded-lg ps-2 pe-8 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="text-sm text-gray-600">
+                  {t('finance.financeReports.pagination.showing', {
+                    from: rangeFrom,
+                    to: rangeTo,
+                    total: totalRows,
+                  })}
+                </span>
+                {totalRows > 0 && (
+                  <button
+                    type="button"
+                    onClick={selectAllFiltered}
+                    className="text-sm font-medium text-primary-600 hover:text-primary-800"
+                  >
+                    {t('finance.financeReports.selection.selectAllFiltered', { count: totalRows })}
+                  </button>
+                )}
+                {selectedIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                  >
+                    {t('finance.financeReports.selection.clear')}
+                  </button>
+                )}
+                <span className="text-sm text-gray-500">
+                  {t('finance.financeReports.selection.selectedCount', { count: selectedIds.size })}
+                </span>
+              </div>
+              <div className={`flex flex-wrap items-center justify-between gap-3 ${alignStart}`}>
                 <span className="text-sm text-gray-600">
                   {t('finance.financeReports.pagination.pageOf', { current: page, total: totalPages })}
                 </span>
@@ -724,7 +724,7 @@ export default function FinanceReports() {
                   </button>
                 </div>
               </div>
-            )}
+            </div>
           </div>
         )
       )}

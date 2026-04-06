@@ -7,7 +7,7 @@ import { ArrowLeft, Save, Check, Calendar, Clock, MapPin } from 'lucide-react'
 export default function CreateSession() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { userRole, collegeId, departmentId } = useAuth()
+  const { userRole, collegeId, departmentId, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [error, setError] = useState('')
@@ -31,6 +31,13 @@ export default function CreateSession() {
     notes: '',
     status: 'scheduled',
   })
+
+  useEffect(() => {
+    if (authLoading) return
+    if (userRole !== 'instructor') {
+      navigate('/attendance/sessions', { replace: true })
+    }
+  }, [authLoading, userRole, navigate])
 
   useEffect(() => {
     fetchClasses()
@@ -192,6 +199,14 @@ export default function CreateSession() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (authLoading || userRole !== 'instructor') {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+      </div>
+    )
   }
 
   if (fetching) {

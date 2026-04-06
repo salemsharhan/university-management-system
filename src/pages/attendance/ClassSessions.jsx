@@ -12,6 +12,7 @@ export default function ClassSessions() {
   const { isRTL, language } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId } = useAuth()
+  const canRecordAttendance = userRole === 'instructor'
   const isArabicLayout = isRTL ||
     language === 'ar' ||
     i18n?.language?.toLowerCase()?.startsWith('ar') ||
@@ -233,13 +234,15 @@ export default function ClassSessions() {
                     <Calendar className={`w-16 h-16 mb-4 text-gray-400 ${isArabicLayout ? 'mr-0 ml-auto' : 'mx-auto'}`} />
                     <p className="text-lg font-medium text-gray-900 mb-2">{t('attendance.classSessions.noSessionsTitle')}</p>
                     <p className="text-sm text-gray-600 mb-4">{t('attendance.classSessions.noSessionsDesc')}</p>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/attendance/sessions/create?classId=${selectedClassId}`)}
-                      className="px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-                    >
-                      {t('attendance.classSessions.createSession')}
-                    </button>
+                    {canRecordAttendance && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/attendance/sessions/create?classId=${selectedClassId}`)}
+                        className="px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                      >
+                        {t('attendance.classSessions.createSession')}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -276,7 +279,9 @@ export default function ClassSessions() {
                             }
                             className="px-4 py-2 bg-primary-gradient text-white rounded-lg text-sm font-semibold hover:shadow-lg transition-all flex-shrink-0"
                           >
-                            {t('attendance.classSessions.takeAttendance')}
+                            {canRecordAttendance
+                              ? t('attendance.classSessions.takeAttendance')
+                              : t('attendance.classSessions.viewAttendance')}
                           </button>
                         </div>
                       </div>

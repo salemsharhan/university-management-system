@@ -368,23 +368,28 @@ export default function ClassGrades() {
 
       {/* Class Info */}
       {classData && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" dir={isArabicLayout ? 'rtl' : 'ltr'}>
-            <div>
-              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classCode')}</h3>
-              <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{classData.code}</p>
-            </div>
-            <div>
-              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.subject')}</h3>
-              <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                {getLocalizedName(classData.subjects, isArabicLayout) || 'N/A'}
-              </p>
-            </div>
-            <div>
-              <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.instructorLabel')}</h3>
-              <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                {getLocalizedName(classData.instructors, isArabicLayout) || t('grading.classGrades.tba')}
-              </p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+          <div className={isArabicLayout ? 'flex justify-end' : ''}>
+            <div
+              className={`grid grid-cols-1 md:grid-cols-3 gap-4 w-full ${isArabicLayout ? 'max-w-3xl' : ''}`}
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <div>
+                <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.classCode')}</h3>
+                <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{classData.code}</p>
+              </div>
+              <div>
+                <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.subject')}</h3>
+                <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                  {getLocalizedName(classData.subjects, isArabicLayout) || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <h3 className={`text-sm font-medium text-gray-500 mb-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.instructorLabel')}</h3>
+                <p className={`text-lg font-semibold text-gray-900 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                  {getLocalizedName(classData.instructors, isArabicLayout) || t('grading.classGrades.tba')}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -393,7 +398,7 @@ export default function ClassGrades() {
       {/* Grading Scale Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4" dir={isArabicLayout ? 'rtl' : 'ltr'}>
         <h3 className={`text-sm font-medium text-blue-900 mb-2 ${isArabicLayout ? 'text-right' : 'text-left'}`}>{t('grading.classGrades.gradingScale')}</h3>
-        <div className={`flex flex-wrap gap-2 ${isArabicLayout ? 'justify-end' : 'justify-start'}`}>
+        <div className="flex flex-wrap gap-2 justify-start">
           {gradingScale.map((scale, idx) => (
             <span
               key={idx}
