@@ -1,21 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { createStudentFromApplication } from '../../utils/createStudentFromApplication'
+import { getLocalizedName } from '../../utils/localizedName'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Mail, Phone, MapPin, Calendar, GraduationCap, FileText, User, AlertCircle, BookOpen, Edit, Save, X, ChevronDown, ChevronUp, ArrowRight, Info, Sparkles, Shield, TrendingUp, ArrowDown } from 'lucide-react'
 
-const editSteps = [
-  { id: 1, name: 'Personal Information', icon: User },
-  { id: 2, name: 'Contact Information', icon: Phone },
-  { id: 3, name: 'Emergency Contact', icon: AlertCircle },
-  { id: 4, name: 'Academic Information', icon: GraduationCap },
-  { id: 5, name: 'Test Scores', icon: FileText },
-  { id: 6, name: 'Transfer Information', icon: BookOpen },
-  { id: 7, name: 'Additional Information', icon: FileText },
-]
+const TIMELINE_TRIGGER_ICONS = {
+  TRSB: { icon: CheckCircle, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
+  TRVF: { icon: XCircle, iconClass: 'text-red-600', labelClass: 'text-red-900' },
+  TRVP: { icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
+  TRPW: { icon: Clock, iconClass: 'text-yellow-600', labelClass: 'text-yellow-900' },
+  TRAS: { icon: User, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
+  TRRQ: { icon: AlertCircle, iconClass: 'text-yellow-600', labelClass: 'text-yellow-900' },
+  TRUP: { icon: FileText, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
+  TRDA: { icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
+  TRAC: { icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
+  TRAF: { icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
+  TRRJ: { icon: XCircle, iconClass: 'text-red-600', labelClass: 'text-red-900' },
+  TRWL: { icon: Clock, iconClass: 'text-purple-600', labelClass: 'text-purple-900' },
+  TRMN: { icon: Edit, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
+}
 
 // Edit Application Modal Component
 function EditApplicationModal({ 
@@ -28,8 +35,22 @@ function EditApplicationModal({
   error, 
   majors, 
   semesters, 
-  isRTL 
+  isRTL,
+  isArabicLayout,
 }) {
+  const { t } = useTranslation()
+  const editSteps = useMemo(
+    () => [
+      { id: 1, name: t('admissions.steps.personal'), icon: User },
+      { id: 2, name: t('admissions.steps.contact'), icon: Phone },
+      { id: 3, name: t('admissions.steps.emergency'), icon: AlertCircle },
+      { id: 4, name: t('admissions.steps.academic'), icon: GraduationCap },
+      { id: 5, name: t('admissions.steps.tests'), icon: FileText },
+      { id: 6, name: t('admissions.steps.transfer'), icon: BookOpen },
+      { id: 7, name: t('admissions.steps.additional'), icon: FileText },
+    ],
+    [t]
+  )
   const [currentStep, setCurrentStep] = useState(1)
 
   const handleFieldChange = (field, value) => {
@@ -49,7 +70,7 @@ function EditApplicationModal({
       case 1:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.personal')}</h2>
             
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Basic Information (English)</h3>
@@ -210,7 +231,7 @@ function EditApplicationModal({
       case 2:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.contact')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
@@ -263,7 +284,7 @@ function EditApplicationModal({
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Emergency Contact</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.emergency')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Contact Name</label>
@@ -307,7 +328,7 @@ function EditApplicationModal({
       case 4:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Academic Information</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.academic')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Major *</label>
@@ -318,9 +339,9 @@ function EditApplicationModal({
                   required
                 >
                   <option value="">Select Major</option>
-                  {majors.map(major => (
+                  {majors.map((major) => (
                     <option key={major.id} value={major.id}>
-                      {major.name_en} ({major.code})
+                      {getLocalizedName(major, isArabicLayout) || major.name_en} ({major.code})
                     </option>
                   ))}
                 </select>
@@ -333,9 +354,9 @@ function EditApplicationModal({
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="">Select Semester</option>
-                  {semesters.map(semester => (
+                  {semesters.map((semester) => (
                     <option key={semester.id} value={semester.id}>
-                      {semester.name_en} ({semester.code})
+                      {getLocalizedName(semester, isArabicLayout) || semester.name_en} ({semester.code})
                     </option>
                   ))}
                 </select>
@@ -394,7 +415,7 @@ function EditApplicationModal({
       case 5:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Test Scores</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.tests')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">TOEFL Score</label>
@@ -448,7 +469,7 @@ function EditApplicationModal({
       case 6:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Transfer Information</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.transfer')}</h2>
             <div className="flex items-center space-x-3 mb-6">
               <input
                 type="checkbox"
@@ -494,7 +515,7 @@ function EditApplicationModal({
       case 7:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Additional Information</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">{t('admissions.steps.additional')}</h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Personal Statement</label>
               <textarea
@@ -539,10 +560,14 @@ function EditApplicationModal({
         <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'} p-6 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-primary-100`}>
           <div className={isRTL ? 'text-right' : 'text-left'}>
             <h2 className={`text-2xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>
-              Edit Application
+              {t('admissions.viewApplication.edit')}
             </h2>
             <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-              Step {currentStep} of {editSteps.length} • {editSteps[currentStep - 1].name}
+              {t('admissions.viewApplication.editModal.stepProgress', {
+                current: currentStep,
+                total: editSteps.length,
+              })}{' '}
+              • {editSteps[currentStep - 1].name}
             </p>
           </div>
           <button
@@ -611,7 +636,7 @@ function EditApplicationModal({
             className="flex items-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
-            <span>Previous</span>
+            <span>{t('admissions.viewApplication.editModal.previous')}</span>
           </button>
           
           <div className="flex items-center space-x-3">
@@ -620,14 +645,14 @@ function EditApplicationModal({
               disabled={saving}
               className="flex items-center space-x-2 px-6 py-3 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span>Cancel</span>
+              <span>{t('admissions.viewApplication.editModal.cancel')}</span>
             </button>
             {currentStep < editSteps.length ? (
               <button
                 onClick={handleNext}
                 className="flex items-center space-x-2 px-6 py-3 bg-primary-gradient text-white rounded-xl font-semibold hover:shadow-lg transition-all"
               >
-                <span>Next</span>
+                <span>{t('admissions.viewApplication.editModal.next')}</span>
                 <ArrowRight className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
               </button>
             ) : (
@@ -639,12 +664,12 @@ function EditApplicationModal({
                 {saving ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>Saving...</span>
+                    <span>{t('admissions.viewApplication.editModal.saving')}</span>
                   </>
                 ) : (
                   <>
                     <Save className="w-5 h-5" />
-                    <span>Save Changes</span>
+                    <span>{t('admissions.viewApplication.editModal.saveChanges')}</span>
                   </>
                 )}
               </button>
@@ -659,9 +684,45 @@ function EditApplicationModal({
 export default function ViewApplication() {
   const navigate = useNavigate()
   const { id: idParam } = useParams()
-  const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { i18n } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout =
+    isRTL ||
+    language === 'ar' ||
+    i18n?.language?.toLowerCase()?.startsWith('ar') ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+  /** Align UI strings with Arabic layout even when i18n language is still "en" (e.g. RTL from document only). */
+  const t = useCallback(
+    (key, opts) => i18n.t(key, { ...opts, lng: isArabicLayout ? 'ar' : i18n.language }),
+    [i18n, isArabicLayout]
+  )
+  const alignStart = isArabicLayout ? 'text-right' : 'text-left'
   const { user } = useAuth()
+
+  const translateActivityNote = useCallback(
+    (note) => {
+      if (!note || typeof note !== 'string') return note
+      const trimmed = note.trim()
+      const known = {
+        'Application created': 'admissions.viewApplication.timeline.notes.applicationCreated',
+      }
+      const key = known[trimmed]
+      return key ? t(key) : note
+    },
+    [t]
+  )
+
+  const formatGenderLabel = (g) => {
+    if (!g) return t('admissions.viewApplication.detail.notAvailable')
+    const v = String(g).toLowerCase()
+    if (v === 'male') return t('admissions.viewApplication.detail.genderMale')
+    if (v === 'female') return t('admissions.viewApplication.detail.genderFemale')
+    if (v === 'other') return t('admissions.viewApplication.detail.genderOther')
+    return g
+  }
+
+  const formatViewDate = (d) =>
+    d ? new Date(d).toLocaleDateString(isArabicLayout ? 'ar' : undefined) : t('admissions.viewApplication.detail.notAvailable')
   
   // Parse ID as integer to avoid UUID parsing issues
   const applicationId = idParam ? parseInt(idParam, 10) : null
@@ -768,17 +829,20 @@ export default function ViewApplication() {
           majors (
             id,
             name_en,
+            name_ar,
             code,
             degree_level
           ),
           semesters (
             id,
             name_en,
+            name_ar,
             code
           ),
           colleges (
             id,
             name_en,
+            name_ar,
             code
           ),
           reviewed_by_user:users!applications_reviewed_by_fkey (
@@ -1143,7 +1207,7 @@ export default function ViewApplication() {
     try {
       const { data, error } = await supabase
         .from('majors')
-        .select('id, name_en, code, college_id, is_university_wide')
+        .select('id, name_en, name_ar, code, college_id, is_university_wide')
         .eq('status', 'active')
         .or(`college_id.eq.${application.college_id},is_university_wide.eq.true`)
         .order('name_en')
@@ -1160,7 +1224,7 @@ export default function ViewApplication() {
     try {
       const { data, error } = await supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date, college_id, is_university_wide')
+        .select('id, name_en, name_ar, code, start_date, end_date, college_id, is_university_wide')
         .or(`college_id.eq.${application.college_id},is_university_wide.eq.true`)
         .order('start_date', { ascending: false })
       
@@ -1321,37 +1385,20 @@ export default function ViewApplication() {
   const reasonsList = reasonType === 'request_info' ? requestReasons : reasonType === 'reject' ? rejectReasons : []
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
-          <button
-            onClick={() => navigate('/admissions/applications')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
-          </button>
-          <div className={isRTL ? 'text-right' : 'text-left'}>
-            <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>Application Details</h1>
-            <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-              {application?.first_name} {application?.last_name}
-            </p>
-          </div>
-        </div>
-        <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
-          <span className={`inline-flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 rounded-lg border font-medium ${getStatusColor(application?.status_code || application?.status)}`}>
-            {getStatusIcon(application?.status_code || application?.status)}
-            <span>{getStatusDisplayName(application?.status_code || application?.status)}</span>
-          </span>
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+      {/* Header: LTR row so actions stay left, title center, status right */}
+      <div className="flex w-full flex-wrap items-center justify-between gap-4" dir="ltr">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleEditClick}
             disabled={updating || loading}
             className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit className="w-4 h-4" />
-            <span>Edit Application</span>
+            <span>{t('admissions.viewApplication.edit')}</span>
           </button>
           <button
+            type="button"
             onClick={() => {
               setModalStep(1)
               setSelectedStatus('')
@@ -1366,9 +1413,33 @@ export default function ViewApplication() {
             className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Edit className="w-4 h-4" />
-            <span>Change Status</span>
+            <span>{t('admissions.viewApplication.changeStatus')}</span>
           </button>
         </div>
+        <div className="flex items-center gap-3 flex-1 min-w-0 justify-center">
+          <button
+            type="button"
+            onClick={() => navigate('/admissions/applications')}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
+          >
+            {isArabicLayout ? <ArrowRight className="w-5 h-5 text-gray-600" /> : <ArrowLeft className="w-5 h-5 text-gray-600" />}
+          </button>
+          <div className={`min-w-0 flex-1 ${alignStart}`} dir={isArabicLayout ? 'rtl' : 'ltr'}>
+            <h1 className={`text-3xl font-bold text-gray-900 ${alignStart}`}>{t('admissions.viewApplication.title')}</h1>
+            <p className={`text-gray-600 mt-1 ${alignStart}`}>
+              {application?.first_name} {application?.last_name}
+            </p>
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border font-medium shrink-0 ${getStatusColor(
+            application?.status_code || application?.status
+          )}`}
+          dir={isArabicLayout ? 'rtl' : 'ltr'}
+        >
+          {getStatusIcon(application?.status_code || application?.status)}
+          <span>{getStatusDisplayName(application?.status_code || application?.status)}</span>
+        </span>
       </div>
 
       {error && (
@@ -1779,6 +1850,7 @@ export default function ViewApplication() {
           majors={editMajors}
           semesters={editSemesters}
           isRTL={isRTL}
+          isArabicLayout={isArabicLayout}
         />
       )}
 
@@ -1787,13 +1859,28 @@ export default function ViewApplication() {
         <div className="lg:col-span-2 space-y-6">
           {/* Personal Information */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center space-x-2 mb-6">
-              <User className="w-5 h-5 text-gray-600" />
-              <h2 className="text-xl font-bold text-gray-900">Personal Information</h2>
+            <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+              {isArabicLayout ? (
+                <>
+                  <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.personalInfo')}
+                  </h2>
+                  <User className="w-5 h-5 text-gray-600 shrink-0" />
+                </>
+              ) : (
+                <>
+                  <User className="w-5 h-5 text-gray-600 shrink-0" />
+                  <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.personalInfo')}
+                  </h2>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">First Name</label>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.firstName')}
+                </label>
                 {isEditMode ? (
                   <input
                     type="text"
@@ -1802,42 +1889,64 @@ export default function ViewApplication() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 ) : (
-                  <p className="text-gray-900 font-medium">{application?.first_name}</p>
+                  <p className={`text-gray-900 font-medium ${alignStart}`}>{application?.first_name}</p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Middle Name</label>
-                <p className="text-gray-900">{application?.middle_name || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Last Name</label>
-                <p className="text-gray-900 font-medium">{application?.last_name}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Date of Birth</label>
-                <p className="text-gray-900">
-                  {application?.date_of_birth ? new Date(application.date_of_birth).toLocaleDateString() : 'N/A'}
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.middleName')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.middle_name || t('admissions.viewApplication.detail.notAvailable')}
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Gender</label>
-                <p className="text-gray-900 capitalize">{application?.gender || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.lastName')}
+                </label>
+                <p className={`text-gray-900 font-medium ${alignStart}`}>{application?.last_name}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Nationality</label>
-                <p className="text-gray-900">{application?.nationality || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.dateOfBirth')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>{formatViewDate(application?.date_of_birth)}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Religion</label>
-                <p className="text-gray-900">{application?.religion || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.gender')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>{formatGenderLabel(application?.gender)}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Place of Birth</label>
-                <p className="text-gray-900">{application?.place_of_birth || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.nationality')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.nationality || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.religion')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.religion || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.placeOfBirth')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.place_of_birth || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
               </div>
               {(application?.first_name_ar || application?.last_name_ar) && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Name (Arabic)</label>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.nameArabic')}
+                  </label>
                   <p className="text-gray-900" dir="rtl">
                     {application?.first_name_ar} {application?.middle_name_ar} {application?.last_name_ar}
                   </p>
@@ -1848,31 +1957,60 @@ export default function ViewApplication() {
 
           {/* Contact Information */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center space-x-2 mb-6">
-              <Phone className="w-5 h-5 text-gray-600" />
-              <h2 className="text-xl font-bold text-gray-900">Contact Information</h2>
+            <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+              {isArabicLayout ? (
+                <>
+                  <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.contactInfo')}
+                  </h2>
+                  <Phone className="w-5 h-5 text-gray-600 shrink-0" />
+                </>
+              ) : (
+                <>
+                  <Phone className="w-5 h-5 text-gray-600 shrink-0" />
+                  <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.contactInfo')}
+                  </h2>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                <div className="flex items-center space-x-2">
-                  <Mail className="w-4 h-4 text-gray-400" />
-                  <p className="text-gray-900">{application?.email}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.email')}
+                </label>
+                <div
+                  className={`flex w-full items-center gap-2 text-gray-900 ${isArabicLayout ? 'justify-start' : 'justify-start'}`}
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
+                  <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span dir="ltr" className={`inline-block min-w-0 break-all ${alignStart}`}>
+                    {application?.email}
+                  </span>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Phone</label>
-                <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4 text-gray-400" />
-                  <p className="text-gray-900">{application?.phone || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.phone')}
+                </label>
+                <div
+                  className="flex w-full items-center gap-2 text-gray-900"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
+                  <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span dir="ltr" className={`inline-block min-w-0 ${alignStart}`}>
+                    {application?.phone || t('admissions.viewApplication.detail.notAvailable')}
+                  </span>
                 </div>
               </div>
               {application?.street_address && (
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Address</label>
-                  <div className="flex items-start space-x-2">
-                    <MapPin className="w-4 h-4 text-gray-400 mt-1" />
-                    <p className="text-gray-900">
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.address')}
+                  </label>
+                  <div className={`flex items-start gap-2 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+                    <MapPin className="w-4 h-4 text-gray-400 mt-1 shrink-0" />
+                    <p className={`text-gray-900 ${alignStart}`}>
                       {application.street_address}
                       {application.city && `, ${application.city}`}
                       {application.state_province && `, ${application.state_province}`}
@@ -1888,26 +2026,53 @@ export default function ViewApplication() {
           {/* Emergency Contact */}
           {application?.emergency_contact_name && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <AlertCircle className="w-5 h-5 text-gray-600" />
-                <h2 className="text-xl font-bold text-gray-900">Emergency Contact</h2>
+              <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+                {isArabicLayout ? (
+                  <>
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.emergencyContact')}
+                    </h2>
+                    <AlertCircle className="w-5 h-5 text-gray-600 shrink-0" />
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-5 h-5 text-gray-600 shrink-0" />
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.emergencyContact')}
+                    </h2>
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Contact Name</label>
-                  <p className="text-gray-900">{application.emergency_contact_name}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.contactName')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`}>{application.emergency_contact_name}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Relationship</label>
-                  <p className="text-gray-900">{application.emergency_contact_relationship || 'N/A'}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.relationship')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`}>
+                    {application.emergency_contact_relationship || t('admissions.viewApplication.detail.notAvailable')}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Phone</label>
-                  <p className="text-gray-900">{application.emergency_contact_phone || 'N/A'}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.phone')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`} dir="ltr">
+                    {application.emergency_contact_phone || t('admissions.viewApplication.detail.notAvailable')}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                  <p className="text-gray-900">{application.emergency_contact_email || 'N/A'}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.email')}
+                  </label>
+                  <p className={`text-gray-900 break-all ${alignStart}`}>
+                    {application.emergency_contact_email || t('admissions.viewApplication.detail.notAvailable')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1915,34 +2080,75 @@ export default function ViewApplication() {
 
           {/* Academic Information */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center space-x-2 mb-6">
-              <GraduationCap className="w-5 h-5 text-gray-600" />
-              <h2 className="text-xl font-bold text-gray-900">Academic Information</h2>
+            <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+              {isArabicLayout ? (
+                <>
+                  <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.academicInfo')}
+                  </h2>
+                  <GraduationCap className="w-5 h-5 text-gray-600 shrink-0" />
+                </>
+              ) : (
+                <>
+                  <GraduationCap className="w-5 h-5 text-gray-600 shrink-0" />
+                  <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.academicInfo')}
+                  </h2>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Major</label>
-                <p className="text-gray-900">{application?.majors?.name_en || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.major')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.majors
+                    ? getLocalizedName(application.majors, isArabicLayout) || application.majors.name_en
+                    : '—'}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Semester</label>
-                <p className="text-gray-900">{application?.semesters?.name_en || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.semester')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.semesters
+                    ? getLocalizedName(application.semesters, isArabicLayout) || application.semesters.name_en
+                    : '—'}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">High School</label>
-                <p className="text-gray-900">{application?.high_school_name || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.highSchool')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.high_school_name || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Graduation Year</label>
-                <p className="text-gray-900">{application?.graduation_year || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.graduationYear')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.graduation_year || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">GPA</label>
-                <p className="text-gray-900">{application?.gpa || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.gpa')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.gpa || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Certificate Type</label>
-                <p className="text-gray-900">{application?.certificate_type || 'N/A'}</p>
+                <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.certificateType')}
+                </label>
+                <p className={`text-gray-900 ${alignStart}`}>
+                  {application?.certificate_type || t('admissions.viewApplication.detail.notAvailable')}
+                </p>
               </div>
             </div>
           </div>
@@ -1950,39 +2156,62 @@ export default function ViewApplication() {
           {/* Test Scores */}
           {(application?.toefl_score || application?.ielts_score || application?.sat_score || application?.gmat_score || application?.gre_score) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <h2 className="text-xl font-bold text-gray-900">Test Scores</h2>
+              <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+                {isArabicLayout ? (
+                  <>
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.testScores')}
+                    </h2>
+                    <FileText className="w-5 h-5 text-gray-600 shrink-0" />
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5 text-gray-600 shrink-0" />
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.testScores')}
+                    </h2>
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {application.toefl_score && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">TOEFL</label>
-                    <p className="text-gray-900">{application.toefl_score}/120</p>
+                    <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.toefl')}
+                    </label>
+                    <p className={`text-gray-900 ${alignStart}`}>{application.toefl_score}/120</p>
                   </div>
                 )}
                 {application.ielts_score && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">IELTS</label>
-                    <p className="text-gray-900">{application.ielts_score}/9.0</p>
+                    <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.ielts')}
+                    </label>
+                    <p className={`text-gray-900 ${alignStart}`}>{application.ielts_score}/9.0</p>
                   </div>
                 )}
                 {application.sat_score && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">SAT</label>
-                    <p className="text-gray-900">{application.sat_score}/1600</p>
+                    <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.sat')}
+                    </label>
+                    <p className={`text-gray-900 ${alignStart}`}>{application.sat_score}/1600</p>
                   </div>
                 )}
                 {application.gmat_score && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">GMAT</label>
-                    <p className="text-gray-900">{application.gmat_score}/800</p>
+                    <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.gmat')}
+                    </label>
+                    <p className={`text-gray-900 ${alignStart}`}>{application.gmat_score}/800</p>
                   </div>
                 )}
                 {application.gre_score && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1">GRE</label>
-                    <p className="text-gray-900">{application.gre_score}/340</p>
+                    <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.gre')}
+                    </label>
+                    <p className={`text-gray-900 ${alignStart}`}>{application.gre_score}/340</p>
                   </div>
                 )}
               </div>
@@ -1992,22 +2221,47 @@ export default function ViewApplication() {
           {/* Transfer Information */}
           {application?.is_transfer_student && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <BookOpen className="w-5 h-5 text-gray-600" />
-                <h2 className="text-xl font-bold text-gray-900">Transfer Information</h2>
+              <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+                {isArabicLayout ? (
+                  <>
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.transferInfo')}
+                    </h2>
+                    <BookOpen className="w-5 h-5 text-gray-600 shrink-0" />
+                  </>
+                ) : (
+                  <>
+                    <BookOpen className="w-5 h-5 text-gray-600 shrink-0" />
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.transferInfo')}
+                    </h2>
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Previous University</label>
-                  <p className="text-gray-900">{application.previous_university || 'N/A'}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.previousUniversity')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`}>
+                    {application.previous_university || t('admissions.viewApplication.detail.notAvailable')}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Previous Degree</label>
-                  <p className="text-gray-900">{application.previous_degree || 'N/A'}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.previousDegree')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`}>
+                    {application.previous_degree || t('admissions.viewApplication.detail.notAvailable')}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Transfer Credits</label>
-                  <p className="text-gray-900">{application.transfer_credits || 'N/A'}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.transferCredits')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`}>
+                    {application.transfer_credits || t('admissions.viewApplication.detail.notAvailable')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -2016,21 +2270,39 @@ export default function ViewApplication() {
           {/* Additional Information */}
           {(application?.personal_statement || application?.scholarship_request) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <h2 className="text-xl font-bold text-gray-900">Additional Information</h2>
+              <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
+                {isArabicLayout ? (
+                  <>
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.additionalInfo')}
+                    </h2>
+                    <FileText className="w-5 h-5 text-gray-600 shrink-0" />
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5 text-gray-600 shrink-0" />
+                    <h2 className={`text-xl font-bold text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.additionalInfo')}
+                    </h2>
+                  </>
+                )}
               </div>
               {application.personal_statement && (
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-500 mb-2">Personal Statement</label>
-                  <p className="text-gray-900 whitespace-pre-wrap">{application.personal_statement}</p>
+                  <label className={`block text-sm font-medium text-gray-500 mb-2 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.personalStatement')}
+                  </label>
+                  <p className={`text-gray-900 whitespace-pre-wrap ${alignStart}`}>{application.personal_statement}</p>
                 </div>
               )}
               {application.scholarship_request && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Scholarship Request</label>
-                  <p className="text-gray-900">
-                    Yes {application.scholarship_percentage && `(${application.scholarship_percentage}%)`}
+                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.scholarshipRequest')}
+                  </label>
+                  <p className={`text-gray-900 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.scholarshipYes')}{' '}
+                    {application.scholarship_percentage && `(${application.scholarship_percentage}%)`}
                   </p>
                 </div>
               )}
@@ -2042,58 +2314,96 @@ export default function ViewApplication() {
         <div className="space-y-6">
           {/* Application Summary */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Application Summary</h3>
+            <h3 className={`text-lg font-bold text-gray-900 mb-4 ${alignStart}`}>
+              {t('admissions.viewApplication.detail.applicationSummary')}
+            </h3>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Application ID</label>
-                <p className="text-sm font-medium text-gray-900">#{application?.id}</p>
+                <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.applicationId')}
+                </label>
+                <p className={`text-sm font-medium text-gray-900 ${alignStart}`}>
+                  <span dir="ltr" className="inline-block">
+                    #{application?.id}
+                  </span>
+                </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Status Code</label>
-                <p className="text-sm font-medium text-gray-900">{application?.status_code || application?.status || 'N/A'}</p>
+                <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.statusCode')}
+                </label>
+                <p className={`text-sm font-medium text-gray-900 ${alignStart}`}>
+                  <span dir="ltr" className="inline-block">
+                    {application?.status_code || application?.status || t('admissions.viewApplication.detail.notAvailable')}
+                  </span>
+                </p>
               </div>
               {application?.status_reason_code && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Reason Code</label>
-                  <p className="text-sm text-gray-900">{application.status_reason_code}</p>
+                  <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.reasonCode')}
+                  </label>
+                  <p className={`text-sm text-gray-900 ${alignStart}`}>
+                    <span dir="ltr" className="inline-block">
+                      {application.status_reason_code}
+                    </span>
+                  </p>
                 </div>
               )}
               {application?.financial_milestone_code && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Financial Milestone</label>
-                  <p className="text-sm text-gray-900">{application.financial_milestone_code}</p>
+                  <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.financialMilestone')}
+                  </label>
+                  <p className={`text-sm text-gray-900 ${alignStart}`}>
+                    <span dir="ltr" className="inline-block">
+                      {application.financial_milestone_code}
+                    </span>
+                  </p>
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Submitted</label>
-                <p className="text-sm text-gray-900">
-                  {application?.created_at ? new Date(application.created_at).toLocaleDateString() : 'N/A'}
-                </p>
+                <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.submitted')}
+                </label>
+                <p className={`text-sm text-gray-900 ${alignStart}`}>{formatViewDate(application?.created_at)}</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">College</label>
-                <p className="text-sm text-gray-900">{application?.colleges?.name_en || 'N/A'}</p>
+                <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                  {t('admissions.viewApplication.detail.college')}
+                </label>
+                <p className={`text-sm text-gray-900 ${alignStart}`}>
+                  {application?.colleges
+                    ? getLocalizedName(application.colleges, isArabicLayout) || application.colleges.name_en
+                    : '—'}
+                </p>
               </div>
               {application?.status_changed_at && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Last Status Change</label>
-                  <p className="text-sm text-gray-900">
-                    {new Date(application.status_changed_at).toLocaleDateString()}
+                  <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                    {t('admissions.viewApplication.detail.lastStatusChange')}
+                  </label>
+                  <p className={`text-sm text-gray-900 ${alignStart}`}>
+                    {formatViewDate(application.status_changed_at)}
                   </p>
                 </div>
               )}
               {application?.reviewed_at && (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Reviewed</label>
-                    <p className="text-sm text-gray-900">
-                      {new Date(application.reviewed_at).toLocaleDateString()}
-                    </p>
+                    <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.reviewed')}
+                    </label>
+                    <p className={`text-sm text-gray-900 ${alignStart}`}>{formatViewDate(application.reviewed_at)}</p>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Reviewed By</label>
-                    <p className="text-sm text-gray-900">
-                      {application.reviewed_by_user?.email || 'N/A'}
+                    <label className={`block text-xs font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.reviewedBy')}
+                    </label>
+                    <p className={`text-sm text-gray-900 break-all ${alignStart}`}>
+                      <span dir="ltr" className="inline-block">
+                        {application.reviewed_by_user?.email || t('admissions.viewApplication.detail.notAvailable')}
+                      </span>
                     </p>
                   </div>
                 </>
@@ -2104,8 +2414,10 @@ export default function ViewApplication() {
           {/* Review Notes */}
           {application?.review_notes && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Review Notes</h3>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{application.review_notes}</p>
+              <h3 className={`text-lg font-bold text-gray-900 mb-4 ${alignStart}`}>
+                {t('admissions.viewApplication.detail.reviewNotes')}
+              </h3>
+              <p className={`text-sm text-gray-700 whitespace-pre-wrap ${alignStart}`}>{application.review_notes}</p>
             </div>
           )}
         </div>
@@ -2113,15 +2425,17 @@ export default function ViewApplication() {
 
       {/* Activity Timeline */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <Calendar className="w-6 h-6 text-primary-600" />
-            <div>
-              <h2 className={`text-2xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>Application Activity Timeline</h2>
-              <p className={`text-sm text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
-                Complete history of status changes and application lifecycle
+        <div className="flex items-center justify-between mb-6 gap-4 w-full">
+          <div className="flex items-center gap-3 min-w-0 flex-1" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+            <div className="min-w-0 flex-1">
+              <h2 className={`text-2xl font-bold text-gray-900 ${alignStart}`}>
+                {t('admissions.viewApplication.timeline.title')}
+              </h2>
+              <p className={`text-sm text-gray-600 mt-1 ${alignStart}`}>
+                {t('admissions.viewApplication.timeline.subtitle')}
               </p>
             </div>
+            <Calendar className="w-6 h-6 text-primary-600 shrink-0" />
           </div>
           {loadingActivity && (
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
@@ -2133,9 +2447,11 @@ export default function ViewApplication() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
         ) : activityLog.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No activity recorded yet</p>
+          <div className={`py-12 text-gray-500 ${alignStart}`}>
+            <div className={isArabicLayout ? 'flex justify-end' : 'flex justify-center'}>
+              <Clock className="w-12 h-12 mb-3 opacity-50" />
+            </div>
+            <p>{t('admissions.viewApplication.timeline.noActivity')}</p>
           </div>
         ) : (
           <div className="relative">
@@ -2146,26 +2462,20 @@ export default function ViewApplication() {
             <div className="space-y-6">
               {activityLog.map((entry, index) => {
                 const fromStatus = entry.from_status_code ? statusCodes.find(s => s.code === entry.from_status_code) : null
-                const toStatus = statusCodes.find(s => s.code === entry.to_status_code)
                 const isLatest = index === 0
-                const triggerInfo = entry.trigger_code ? {
-                  TRSB: { label: 'Applicant Submitted', icon: CheckCircle, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
-                  TRVF: { label: 'Auto Validation Failed', icon: XCircle, iconClass: 'text-red-600', labelClass: 'text-red-900' },
-                  TRVP: { label: 'Auto Validation Passed', icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
-                  TRPW: { label: 'Payment Required', icon: Clock, iconClass: 'text-yellow-600', labelClass: 'text-yellow-900' },
-                  TRAS: { label: 'Auto Assigned to Reviewer', icon: User, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
-                  TRRQ: { label: 'Reviewer Requested Info', icon: AlertCircle, iconClass: 'text-yellow-600', labelClass: 'text-yellow-900' },
-                  TRUP: { label: 'Applicant Uploaded Items', icon: FileText, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
-                  TRDA: { label: 'Documents Approved', icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
-                  TRAC: { label: 'Accepted (Conditional)', icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
-                  TRAF: { label: 'Accepted (Final)', icon: CheckCircle, iconClass: 'text-green-600', labelClass: 'text-green-900' },
-                  TRRJ: { label: 'Rejected', icon: XCircle, iconClass: 'text-red-600', labelClass: 'text-red-900' },
-                  TRWL: { label: 'Waitlisted', icon: Clock, iconClass: 'text-purple-600', labelClass: 'text-purple-900' },
-                  TRMN: { label: 'Manual Status Change', icon: Edit, iconClass: 'text-blue-600', labelClass: 'text-blue-900' },
-                }[entry.trigger_code] : null
-                
-                const TriggerIcon = triggerInfo?.icon || Clock
-                
+                const ti = entry.trigger_code ? TIMELINE_TRIGGER_ICONS[entry.trigger_code] : null
+                const triggerKey = entry.trigger_code
+                  ? `admissions.viewApplication.timelineTriggers.${entry.trigger_code}`
+                  : ''
+                const triggerLabel =
+                  entry.trigger_code && triggerKey
+                    ? (() => {
+                        const tr = t(triggerKey)
+                        return tr !== triggerKey ? tr : entry.trigger_code
+                      })()
+                    : ''
+                const TriggerIcon = ti?.icon || Clock
+
                 return (
                   <div key={entry.id || index} className={`relative flex ${isRTL ? 'flex-row-reverse' : 'flex-row'} items-start ${isRTL ? 'space-x-reverse space-x-4' : 'space-x-4'}`}>
                     {/* Timeline Dot */}
@@ -2179,81 +2489,213 @@ export default function ViewApplication() {
                     </div>
                     
                     {/* Content Card */}
-                    <div className={`flex-1 ${isRTL ? 'text-right' : 'text-left'} ${isLatest ? 'bg-primary-50 border-2 border-primary-200' : 'bg-gray-50 border border-gray-200'} rounded-xl p-4 transition-all hover:shadow-md`}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-2`}>
-                            {triggerInfo && (
-                              <>
-                                <TriggerIcon className={`w-5 h-5 ${triggerInfo.iconClass}`} />
-                                <span className={`font-semibold ${triggerInfo.labelClass}`}>
-                                  {triggerInfo.label}
-                                </span>
-                              </>
-                            )}
-                            {!triggerInfo && (
-                              <>
-                                <Clock className="w-5 h-5 text-gray-600" />
-                                <span className="font-semibold text-gray-900">Status Change</span>
-                              </>
-                            )}
-                            {entry.trigger_code && (
-                              <span className="text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded">
-                                {entry.trigger_code}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {/* Status Transition */}
-                          <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} mb-3`}>
-                            {fromStatus ? (
-                              <>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(fromStatus.code)}`}>
-                                  {getStatusDisplayName(fromStatus.code)}
-                                </span>
-                                <ArrowRight className={`w-4 h-4 text-gray-400 ${isRTL ? 'rotate-180' : ''}`} />
-                              </>
-                            ) : (
-                              <span className="text-xs text-gray-500 italic">Initial Status</span>
-                            )}
-                            <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${getStatusColor(entry.to_status_code)}`}>
-                              {getStatusDisplayName(entry.to_status_code)}
-                            </span>
-                            <span className="text-xs font-mono text-gray-500">
-                              ({entry.to_status_code})
-                            </span>
-                          </div>
-                          
-                          {/* Notes */}
-                          {entry.notes && (
-                            <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">{entry.notes}</p>
+                    <div className={`flex-1 ${alignStart} ${isLatest ? 'bg-primary-50 border-2 border-primary-200' : 'bg-gray-50 border border-gray-200'} rounded-xl p-4 transition-all hover:shadow-md`}>
+                      <div className="flex items-start gap-3 w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+                        {isArabicLayout ? (
+                          <>
+                            <div className={`text-xs text-gray-500 whitespace-nowrap shrink-0 ${alignStart}`} dir="ltr">
+                              <div className="font-medium">
+                                {new Date(entry.created_at).toLocaleDateString('ar')}
+                              </div>
+                              <div className="text-gray-400">
+                                {new Date(entry.created_at).toLocaleTimeString('ar', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                        
-                        {/* Timestamp */}
-                        <div className={`text-xs text-gray-500 ${isRTL ? 'text-left ml-4' : 'text-right mr-4'} whitespace-nowrap`}>
-                          <div className="font-medium">
-                            {new Date(entry.created_at).toLocaleDateString()}
-                          </div>
-                          <div className="text-gray-400">
-                            {new Date(entry.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2" dir="rtl">
+                                {entry.trigger_code && ti && (
+                                  <>
+                                    <span className={`font-semibold ${ti.labelClass}`}>{triggerLabel}</span>
+                                    <TriggerIcon className={`w-5 h-5 shrink-0 ${ti.iconClass}`} />
+                                  </>
+                                )}
+                                {entry.trigger_code && !ti && (
+                                  <>
+                                    <span className="font-semibold text-gray-900">{triggerLabel}</span>
+                                    <Clock className="w-5 h-5 text-gray-600 shrink-0" />
+                                  </>
+                                )}
+                                {!entry.trigger_code && (
+                                  <>
+                                    <span className="font-semibold text-gray-900">
+                                      {t('admissions.viewApplication.timeline.statusChange')}
+                                    </span>
+                                    <Clock className="w-5 h-5 text-gray-600 shrink-0" />
+                                  </>
+                                )}
+                                {entry.trigger_code && (
+                                  <span className="text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded">
+                                    {entry.trigger_code}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 mb-3" dir="rtl">
+                                {fromStatus ? (
+                                  <>
+                                    <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${getStatusColor(entry.to_status_code)}`}>
+                                      {getStatusDisplayName(entry.to_status_code)}
+                                    </span>
+                                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0 rotate-180" />
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(fromStatus.code)}`}>
+                                      {getStatusDisplayName(fromStatus.code)}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${getStatusColor(entry.to_status_code)}`}>
+                                      {getStatusDisplayName(entry.to_status_code)}
+                                    </span>
+                                    <span className="text-xs text-gray-500 italic">
+                                      {t('admissions.viewApplication.timeline.initialStatus')}
+                                    </span>
+                                  </>
+                                )}
+                                <span className="text-xs font-mono text-gray-500" dir="ltr">
+                                  ({entry.to_status_code})
+                                </span>
+                              </div>
+                              {entry.notes && (
+                                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                  <p className={`text-sm text-gray-700 whitespace-pre-wrap ${alignStart}`}>
+                                    {translateActivityNote(entry.notes)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-2" dir="ltr">
+                                {entry.trigger_code && ti && (
+                                  <>
+                                    <TriggerIcon className={`w-5 h-5 shrink-0 ${ti.iconClass}`} />
+                                    <span className={`font-semibold ${ti.labelClass}`}>{triggerLabel}</span>
+                                  </>
+                                )}
+                                {entry.trigger_code && !ti && (
+                                  <>
+                                    <Clock className="w-5 h-5 text-gray-600 shrink-0" />
+                                    <span className="font-semibold text-gray-900">{triggerLabel}</span>
+                                  </>
+                                )}
+                                {!entry.trigger_code && (
+                                  <>
+                                    <Clock className="w-5 h-5 text-gray-600 shrink-0" />
+                                    <span className="font-semibold text-gray-900">
+                                      {t('admissions.viewApplication.timeline.statusChange')}
+                                    </span>
+                                  </>
+                                )}
+                                {entry.trigger_code && (
+                                  <span className="text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded">
+                                    {entry.trigger_code}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 mb-3" dir="ltr">
+                                {fromStatus ? (
+                                  <>
+                                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(fromStatus.code)}`}>
+                                      {getStatusDisplayName(fromStatus.code)}
+                                    </span>
+                                    <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
+                                    <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${getStatusColor(entry.to_status_code)}`}>
+                                      {getStatusDisplayName(entry.to_status_code)}
+                                    </span>
+                                    <span className="text-xs font-mono text-gray-500" dir="ltr">
+                                      ({entry.to_status_code})
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="text-xs text-gray-500 italic">
+                                      {t('admissions.viewApplication.timeline.initialStatus')}
+                                    </span>
+                                    <span className={`px-3 py-1 rounded-lg text-sm font-semibold ${getStatusColor(entry.to_status_code)}`}>
+                                      {getStatusDisplayName(entry.to_status_code)}
+                                    </span>
+                                    <span className="text-xs font-mono text-gray-500" dir="ltr">
+                                      ({entry.to_status_code})
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {entry.notes && (
+                                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                  <p className={`text-sm text-gray-700 whitespace-pre-wrap ${alignStart}`}>
+                                    {translateActivityNote(entry.notes)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            <div className={`text-xs text-gray-500 whitespace-nowrap shrink-0 ${alignStart}`} dir="ltr">
+                              <div className="font-medium">
+                                {new Date(entry.created_at).toLocaleDateString()}
+                              </div>
+                              <div className="text-gray-400">
+                                {new Date(entry.created_at).toLocaleTimeString(undefined, {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                       
                       {/* Triggered By */}
                       {entry.triggered_by_user && (
-                        <div className={`mt-3 pt-3 border-t border-gray-200 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-xs text-gray-600`}>
-                          <User className="w-4 h-4" />
-                          <span>Triggered by: {entry.triggered_by_user.email || entry.triggered_by_user.name || 'Unknown'}</span>
+                        <div
+                          className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-xs text-gray-600"
+                          dir={isArabicLayout ? 'rtl' : 'ltr'}
+                        >
+                          {isArabicLayout ? (
+                            <>
+                              <span>
+                                {t('admissions.viewApplication.timeline.triggeredBy', {
+                                  email:
+                                    entry.triggered_by_user.email ||
+                                    entry.triggered_by_user.name ||
+                                    t('admissions.viewApplication.timeline.unknownUser'),
+                                })}
+                              </span>
+                              <User className="w-4 h-4 shrink-0" />
+                            </>
+                          ) : (
+                            <>
+                              <User className="w-4 h-4 shrink-0" />
+                              <span>
+                                {t('admissions.viewApplication.timeline.triggeredBy', {
+                                  email:
+                                    entry.triggered_by_user.email ||
+                                    entry.triggered_by_user.name ||
+                                    t('admissions.viewApplication.timeline.unknownUser'),
+                                })}
+                              </span>
+                            </>
+                          )}
                         </div>
                       )}
                       {!entry.triggered_by_user && entry.trigger_code && (
-                        <div className={`mt-3 pt-3 border-t border-gray-200 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} text-xs text-gray-500 italic`}>
-                          <Sparkles className="w-4 h-4" />
-                          <span>System-triggered</span>
+                        <div
+                          className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-xs text-gray-500 italic"
+                          dir={isArabicLayout ? 'rtl' : 'ltr'}
+                        >
+                          {isArabicLayout ? (
+                            <>
+                              <span>{t('admissions.viewApplication.timeline.systemTriggered')}</span>
+                              <Sparkles className="w-4 h-4 shrink-0" />
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 shrink-0" />
+                              <span>{t('admissions.viewApplication.timeline.systemTriggered')}</span>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

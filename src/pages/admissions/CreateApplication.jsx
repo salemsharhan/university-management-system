@@ -1,25 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
+import { getLocalizedName } from '../../utils/localizedName'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2 } from 'lucide-react'
-
-const steps = [
-  { id: 1, name: 'Personal Information', icon: User },
-  { id: 2, name: 'Contact Information', icon: Phone },
-  { id: 3, name: 'Emergency Contact', icon: AlertCircle },
-  { id: 4, name: 'Academic Information', icon: GraduationCap },
-  { id: 5, name: 'Test Scores', icon: FileText },
-  { id: 6, name: 'Transfer Information', icon: BookOpen },
-  { id: 7, name: 'Additional Information', icon: FileText },
-]
 
 export default function CreateApplication() {
   const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { isRTL, language } = useLanguage()
+  const isArabicLayout =
+    isRTL ||
+    language === 'ar' ||
+    (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+
+  const steps = useMemo(
+    () => [
+      { id: 1, name: t('admissions.steps.personal'), icon: User },
+      { id: 2, name: t('admissions.steps.contact'), icon: Phone },
+      { id: 3, name: t('admissions.steps.emergency'), icon: AlertCircle },
+      { id: 4, name: t('admissions.steps.academic'), icon: GraduationCap },
+      { id: 5, name: t('admissions.steps.tests'), icon: FileText },
+      { id: 6, name: t('admissions.steps.transfer'), icon: BookOpen },
+      { id: 7, name: t('admissions.steps.additional'), icon: FileText },
+    ],
+    [t]
+  )
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId, loading: collegesLoading } = useCollege()
@@ -116,7 +124,7 @@ export default function CreateApplication() {
     try {
       let query = supabase
         .from('majors')
-        .select('id, name_en, code, degree_level')
+        .select('id, name_en, name_ar, code, degree_level')
         .eq('status', 'active')
         .order('name_en')
 
@@ -137,7 +145,7 @@ export default function CreateApplication() {
     try {
       let query = supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date')
+        .select('id, name_en, name_ar, code, start_date, end_date')
         .order('start_date', { ascending: false })
 
       if (collegeId) {
@@ -411,15 +419,16 @@ export default function CreateApplication() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
         <div className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-3'}`}>
           <button
+            type="button"
             onClick={() => navigate('/admissions/applications')}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+            {isArabicLayout ? <ArrowRight className="w-5 h-5 text-gray-600" /> : <ArrowLeft className="w-5 h-5 text-gray-600" />}
           </button>
           <div className={isRTL ? 'text-right' : 'text-left'}>
             <h1 className={`text-3xl font-bold text-gray-900 ${isRTL ? 'text-right' : 'text-left'}`}>{t('admissions.newApplication')}</h1>
@@ -473,9 +482,10 @@ export default function CreateApplication() {
                     : (t('admissions.selectCollege') || '-- Select a College --')}
                 </option>
                 {colleges.length > 0 ? (
-                  colleges.map(college => (
+                  colleges.map((college) => (
                     <option key={college.id} value={college.id}>
-                      {college.name_en} {college.abbreviation ? `(${college.abbreviation})` : `(${college.code})`}
+                      {getLocalizedName(college, isArabicLayout) || college.name_en}{' '}
+                      {college.abbreviation ? `(${college.abbreviation})` : college.code ? `(${college.code})` : ''}
                     </option>
                   ))
                 ) : !collegesLoading && (
@@ -908,9 +918,9 @@ export default function CreateApplication() {
                     required
                   >
                     <option value="">Select Major</option>
-                    {majors.map(major => (
+                    {majors.map((major) => (
                       <option key={major.id} value={major.id}>
-                        {major.name_en} ({major.code})
+                        {getLocalizedName(major, isArabicLayout) || major.name_en} ({major.code})
                       </option>
                     ))}
                   </select>
@@ -926,9 +936,9 @@ export default function CreateApplication() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
                     <option value="">Select Semester</option>
-                    {semesters.map(semester => (
+                    {semesters.map((semester) => (
                       <option key={semester.id} value={semester.id}>
-                        {semester.name_en} ({semester.code})
+                        {getLocalizedName(semester, isArabicLayout) || semester.name_en} ({semester.code})
                       </option>
                     ))}
                   </select>

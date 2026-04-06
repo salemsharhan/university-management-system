@@ -110,7 +110,9 @@ import ViewInvoice from './pages/finance/ViewInvoice'
 import CreditWallet from './pages/finance/CreditWallet'
 import FinanceReports from './pages/finance/FinanceReports'
 import Donations from './pages/finance/Donations'
+import CreateDonation from './pages/finance/CreateDonation'
 import InstallmentPlans from './pages/finance/InstallmentPlans'
+import CreateInstallmentPlan from './pages/finance/CreateInstallmentPlan'
 import FinanceConfiguration from './pages/finance/FinanceConfiguration'
 import CreateFeeStructure from './pages/finance/CreateFeeStructure'
 import CreateFeeType from './pages/finance/CreateFeeType'
@@ -1180,11 +1182,51 @@ function App() {
             }
           />
           <Route
+            path="/finance/donations/create"
+            element={
+              <ProtectedRoute>
+                <RoleBasedLayout>
+                  <CreateDonation />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/donations/:id/edit"
+            element={
+              <ProtectedRoute>
+                <RoleBasedLayout>
+                  <CreateDonation />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/finance/installments"
             element={
               <ProtectedRoute>
                 <RoleBasedLayout>
                   <InstallmentPlans />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/installments/create"
+            element={
+              <ProtectedRoute>
+                <RoleBasedLayout>
+                  <CreateInstallmentPlan />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/finance/installments/:id/edit"
+            element={
+              <ProtectedRoute>
+                <RoleBasedLayout>
+                  <CreateInstallmentPlan />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

@@ -16,6 +16,7 @@ export default function GradeManagement() {
     language === 'ar' ||
     i18n?.language?.toLowerCase()?.startsWith('ar') ||
     (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
+  const alignStart = isArabicLayout ? 'text-right' : 'text-left'
   const navigate = useNavigate()
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, colleges, setSelectedCollegeId } = useCollege()
@@ -253,83 +254,38 @@ export default function GradeManagement() {
                   className="p-6 border border-gray-200 rounded-xl hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-white to-gray-50"
                   dir={isArabicLayout ? 'rtl' : 'ltr'}
                 >
-                  <div className="flex items-start gap-3 mb-4">
-                    {isArabicLayout ? (
-                      <>
-                        <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                          <h3 className="text-lg font-bold text-gray-900">{classItem.code}</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {getLocalizedName(classItem.subjects, isArabicLayout) || classItem.subjects?.code || 'N/A'}
-                          </p>
-                        </div>
-                        <BookOpen className="w-8 h-8 text-primary-600 flex-shrink-0" />
-                      </>
-                    ) : (
-                      <>
-                        <BookOpen className="w-8 h-8 text-primary-600 flex-shrink-0" />
-                        <div className={`min-w-0 flex-1 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                          <h3 className="text-lg font-bold text-gray-900">{classItem.code}</h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {getLocalizedName(classItem.subjects, isArabicLayout) || classItem.subjects?.code || 'N/A'}
-                          </p>
-                        </div>
-                      </>
-                    )}
+                  <div
+                    className="flex items-start gap-3 mb-4 w-full"
+                    dir={isArabicLayout ? 'rtl' : 'ltr'}
+                  >
+                    <BookOpen className="w-8 h-8 text-primary-600 flex-shrink-0" />
+                    <div className={`min-w-0 flex-1 ${alignStart}`}>
+                      <h3 className="text-lg font-bold text-gray-900">{classItem.code}</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {getLocalizedName(classItem.subjects, isArabicLayout) || classItem.subjects?.code || 'N/A'}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className={`space-y-2 text-sm ${isArabicLayout ? 'text-right' : 'text-left'}`}>
-                    <div className="flex items-center gap-2 text-gray-600 w-full">
-                      {isArabicLayout ? (
-                        <>
-                          <span className="min-w-0 flex-1">
-                            {t('grading.gradeManagement.instructor')}:{' '}
-                            {getLocalizedName(classItem.instructors, isArabicLayout) || t('grading.classGrades.tba')}
-                          </span>
-                          <Users className="w-4 h-4 flex-shrink-0" />
-                        </>
-                      ) : (
-                        <>
-                          <Users className="w-4 h-4 flex-shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            {t('grading.gradeManagement.instructor')}:{' '}
-                            {getLocalizedName(classItem.instructors, isArabicLayout) || t('grading.classGrades.tba')}
-                          </span>
-                        </>
-                      )}
+                  <div className={`space-y-2 text-sm ${alignStart}`}>
+                    <div className="flex items-center gap-2 text-gray-600 w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+                      <Users className="w-4 h-4 flex-shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        {t('grading.gradeManagement.instructor')}:{' '}
+                        {getLocalizedName(classItem.instructors, isArabicLayout) || t('grading.classGrades.tba')}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-600 w-full">
-                      {isArabicLayout ? (
-                        <>
-                          <span className="min-w-0 flex-1">
-                            {t('grading.gradeManagement.schedule')}: {formatSchedule(classItem.class_schedules)}
-                          </span>
-                          <Calendar className="w-4 h-4 flex-shrink-0" />
-                        </>
-                      ) : (
-                        <>
-                          <Calendar className="w-4 h-4 flex-shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            {t('grading.gradeManagement.schedule')}: {formatSchedule(classItem.class_schedules)}
-                          </span>
-                        </>
-                      )}
+                    <div className="flex items-center gap-2 text-gray-600 w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+                      <Calendar className="w-4 h-4 flex-shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        {t('grading.gradeManagement.schedule')}: {formatSchedule(classItem.class_schedules)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 text-gray-600 w-full">
-                      {isArabicLayout ? (
-                        <>
-                          <span className="min-w-0 flex-1">
-                            {t('grading.gradeManagement.capacity')}: {classItem.enrolled || 0}/{classItem.capacity || 0}
-                          </span>
-                          <GraduationCap className="w-4 h-4 flex-shrink-0" />
-                        </>
-                      ) : (
-                        <>
-                          <GraduationCap className="w-4 h-4 flex-shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            {t('grading.gradeManagement.capacity')}: {classItem.enrolled || 0}/{classItem.capacity || 0}
-                          </span>
-                        </>
-                      )}
+                    <div className="flex items-center gap-2 text-gray-600 w-full" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+                      <GraduationCap className="w-4 h-4 flex-shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        {t('grading.gradeManagement.capacity')}: {classItem.enrolled || 0}/{classItem.capacity || 0}
+                      </span>
                     </div>
                     {classItem.subjects?.grade_configuration && 
                      Array.isArray(classItem.subjects.grade_configuration) && 

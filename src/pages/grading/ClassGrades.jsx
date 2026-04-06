@@ -369,9 +369,9 @@ export default function ClassGrades() {
       {/* Class Info */}
       {classData && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
-          <div className={isArabicLayout ? 'flex justify-end' : ''}>
+          <div className={`w-full ${isArabicLayout ? 'flex justify-end' : ''}`}>
             <div
-              className={`grid grid-cols-1 md:grid-cols-3 gap-4 w-full ${isArabicLayout ? 'max-w-3xl' : ''}`}
+              className={`grid grid-cols-1 md:grid-cols-3 gap-4 w-full ${isArabicLayout ? 'max-w-3xl justify-items-end' : ''}`}
               dir={isArabicLayout ? 'rtl' : 'ltr'}
             >
               <div>

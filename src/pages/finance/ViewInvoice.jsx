@@ -45,7 +45,7 @@ function RtlMoney({ isArabicLayout, className = '', children }) {
     </span>
   )
   if (!isArabicLayout) return inner
-  return <div className="flex w-full min-w-0 justify-start">{inner}</div>
+  return <div className="flex w-full min-w-0 justify-end">{inner}</div>
 }
 
 export default function ViewInvoice() {
@@ -530,6 +530,29 @@ export default function ViewInvoice() {
   const paymentMethodLabel = (code) =>
     t(`finance.viewInvoice.paymentMethods.${code}`, { defaultValue: String(code || '').replace(/_/g, ' ') })
 
+  const paymentStatusLabel = (status) => {
+    const map = {
+      verified: 'paymentStatusVerified',
+      pending: 'paymentStatusPending',
+      rejected: 'paymentStatusRejected',
+    }
+    const k = map[status]
+    return k ? t(`finance.viewInvoice.${k}`) : status
+  }
+
+  const paymentNotesDisplay = (notes) => {
+    if (!notes?.trim()) return ''
+    const s = notes.trim()
+    if (
+      /Admin Payment|University Admin|College admin|processed by/i.test(s)
+    ) {
+      return t('finance.viewInvoice.adminPaymentNote', {
+        role: t('finance.viewInvoice.adminRoleUniversity'),
+      })
+    }
+    return notes
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12" dir={isArabicLayout ? 'rtl' : 'ltr'}>
@@ -584,7 +607,7 @@ export default function ViewInvoice() {
   return (
     <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
       {/* Header */}
-      <div className={`flex flex-wrap items-center justify-between gap-4 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className={`flex items-center gap-4 min-w-0 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
           <button
             type="button"
@@ -736,10 +759,8 @@ export default function ViewInvoice() {
 
       {/* Invoice Information */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div
-          className={`flex flex-wrap items-start justify-between gap-4 mb-6 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
-        >
-          <div className={`min-w-0 ${alignStart}`}>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+          <div className={`min-w-0 flex-1 ${alignStart}`}>
             <h2 className="text-xl font-bold text-gray-900">{t('finance.viewInvoice.invoiceInformation')}</h2>
             <p className="text-sm text-gray-600 mt-1">
               {t('finance.viewInvoice.invoiceNumberLabel', { number: invoice.invoice_number })}
@@ -755,7 +776,7 @@ export default function ViewInvoice() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6 ${alignStart}`}>
           <div className={alignStart}>
             <p className="text-sm text-gray-500">{t('finance.viewInvoice.invoiceDate')}</p>
             <p className="font-semibold">{formatDate(invoice.invoice_date)}</p>
@@ -801,44 +822,90 @@ export default function ViewInvoice() {
               {t('finance.viewInvoice.studentInformation')}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className={`flex items-center gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                <User className="w-5 h-5 text-gray-400 shrink-0" />
-                <div className={`min-w-0 ${alignStart}`}>
-                  <p className="text-sm text-gray-500">{t('finance.viewInvoice.studentNumber')}</p>
-                  <p className="font-semibold" dir="ltr">
-                    {invoice.students.student_id}
-                  </p>
-                </div>
-              </div>
-              <div className={`flex items-center gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                <User className="w-5 h-5 text-gray-400 shrink-0" />
-                <div className={`min-w-0 ${alignStart}`}>
-                  <p className="text-sm text-gray-500">{t('finance.viewInvoice.studentName')}</p>
-                  <p className="font-semibold">{displayPersonName(invoice.students, isArabicLayout)}</p>
-                </div>
-              </div>
-              {invoice.colleges && (
-                <div className={`flex items-center gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                  <Building2 className="w-5 h-5 text-gray-400 shrink-0" />
-                  <div className={`min-w-0 ${alignStart}`}>
-                    <p className="text-sm text-gray-500">{t('finance.viewInvoice.college')}</p>
-                    <p className="font-semibold">
-                      {getLocalizedName(invoice.colleges, isArabicLayout) || invoice.colleges.name_en}
-                    </p>
+              {isArabicLayout ? (
+                <>
+                  {invoice.colleges && (
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-5 h-5 text-gray-400 shrink-0" />
+                      <div className={`min-w-0 flex-1 ${alignStart}`}>
+                        <p className="text-sm text-gray-500">{t('finance.viewInvoice.college')}</p>
+                        <p className="font-semibold">
+                          {getLocalizedName(invoice.colleges, isArabicLayout) || invoice.colleges.name_en}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-400 shrink-0" />
+                    <div className={`min-w-0 flex-1 ${alignStart}`}>
+                      <p className="text-sm text-gray-500">{t('finance.viewInvoice.studentName')}</p>
+                      <p className="font-semibold">{displayPersonName(invoice.students, isArabicLayout)}</p>
+                    </div>
                   </div>
-                </div>
-              )}
-              {invoice.semesters && (
-                <div className={`flex items-center gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                  <Calendar className="w-5 h-5 text-gray-400 shrink-0" />
-                  <div className={`min-w-0 ${alignStart}`}>
-                    <p className="text-sm text-gray-500">{t('finance.viewInvoice.semester')}</p>
-                    <p className="font-semibold">
-                      {getLocalizedName(invoice.semesters, isArabicLayout) || invoice.semesters.name_en} (
-                      <span dir="ltr">{invoice.semesters.code}</span>)
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-400 shrink-0" />
+                    <div className={`min-w-0 flex-1 ${alignStart}`}>
+                      <p className="text-sm text-gray-500">{t('finance.viewInvoice.studentNumber')}</p>
+                      <p className="font-semibold" dir="ltr">
+                        {invoice.students.student_id}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                  {invoice.semesters && (
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-gray-400 shrink-0" />
+                      <div className={`min-w-0 flex-1 ${alignStart}`}>
+                        <p className="text-sm text-gray-500">{t('finance.viewInvoice.semester')}</p>
+                        <p className="font-semibold">
+                          {getLocalizedName(invoice.semesters, isArabicLayout) || invoice.semesters.name_en} (
+                          <span dir="ltr">{invoice.semesters.code}</span>)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-400 shrink-0" />
+                    <div className={`min-w-0 ${alignStart}`}>
+                      <p className="text-sm text-gray-500">{t('finance.viewInvoice.studentNumber')}</p>
+                      <p className="font-semibold" dir="ltr">
+                        {invoice.students.student_id}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-gray-400 shrink-0" />
+                    <div className={`min-w-0 ${alignStart}`}>
+                      <p className="text-sm text-gray-500">{t('finance.viewInvoice.studentName')}</p>
+                      <p className="font-semibold">{displayPersonName(invoice.students, isArabicLayout)}</p>
+                    </div>
+                  </div>
+                  {invoice.colleges && (
+                    <div className="flex items-center gap-3">
+                      <Building2 className="w-5 h-5 text-gray-400 shrink-0" />
+                      <div className={`min-w-0 ${alignStart}`}>
+                        <p className="text-sm text-gray-500">{t('finance.viewInvoice.college')}</p>
+                        <p className="font-semibold">
+                          {getLocalizedName(invoice.colleges, isArabicLayout) || invoice.colleges.name_en}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {invoice.semesters && (
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-gray-400 shrink-0" />
+                      <div className={`min-w-0 ${alignStart}`}>
+                        <p className="text-sm text-gray-500">{t('finance.viewInvoice.semester')}</p>
+                        <p className="font-semibold">
+                          {getLocalizedName(invoice.semesters, isArabicLayout) || invoice.semesters.name_en} (
+                          <span dir="ltr">{invoice.semesters.code}</span>)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -1052,9 +1119,11 @@ export default function ViewInvoice() {
                 className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
               >
                 <div className={`flex flex-wrap items-start justify-between gap-3 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                  <div className="flex-1 min-w-0">
+                  <div
+                    className={`flex-1 min-w-0 flex flex-col ${isArabicLayout ? 'items-end' : 'items-start'}`}
+                  >
                     <div
-                      className={`flex flex-wrap items-center gap-3 mb-2 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+                      className={`flex flex-wrap items-center gap-3 mb-2 w-full ${isArabicLayout ? 'flex-row-reverse justify-end' : ''}`}
                     >
                       <span className="font-semibold" dir="ltr">
                         {payment.payment_number}
@@ -1077,12 +1146,12 @@ export default function ViewInvoice() {
                         ) : (
                           <Clock className="w-3 h-3 shrink-0" />
                         )}
-                        <span className="capitalize">{payment.status}</span>
+                        <span>{paymentStatusLabel(payment.status)}</span>
                       </span>
                       <span className="text-sm text-gray-500">{paymentMethodLabel(payment.payment_method)}</span>
                     </div>
                     <div
-                      className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 ${alignStart}`}
+                      className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 w-full ${alignStart} ${isArabicLayout ? 'flex-row-reverse justify-end' : ''}`}
                     >
                       <span>
                         {t('finance.viewInvoice.paymentDateShort')}: {formatDate(payment.payment_date)}
@@ -1106,7 +1175,7 @@ export default function ViewInvoice() {
                       )}
                     </div>
                     {payment.notes && (
-                      <p className={`text-sm text-gray-500 mt-2 ${alignStart}`}>{payment.notes}</p>
+                      <p className={`text-sm text-gray-500 mt-2 w-full ${alignStart}`}>{paymentNotesDisplay(payment.notes)}</p>
                     )}
                   </div>
                 </div>

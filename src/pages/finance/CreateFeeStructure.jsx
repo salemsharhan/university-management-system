@@ -6,6 +6,7 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
+import { getCollegeCurrencyCode } from '../../utils/getCollegeSettings'
 import { ArrowLeft, ArrowRight, Save, Loader2, Plus, Trash2 } from 'lucide-react'
 
 export default function CreateFeeStructure() {
@@ -60,6 +61,15 @@ export default function CreateFeeStructure() {
     }
   }, [id, collegeId])
 
+  useEffect(() => {
+    if (isEdit || !collegeId) return
+    getCollegeCurrencyCode(collegeId)
+      .then((code) => {
+        if (code) setFormData((prev) => ({ ...prev, currency: code }))
+      })
+      .catch(() => {})
+  }, [collegeId, isEdit])
+
   const fetchFeeTypes = async () => {
     try {
       let query = supabase
@@ -91,7 +101,7 @@ export default function CreateFeeStructure() {
     try {
       let query = supabase
         .from('majors')
-        .select('id, name_en, code, degree_level')
+        .select('id, name_en, name_ar, code, degree_level')
         .eq('status', 'active')
         .order('name_en')
 
@@ -102,6 +112,7 @@ export default function CreateFeeStructure() {
       } else if (userRole === 'admin' && collegeId) {
         query = query.eq('college_id', collegeId)
       }
+      // else: admin with no college selected — show all active majors for scope
 
       const { data, error } = await query
       if (error) throw error
@@ -462,13 +473,15 @@ export default function CreateFeeStructure() {
             <select
               value={formData.currency}
               onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
+              disabled={!!collegeId && !formData.is_university_wide}
+              className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart} disabled:bg-gray-50 disabled:text-gray-700`}
               required
             >
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-              <option value="SAR">SAR</option>
-              <option value="AED">AED</option>
+              {['KWD', 'USD', 'EUR', 'SAR', 'AED', 'QAR', 'BHD'].map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -529,7 +542,7 @@ export default function CreateFeeStructure() {
                   <label
                     key={semester.id}
                     className={`flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer transition-colors ${
-                      iconRow
+                      isArabicLayout ? 'flex-row' : iconRow
                     } ${
                       formData.applies_to_semester?.includes(semester.id)
                         ? 'border-primary-500 bg-primary-50'
@@ -566,66 +579,83 @@ export default function CreateFeeStructure() {
           )}
         </div>
 
-        <div>
-          <label className={`flex items-center gap-2 mb-4 ${iconRow}`}>
-            <input
-              type="checkbox"
-              checked={formData.is_university_wide}
-              onChange={(e) => setFormData({ ...formData, is_university_wide: e.target.checked })}
-              className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
-            />
-            <span className="text-sm font-medium text-gray-700">{t('finance.feeStructureForm.universityWide')}</span>
-          </label>
-        </div>
-
-        <div className="space-y-4">
-          <h3 className={`text-lg font-semibold text-gray-900 ${alignStart}`}>
-            {t('finance.feeStructureForm.appliesToTitle')}
-          </h3>
-
-          <div>
-            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
-              {t('finance.feeStructureForm.degreeLevels')}
+        {/* RTL: use items-start / justify-start — items-end & justify-end align to the visual LEFT in rtl flex */}
+        <div className={isArabicLayout ? 'w-full flex flex-col items-stretch gap-4' : 'space-y-4'}>
+          <div className="w-full flex justify-start">
+            <label className={`flex items-center gap-2 mb-0 w-full ${isArabicLayout ? 'flex-row' : iconRow}`}>
+              <input
+                type="checkbox"
+                checked={formData.is_university_wide}
+                onChange={(e) => setFormData({ ...formData, is_university_wide: e.target.checked })}
+                className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
+              />
+              <span className={`text-sm font-medium text-gray-700 flex-1 min-w-0 ${alignStart}`}>
+                {t('finance.feeStructureForm.universityWide')}
+              </span>
             </label>
-            <div className="flex flex-wrap gap-2">
-              {['bachelor', 'master', 'phd', 'diploma'].map((level) => (
-                <label
-                  key={level}
-                  className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 ${iconRow}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.applies_to_degree_level?.includes(level)}
-                    onChange={() => handleDegreeLevelToggle(level)}
-                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
-                  />
-                  <span className="text-sm">{t(`finance.feeStructureForm.degree.${level}`)}</span>
-                </label>
-              ))}
-            </div>
           </div>
 
-          <div>
-            <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
-              {t('finance.feeStructureForm.majors')}
-            </label>
-            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2">
-              {majors.map((major) => (
-                <label
-                  key={major.id}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-50 rounded cursor-pointer ${iconRow}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.applies_to_major?.includes(major.id)}
-                    onChange={() => handleMajorToggle(major.id)}
-                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
-                  />
-                  <span className="text-sm">
-                    {getLocalizedName(major, isArabicLayout) || major.name_en} ({major.code})
-                  </span>
-                </label>
-              ))}
+          <div className={isArabicLayout ? 'w-full flex flex-col items-stretch gap-4' : 'space-y-4'}>
+            <h3 className={`text-lg font-semibold text-gray-900 w-full ${alignStart}`}>
+              {t('finance.feeStructureForm.appliesToTitle')}
+            </h3>
+
+            <div className="w-full">
+              <label className={`block text-sm font-medium text-gray-700 mb-2 w-full ${alignStart}`}>
+                {t('finance.feeStructureForm.degreeLevels')}
+              </label>
+              <div
+                className="flex flex-wrap gap-2 w-full justify-start"
+                dir={isArabicLayout ? 'rtl' : 'ltr'}
+              >
+                {['bachelor', 'master', 'phd', 'diploma'].map((level) => (
+                  <label
+                    key={level}
+                    className={`flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 shrink-0 ${
+                      isArabicLayout ? 'flex-row' : iconRow
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.applies_to_degree_level?.includes(level)}
+                      onChange={() => handleDegreeLevelToggle(level)}
+                      className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
+                    />
+                    <span className={`text-sm whitespace-nowrap ${alignStart}`}>
+                      {t(`finance.feeStructureForm.degree.${level}`)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full">
+              <label className={`block text-sm font-medium text-gray-700 mb-2 w-full ${alignStart}`}>
+                {t('finance.feeStructureForm.majors')}
+              </label>
+              <div
+                className="max-h-40 w-full overflow-y-auto border border-gray-200 rounded-lg p-2"
+                dir={isArabicLayout ? 'rtl' : 'ltr'}
+              >
+                {majors.map((major) => (
+                  <label
+                    key={major.id}
+                    className={`flex w-full items-center gap-2 px-3 py-2 hover:bg-gray-50 rounded cursor-pointer ${
+                      isArabicLayout ? 'flex-row' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={formData.applies_to_major?.includes(major.id)}
+                      onChange={() => handleMajorToggle(major.id)}
+                      className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 shrink-0"
+                    />
+                    <span className={`text-sm min-w-0 flex-1 ${alignStart}`}>
+                      {getLocalizedName(major, isArabicLayout) || major.name_en} ({major.code})
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -640,6 +670,7 @@ export default function CreateFeeStructure() {
               value={formData.valid_from}
               onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
               className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
+              dir="ltr"
             />
           </div>
           <div>
@@ -651,6 +682,7 @@ export default function CreateFeeStructure() {
               value={formData.valid_to}
               onChange={(e) => setFormData({ ...formData, valid_to: e.target.value })}
               className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 ${alignStart}`}
+              dir="ltr"
             />
           </div>
         </div>
