@@ -897,6 +897,157 @@
   accent-color: var(--p);
 }
 
+/* Question composer & cards (assessment + question bank) */
+.instructor-portal .qa-compose {
+  border: 1px solid var(--bdr);
+  border-radius: var(--r);
+  padding: 16px 18px;
+  background: linear-gradient(180deg, var(--sur) 0%, #fff 48%);
+  margin-bottom: 4px;
+}
+.instructor-portal .qa-compose__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.instructor-portal .qa-compose__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bdr);
+}
+
+.instructor-portal .q-card {
+  border: 1px solid var(--bdr);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  background: #fff;
+  margin-bottom: 10px;
+}
+.instructor-portal .q-card-hd {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 0;
+}
+.instructor-portal .q-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--p);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.instructor-portal .q-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--txt, #1a1a1a);
+}
+
+/* Lighter option rows (less boxy than default .q-opt) */
+.instructor-portal .q-opt--lite {
+  border: none;
+  border-radius: var(--rs);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  background: var(--bg);
+  border: 1px solid transparent;
+  cursor: default;
+}
+.instructor-portal .q-opt--lite:hover {
+  border-color: var(--bdr);
+  background: #f8fafc;
+}
+.instructor-portal .q-opt--lite.correct {
+  border: 1px solid var(--ok);
+  background: var(--ok-bg);
+}
+.instructor-portal .q-opt--lite .fc {
+  background: #fff;
+}
+
+/* Read-only answer preview (no fake radios) */
+.instructor-portal .qa-answer-preview {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--bdr);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.instructor-portal .qa-answer-preview__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: var(--rs);
+  color: var(--muted);
+}
+.instructor-portal .qa-answer-preview__row.is-correct {
+  background: var(--ok-bg);
+  color: var(--txt, #1a1a1a);
+  font-weight: 500;
+}
+.instructor-portal .qa-answer-preview__badge {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--sur);
+  border: 1px solid var(--bdr);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.instructor-portal .qa-answer-preview__row.is-correct .qa-answer-preview__badge {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+
+.instructor-portal .qa-qmeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.instructor-portal .qa-qmeta__badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  background: var(--info-bg);
+  color: var(--info);
+}
+.instructor-portal .qa-qmeta__marks {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.instructor-portal .qa-section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 16px 0 8px;
+}
+
 /* Upload zone */
 .instructor-portal .uz {
   border: 2px dashed var(--bdr);

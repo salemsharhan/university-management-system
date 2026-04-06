@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
-import { supabase } from '../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../lib/supabase'
 import { getLocalizedName } from '../utils/localizedName'
 import { getStudentSemesterMilestone, checkFinancePermission, getMilestoneInfo } from '../utils/financePermissions'
 import {
@@ -540,7 +540,7 @@ export default function ViewStudent() {
               ) : (
                 <ul className="space-y-3">
                   {studentDocuments.map((doc) => {
-                    const { data: urlData } = supabase.storage.from('qalam').getPublicUrl(doc.file_path)
+                    const { data: urlData } = supabase.storage.from(SUPABASE_STORAGE_BUCKET).getPublicUrl(doc.file_path)
                     const label = STUDENT_DOCUMENT_LABELS[doc.document_type]
                   return (
                     <li key={doc.id} className="flex items-center justify-between rounded-xl bg-gray-50 p-4 border border-gray-100">

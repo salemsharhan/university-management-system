@@ -707,9 +707,31 @@ export default function ViewApplication() {
         'Application created': 'admissions.viewApplication.timeline.notes.applicationCreated',
       }
       const key = known[trimmed]
-      return key ? t(key) : note
+      if (key) return t(key)
+      const lng = isArabicLayout ? 'ar' : i18n.language
+      const regFee = /^Registration fee payment received:\s*\$?([\d.,]+)\s+via\s+(.+)$/i.exec(trimmed)
+      if (regFee) {
+        return i18n.t('finance.viewInvoice.notesSystem.registrationFeeReceived', {
+          amount: regFee[1],
+          method: regFee[2].trim(),
+          lng,
+        })
+      }
+      const autoFail = /^Auto-validation failed:\s*([\s\S]+)$/i.exec(trimmed)
+      if (autoFail) {
+        return i18n.t('finance.viewInvoice.notesSystem.autoValidationFailed', {
+          details: autoFail[1].trim(),
+          lng,
+        })
+      }
+      if (/Admin Payment|University Admin|College admin|processed by/i.test(trimmed)) {
+        return t('finance.viewInvoice.adminPaymentNote', {
+          role: t('finance.viewInvoice.adminRoleUniversity'),
+        })
+      }
+      return note
     },
-    [t]
+    [t, i18n, isArabicLayout]
   )
 
   const formatGenderLabel = (g) => {
@@ -1386,9 +1408,12 @@ export default function ViewApplication() {
 
   return (
     <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
-      {/* Header: LTR row so actions stay left, title center, status right */}
-      <div className="flex w-full flex-wrap items-center justify-between gap-4" dir="ltr">
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Header: grid keeps actions at start edge (left in EN, right in AR) and status at end */}
+      <div
+        className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3"
+        dir={isArabicLayout ? 'rtl' : 'ltr'}
+      >
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             onClick={handleEditClick}
             disabled={updating || loading}
@@ -1416,7 +1441,7 @@ export default function ViewApplication() {
             <span>{t('admissions.viewApplication.changeStatus')}</span>
           </button>
         </div>
-        <div className="flex items-center gap-3 flex-1 min-w-0 justify-center">
+        <div className="flex min-w-0 items-center justify-center gap-3">
           <button
             type="button"
             onClick={() => navigate('/admissions/applications')}
@@ -1432,13 +1457,13 @@ export default function ViewApplication() {
           </div>
         </div>
         <span
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border font-medium shrink-0 ${getStatusColor(
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border font-medium shrink-0 max-w-full ${getStatusColor(
             application?.status_code || application?.status
           )}`}
           dir={isArabicLayout ? 'rtl' : 'ltr'}
         >
           {getStatusIcon(application?.status_code || application?.status)}
-          <span>{getStatusDisplayName(application?.status_code || application?.status)}</span>
+          <span className="truncate">{getStatusDisplayName(application?.status_code || application?.status)}</span>
         </span>
       </div>
 

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
+import SubjectCurriculumMapPanel from '../../components/academic/SubjectCurriculumMapPanel'
 import { ArrowLeft, Edit, BookOpen } from 'lucide-react'
 
 export default function ViewSubject() {
@@ -472,6 +473,29 @@ export default function ViewSubject() {
           )}
         </div>
       </div>
+
+      {subject && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{t('academic.subjects.curriculumMapTitle')}</h2>
+              <p className="text-sm text-gray-600 mt-1">{t('academic.subjects.curriculumMapDescription')}</p>
+            </div>
+            <Link
+              to={`/admin/curriculum-map?subjectId=${id}`}
+              className="text-sm font-medium text-primary-600 hover:underline"
+            >
+              {t('academic.subjects.openAdminCurriculumMap')}
+            </Link>
+          </div>
+          <SubjectCurriculumMapPanel
+            subjectId={Number(id)}
+            subjectLabel={`${subject.code} — ${getLocalizedName(subject, isRTL)}`}
+            embedAboutColumn={false}
+            plainSurface
+          />
+        </div>
+      )}
     </div>
   )
 }

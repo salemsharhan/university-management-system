@@ -7,6 +7,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
+/** Supabase Storage bucket for file uploads (create in Dashboard → Storage). Override via VITE_SUPABASE_STORAGE_BUCKET. */
+export const SUPABASE_STORAGE_BUCKET =
+  import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'qalam'
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,

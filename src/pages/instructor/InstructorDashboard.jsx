@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -82,7 +82,27 @@ export default function InstructorDashboard() {
     }
   }
 
-  const displayName = instructor ? getLocalizedName(instructor, language === 'ar') : t('instructorPortal.instructor')
+  const displayName = useMemo(() => {
+    const fromProfile =
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.user_metadata?.display_name
+    if (!instructor) {
+      return (
+        (typeof fromProfile === 'string' && fromProfile.trim()) ||
+        user?.email?.split('@')[0] ||
+        t('instructorPortal.instructor')
+      )
+    }
+    const n = getLocalizedName(instructor, language === 'ar')
+    if (n) return n
+    return (
+      instructor.email ||
+      (typeof fromProfile === 'string' && fromProfile.trim()) ||
+      user?.email?.split('@')[0] ||
+      t('instructorPortal.instructor')
+    )
+  }, [instructor, language, t, user])
   const semesterLabel = currentSemester ? getLocalizedName(currentSemester, language === 'ar') : ''
   const courseCount = myClasses.length || 4
 

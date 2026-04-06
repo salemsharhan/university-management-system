@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -540,18 +540,35 @@ export default function ViewInvoice() {
     return k ? t(`finance.viewInvoice.${k}`) : status
   }
 
-  const paymentNotesDisplay = (notes) => {
-    if (!notes?.trim()) return ''
-    const s = notes.trim()
-    if (
-      /Admin Payment|University Admin|College admin|processed by/i.test(s)
-    ) {
-      return t('finance.viewInvoice.adminPaymentNote', {
-        role: t('finance.viewInvoice.adminRoleUniversity'),
-      })
-    }
-    return notes
-  }
+  const translatePaymentNoteText = useCallback(
+    (notes) => {
+      if (!notes?.trim()) return ''
+      const s = notes.trim()
+      const lng = isArabicLayout ? 'ar' : i18n.language
+      const regFee = /^Registration fee payment received:\s*\$?([\d.,]+)\s+via\s+(.+)$/i.exec(s)
+      if (regFee) {
+        return i18n.t('finance.viewInvoice.notesSystem.registrationFeeReceived', {
+          amount: regFee[1],
+          method: regFee[2].trim(),
+          lng,
+        })
+      }
+      const autoFail = /^Auto-validation failed:\s*([\s\S]+)$/i.exec(s)
+      if (autoFail) {
+        return i18n.t('finance.viewInvoice.notesSystem.autoValidationFailed', {
+          details: autoFail[1].trim(),
+          lng,
+        })
+      }
+      if (/Admin Payment|University Admin|College admin|processed by/i.test(s)) {
+        return t('finance.viewInvoice.adminPaymentNote', {
+          role: t('finance.viewInvoice.adminRoleUniversity'),
+        })
+      }
+      return notes
+    },
+    [i18n, isArabicLayout, t]
+  )
 
   if (loading) {
     return (
@@ -1175,7 +1192,7 @@ export default function ViewInvoice() {
                       )}
                     </div>
                     {payment.notes && (
-                      <p className={`text-sm text-gray-500 mt-2 w-full ${alignStart}`}>{paymentNotesDisplay(payment.notes)}</p>
+                      <p className={`text-sm text-gray-500 mt-2 w-full ${alignStart}`}>{translatePaymentNoteText(payment.notes)}</p>
                     )}
                   </div>
                 </div>

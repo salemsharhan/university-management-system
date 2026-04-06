@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
-import { supabase } from '../../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload } from 'lucide-react'
 
 const steps = [
@@ -436,7 +436,7 @@ export default function RegisterApplication() {
             const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
             const storagePath = `${application.id}/${key}/${safeName}`
             const { error: uploadError } = await supabase.storage
-              .from('qalam')
+              .from(SUPABASE_STORAGE_BUCKET)
               .upload(storagePath, file, { upsert: true, contentType: file.type })
             if (uploadError) {
               console.error('Document storage upload failed:', key, uploadError)

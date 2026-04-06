@@ -72,6 +72,7 @@ import Applications from './pages/admissions/Applications'
 import CreateApplication from './pages/admissions/CreateApplication'
 import ViewApplication from './pages/admissions/ViewApplication'
 import UniversitySettings from './pages/admin/UniversitySettings'
+import AdminCurriculumMap from './pages/admin/AdminCurriculumMap'
 import GradeManagement from './pages/grading/GradeManagement'
 import ClassGrades from './pages/grading/ClassGrades'
 import StudentGrades from './pages/grading/StudentGrades'
@@ -403,6 +404,16 @@ function App() {
               <ProtectedRoute>
                 <RoleBasedLayout>
                   <UniversitySettings />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/curriculum-map"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <AdminCurriculumMap />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

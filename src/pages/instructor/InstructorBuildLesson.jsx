@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
-import { supabase } from '../../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 
 const ELEMENT_TYPES = [
   { key: 'text', label: 'Text / Headings', icon: 'TXT' },
@@ -55,6 +55,7 @@ export default function InstructorBuildLesson() {
   const [lessonForm, setLessonForm] = useState(emptyLesson)
   const [selectedCloIds, setSelectedCloIds] = useState([])
   const [elements, setElements] = useState([])
+  const [lessonMediaUploadKey, setLessonMediaUploadKey] = useState(null)
 
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
@@ -216,6 +217,37 @@ export default function InstructorBuildLesson() {
 
   const updateElement = (idx, next) => {
     setElements((prev) => prev.map((el, i) => (i === idx ? { ...el, ...next } : el)))
+  }
+
+  const uploadLessonMedia = async (idx, kind, file) => {
+    if (!file || !selectedClass?.id) return
+    const key = `${kind}-${idx}`
+    setLessonMediaUploadKey(key)
+    try {
+      const rawExt = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
+      const ext = String(rawExt).replace(/[^a-zA-Z0-9]/g, '').slice(0, 8) || 'bin'
+      const path = `lessons/class_${selectedClass.id}/${kind}_${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from(SUPABASE_STORAGE_BUCKET).upload(path, file)
+      if (upErr) throw upErr
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(SUPABASE_STORAGE_BUCKET).getPublicUrl(path)
+      setElements((prev) =>
+        prev.map((el, i) => {
+          if (i !== idx) return el
+          const c = el.content || {}
+          if (kind === 'video') {
+            return { ...el, content: { ...c, url: publicUrl } }
+          }
+          return { ...el, content: { ...c, file_url: publicUrl, file_name: file.name } }
+        })
+      )
+    } catch (err) {
+      console.error(err)
+      alert(t('instructorPortal.lessonMediaUploadFailed', 'Upload failed'))
+    } finally {
+      setLessonMediaUploadKey(null)
+    }
   }
 
   const saveLesson = async (publish = false) => {
@@ -473,23 +505,64 @@ export default function InstructorBuildLesson() {
                 )}
 
                 {element.element_type === 'video' && (
-                  <input
-                    type="url"
-                    className="fc"
-                    placeholder="https://"
-                    value={element.content?.url || ''}
-                    onChange={(e) => updateElement(idx, { content: { ...element.content, url: e.target.value } })}
-                  />
+                  <div className="fg" style={{ marginBottom: 0 }}>
+                    <label className="fl" style={{ fontSize: 12 }}>{t('instructorPortal.uploadLessonVideo')}</label>
+                    <input
+                      type="file"
+                      className="fc"
+                      accept="video/*"
+                      disabled={lessonMediaUploadKey === `video-${idx}`}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        e.target.value = ''
+                        if (f) uploadLessonMedia(idx, 'video', f)
+                      }}
+                    />
+                    {element.content?.url && (
+                      <div style={{ fontSize: 12, marginTop: 6, wordBreak: 'break-all', color: 'var(--muted)' }}>
+                        {element.content.url}
+                      </div>
+                    )}
+                    <label className="fl" style={{ fontSize: 12, marginTop: 10 }}>{t('instructorPortal.orPasteMediaUrl')}</label>
+                    <input
+                      type="url"
+                      className="fc"
+                      placeholder="https://"
+                      value={element.content?.url || ''}
+                      onChange={(e) => updateElement(idx, { content: { ...element.content, url: e.target.value } })}
+                    />
+                  </div>
                 )}
 
                 {element.element_type === 'attachment' && (
-                  <input
-                    type="url"
-                    className="fc"
-                    placeholder="https://file-url"
-                    value={element.content?.file_url || ''}
-                    onChange={(e) => updateElement(idx, { content: { ...element.content, file_url: e.target.value } })}
-                  />
+                  <div className="fg" style={{ marginBottom: 0 }}>
+                    <label className="fl" style={{ fontSize: 12 }}>{t('instructorPortal.uploadLessonAttachment')}</label>
+                    <input
+                      type="file"
+                      className="fc"
+                      disabled={lessonMediaUploadKey === `attachment-${idx}`}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0]
+                        e.target.value = ''
+                        if (f) uploadLessonMedia(idx, 'attachment', f)
+                      }}
+                    />
+                    {(element.content?.file_url || element.content?.file_name) && (
+                      <div style={{ fontSize: 12, marginTop: 6, wordBreak: 'break-all', color: 'var(--muted)' }}>
+                        {element.content?.file_name || element.content?.file_url}
+                      </div>
+                    )}
+                    <label className="fl" style={{ fontSize: 12, marginTop: 10 }}>{t('instructorPortal.orPasteMediaUrl')}</label>
+                    <input
+                      type="url"
+                      className="fc"
+                      placeholder="https://"
+                      value={element.content?.file_url || ''}
+                      onChange={(e) =>
+                        updateElement(idx, { content: { ...element.content, file_url: e.target.value, file_name: '' } })
+                      }
+                    />
+                  </div>
                 )}
 
                 {(element.element_type === 'quiz' || element.element_type === 'poll') && (

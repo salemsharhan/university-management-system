@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
-import { supabase } from '../../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check, Plus, Trash2, Upload } from 'lucide-react'
 
@@ -423,9 +423,9 @@ export default function CreateSubject() {
         if (!isLink && m.file) {
           const ext = m.file.name.split('.').pop()
           const filePath = `materials/${subject.id}/${Date.now()}_${i}.${ext}`
-          const { error: upErr } = await supabase.storage.from('subject-materials').upload(filePath, m.file)
+          const { error: upErr } = await supabase.storage.from(SUPABASE_STORAGE_BUCKET).upload(filePath, m.file)
           if (!upErr) {
-            const { data: { publicUrl } } = supabase.storage.from('subject-materials').getPublicUrl(filePath)
+            const { data: { publicUrl } } = supabase.storage.from(SUPABASE_STORAGE_BUCKET).getPublicUrl(filePath)
             fileUrl = publicUrl
           }
         }

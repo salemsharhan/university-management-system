@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
-import { supabase } from '../../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
 import PaymentModal from '../../components/payment/PaymentModal'
 import {
@@ -352,7 +352,7 @@ export default function ApplicationStatus() {
       const storagePath = `${application.id}/${documentType}/${safeName}`
 
       const { error: uploadError } = await supabase.storage
-        .from('qalam')
+        .from(SUPABASE_STORAGE_BUCKET)
         .upload(storagePath, file, { upsert: true, contentType: file.type })
 
       if (uploadError) throw uploadError

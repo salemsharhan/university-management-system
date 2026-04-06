@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { Save, X, Upload, AlertCircle, Link as LinkIcon } from 'lucide-react'
 
 export default function MaterialsManagement({ subjectId, classId, materialId, onClose, onSave, isClassMaterial = false }) {
@@ -82,13 +82,13 @@ export default function MaterialsManagement({ subjectId, classId, materialId, on
       const filePath = `materials/${subjectId}/${fileName}`
 
       const { error: uploadError } = await supabase.storage
-        .from('subject-materials')
+        .from(SUPABASE_STORAGE_BUCKET)
         .upload(filePath, file)
 
       if (uploadError) throw uploadError
 
       const { data: { publicUrl } } = supabase.storage
-        .from('subject-materials')
+        .from(SUPABASE_STORAGE_BUCKET)
         .getPublicUrl(filePath)
 
       setFormData({ ...formData, file_url: publicUrl })

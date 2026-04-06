@@ -19,10 +19,6 @@ export default function InstructorCurriculumMap() {
   const [clos, setClos] = useState([])
   const [lessons, setLessons] = useState([])
 
-  const [editingClo, setEditingClo] = useState(null)
-  const [form, setForm] = useState({ code: '', description: '', bloom_level: 'apply', difficulty_level: 'medium' })
-  const [saving, setSaving] = useState(false)
-
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
     [classes, selectedClassId]
@@ -125,60 +121,6 @@ export default function InstructorCurriculumMap() {
     }
   }
 
-  const resetForm = () => {
-    setEditingClo(null)
-    setForm({ code: '', description: '', bloom_level: 'apply', difficulty_level: 'medium' })
-  }
-
-  const onEdit = (clo) => {
-    setEditingClo(clo)
-    setForm({
-      code: clo.code || '',
-      description: clo.description || '',
-      bloom_level: clo.bloom_level || 'apply',
-      difficulty_level: clo.difficulty_level || 'medium',
-    })
-  }
-
-  const saveClo = async () => {
-    if (!selectedClass?.subject_id || !form.code.trim() || !form.description.trim()) return
-
-    setSaving(true)
-    try {
-      if (editingClo?.id) {
-        await supabase
-          .from('subject_learning_outcomes')
-          .update({
-            code: form.code.trim(),
-            description: form.description.trim(),
-            bloom_level: form.bloom_level,
-            difficulty_level: form.difficulty_level,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingClo.id)
-      } else {
-        await supabase
-          .from('subject_learning_outcomes')
-          .insert({
-            subject_id: selectedClass.subject_id,
-            code: form.code.trim(),
-            description: form.description.trim(),
-            bloom_level: form.bloom_level,
-            difficulty_level: form.difficulty_level,
-            display_order: clos.length + 1,
-          })
-      }
-
-      resetForm()
-      await loadCurriculumData(selectedClassId)
-    } catch (err) {
-      console.error(err)
-      alert(t('common.error', 'Error'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const coverageRows = useMemo(() => {
     const totalLessons = lessons.length || 0
 
@@ -258,6 +200,10 @@ export default function InstructorCurriculumMap() {
         </div>
       </div>
 
+      <div className="alert alert-info" style={{ marginBottom: 16 }}>
+        {t('instructorPortal.curriculumMapViewOnlyHint')}
+      </div>
+
       <div className="grid2">
         <div>
           <div className="card">
@@ -265,55 +211,14 @@ export default function InstructorCurriculumMap() {
               <div className="card-title">{t('instructorPortal.learningOutcomesClos')}</div>
             </div>
 
-            <div className="fg">
-              <label className="fl">Code</label>
-              <input className="fc" value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.target.value }))} placeholder="CLO-1" />
-            </div>
-            <div className="fg">
-              <label className="fl">{t('common.description', 'Description')}</label>
-              <textarea className="fc" rows={3} value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} />
-            </div>
-            <div className="fr">
-              <div className="fg">
-                <label className="fl">{t('instructorPortal.bloomLevel')}</label>
-                <select className="fc" value={form.bloom_level} onChange={(e) => setForm((p) => ({ ...p, bloom_level: e.target.value }))}>
-                  <option value="remember">Remember</option>
-                  <option value="understand">Understand</option>
-                  <option value="apply">Apply</option>
-                  <option value="analyze">Analyze</option>
-                  <option value="evaluate">Evaluate</option>
-                  <option value="create">Create</option>
-                </select>
-              </div>
-              <div className="fg">
-                <label className="fl">{t('instructorPortal.difficulty')}</label>
-                <select className="fc" value={form.difficulty_level} onChange={(e) => setForm((p) => ({ ...p, difficulty_level: e.target.value }))}>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              <button type="button" className="btn btn-p" onClick={saveClo} disabled={saving}>
-                {editingClo ? t('common.update', 'Update') : t('common.add', 'Add')}
-              </button>
-              {editingClo && (
-                <button type="button" className="btn btn-gh" onClick={resetForm}>{t('common.cancel', 'Cancel')}</button>
-              )}
-            </div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {clos.map((clo) => (
                 <div key={clo.id} style={{ background: 'var(--bg)', borderRadius: 'var(--rs)', padding: 14, borderRight: '3px solid var(--ok)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ok)', background: 'var(--ok-bg)', padding: '2px 8px', borderRadius: 20 }}>
-                        {clo.code}
-                      </span>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>{clo.description}</div>
-                    </div>
-                    <button type="button" className="btn btn-gh btn-sm" onClick={() => onEdit(clo)}>{t('instructorPortal.edit')}</button>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--ok)', background: 'var(--ok-bg)', padding: '2px 8px', borderRadius: 20 }}>
+                      {clo.code}
+                    </span>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>{clo.description}</div>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
                     {t('instructorPortal.bloomLevel')}: {clo.bloom_level} | {t('instructorPortal.difficulty')}: {clo.difficulty_level}
@@ -373,7 +278,7 @@ export default function InstructorCurriculumMap() {
                       <td>{t('instructorPortal.unit')} {row.unit}</td>
                       {clos.map((clo) => (
                         <td key={clo.id} style={{ textAlign: 'center' }}>
-                          {row.cloMap[clo.id] ? '?' : '—'}
+                          {row.cloMap[clo.id] ? '✓' : '—'}
                         </td>
                       ))}
                     </tr>

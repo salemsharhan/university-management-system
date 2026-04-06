@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
-import { supabase } from '../../lib/supabase'
+import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
+import { QUESTION_TYPE_OPTIONS } from '../../constants/questionTypes'
 
 const defaultExamForm = {
   title: '',
@@ -21,9 +22,12 @@ const defaultExamForm = {
   randomize_from_bank: false,
   result_visibility: 'after_window',
   late_policy: 'deduct_10_daily',
+  assessment_file_url: '',
+  assessment_file_name: '',
 }
 
 const defaultOptions = ['Option 1', 'Option 2', 'Option 3', 'Option 4']
+const DEFAULT_ORDER_ITEMS = ['Item 1', 'Item 2', 'Item 3']
 
 function getDefaultQuestionForm() {
   return {
@@ -69,6 +73,24 @@ function parseOptions(text) {
     .filter(Boolean)
 }
 
+function questionTypeLabel(t, type) {
+  const opt = QUESTION_TYPE_OPTIONS.find((o) => o.value === type)
+  return opt ? t(`instructorPortal.${opt.key}`) : t('instructorPortal.multipleChoice')
+}
+
+function usesLongQuestionPrompt(type) {
+  return ['matching', 'essay', 'short_answer', 'fill_blank', 'numeric', 'file_upload', 'order'].includes(type)
+}
+
+function questionPromptPlaceholder(t, type) {
+  if (type === 'matching') return t('instructorPortal.matchingPairsHint')
+  if (type === 'fill_blank') return t('instructorPortal.fillBlankPlaceholderHint')
+  if (type === 'order') return t('instructorPortal.orderPlaceholderHint')
+  if (type === 'numeric') return t('instructorPortal.numericPlaceholderHint')
+  if (type === 'file_upload') return t('instructorPortal.fileUploadPlaceholderHint')
+  return t('instructorPortal.optionFocus')
+}
+
 export default function InstructorAssessmentAuthoring() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -87,6 +109,7 @@ export default function InstructorAssessmentAuthoring() {
   const [questionForm, setQuestionForm] = useState(defaultQuestionForm)
   const [questionBank, setQuestionBank] = useState([])
   const [activeTab, setActiveTab] = useState('manual')
+  const [assessmentFileUploading, setAssessmentFileUploading] = useState(false)
 
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
@@ -251,6 +274,8 @@ export default function InstructorAssessmentAuthoring() {
         randomize_from_bank: settings.randomize_from_bank ?? false,
         result_visibility: settings.result_visibility || 'after_window',
         late_policy: settings.late_policy || 'deduct_10_daily',
+        assessment_file_url: settings.assessment_file_url || '',
+        assessment_file_name: settings.assessment_file_name || '',
       })
 
       setExamQuestions(
@@ -302,6 +327,8 @@ export default function InstructorAssessmentAuthoring() {
           randomize_from_bank: !!examForm.randomize_from_bank,
           result_visibility: examForm.result_visibility,
           late_policy: examForm.late_policy,
+          assessment_file_url: examForm.assessment_file_url || null,
+          assessment_file_name: examForm.assessment_file_name || null,
         },
       }
 
@@ -346,25 +373,64 @@ export default function InstructorAssessmentAuthoring() {
     }
   }
 
+  const uploadAssessmentFile = async (file) => {
+    if (!file || !selectedClass) return
+    setAssessmentFileUploading(true)
+    try {
+      const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
+      const filePath = `assessments/class_${selectedClass.id}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from(SUPABASE_STORAGE_BUCKET).upload(filePath, file)
+      if (upErr) throw upErr
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from(SUPABASE_STORAGE_BUCKET).getPublicUrl(filePath)
+      setExamForm((p) => ({ ...p, assessment_file_url: publicUrl, assessment_file_name: file.name }))
+    } catch (err) {
+      console.error(err)
+      alert(t('common.error', 'Upload failed'))
+    } finally {
+      setAssessmentFileUploading(false)
+    }
+  }
+
   const addManualQuestion = () => {
     if (!questionForm.question_text.trim()) return
 
     const options = Array.isArray(questionForm.options) && questionForm.options.length > 0
       ? questionForm.options.map((o) => (typeof o === 'string' ? o.trim() : '')).filter(Boolean)
       : parseOptions(questionForm.options_text || '')
-    if ((questionForm.question_type === 'multiple_choice' || questionForm.question_type === 'true_false') && options.length === 0) return
+    if (questionForm.question_type === 'matching') {
+      // pairs live in question_text only
+    } else if (
+      (questionForm.question_type === 'multiple_choice' || questionForm.question_type === 'true_false') &&
+      options.length === 0
+    ) {
+      return
+    } else if (questionForm.question_type === 'order' && options.length < 2) {
+      return
+    }
+
+    const qt = questionForm.question_type
+    let correct_answers = []
+    if (qt === 'essay' || qt === 'short_answer') {
+      correct_answers = []
+    } else if (qt === 'order') {
+      correct_answers = options.map((_, i) => i)
+    } else if (qt === 'matching' || qt === 'fill_blank' || qt === 'numeric' || qt === 'file_upload') {
+      correct_answers = []
+    } else {
+      correct_answers = [Number(questionForm.correct_answer || 0)]
+    }
 
     setExamQuestions((prev) => [
       ...prev,
       {
         id: `tmp-${Date.now()}`,
         source: 'manual',
-        question_type: questionForm.question_type,
+        question_type: qt,
         question_text: questionForm.question_text.trim(),
         options,
-        correct_answers: (questionForm.question_type === 'essay' || questionForm.question_type === 'short_answer')
-          ? []
-          : [Number(questionForm.correct_answer || 0)],
+        correct_answers,
         marks: Number(questionForm.marks || 0),
       },
     ])
@@ -504,7 +570,14 @@ export default function InstructorAssessmentAuthoring() {
               <select
                 className="fc"
                 value={examForm.exam_type}
-                onChange={(e) => setExamForm((p) => ({ ...p, exam_type: e.target.value }))}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setExamForm((p) => ({
+                    ...p,
+                    exam_type: v,
+                    ...(v !== 'assignment' ? { assessment_file_url: '', assessment_file_name: '' } : {}),
+                  }))
+                }}
               >
                 {ASSESSMENT_TYPES.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -513,6 +586,39 @@ export default function InstructorAssessmentAuthoring() {
                 ))}
               </select>
             </div>
+            {examForm.exam_type === 'assignment' && (
+              <div className="fg">
+                <label className="fl">{t('instructorPortal.assignmentUploadFile')}</label>
+                <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>{t('instructorPortal.assignmentUploadHint')}</p>
+                <input
+                  type="file"
+                  className="fc"
+                  disabled={assessmentFileUploading || !selectedClass}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) uploadAssessmentFile(f)
+                    e.target.value = ''
+                  }}
+                />
+                {assessmentFileUploading && (
+                  <div style={{ fontSize: 13, marginTop: 8 }}>{t('instructorPortal.uploadingFile')}</div>
+                )}
+                {examForm.assessment_file_url && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                    <a href={examForm.assessment_file_url} target="_blank" rel="noopener noreferrer" className="btn btn-gh btn-sm">
+                      {examForm.assessment_file_name || t('instructorPortal.assignmentUploadFile')}
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn-err btn-sm"
+                      onClick={() => setExamForm((p) => ({ ...p, assessment_file_url: '', assessment_file_name: '' }))}
+                    >
+                      {t('instructorPortal.removeUploadedFile')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="fr">
               <div className="fg">
                 <label className="fl">{t('instructorPortal.totalMarks')}</label>
@@ -684,52 +790,86 @@ export default function InstructorAssessmentAuthoring() {
 
             {activeTab === 'manual' && (
               <>
-                <div className="q-card">
-                  <div className="q-card-hd">
-                    <div className="q-num">{examQuestions.length + 1}</div>
-                    <div style={{ flex: 1 }}>
+                <div className="qa-compose">
+                  <div className="qa-compose__title">{t('instructorPortal.composeQuestion')}</div>
+                  <div className="fr" style={{ marginBottom: 10, alignItems: 'flex-end' }}>
+                    <div className="fg" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+                      <label className="fl">{t('instructorPortal.questionType')}</label>
                       <select
                         className="fc"
-                        style={{ marginBottom: 8 }}
                         value={questionForm.question_type}
                         onChange={(e) => {
                           const newType = e.target.value
                           setQuestionForm((p) => {
                             const next = { ...p, question_type: newType }
-                            if (newType === 'true_false') next.options = [t('instructorPortal.trueLabel', 'True'), t('instructorPortal.falseLabel', 'False')]
-                            else if (!Array.isArray(p.options) || p.options.length === 0) next.options = [...defaultOptions]
+                            if (newType === 'true_false') {
+                              next.options = [t('instructorPortal.trueLabel', 'True'), t('instructorPortal.falseLabel', 'False')]
+                            } else if (newType === 'multiple_choice') {
+                              if (!Array.isArray(p.options) || p.options.length === 0) next.options = [...defaultOptions]
+                            } else if (newType === 'order') {
+                              next.options = [...DEFAULT_ORDER_ITEMS]
+                            } else {
+                              next.options = []
+                            }
                             next.correct_answer = 0
                             return next
                           })
                         }}
                       >
-                        <option value="multiple_choice">{t('instructorPortal.multipleChoice')}</option>
-                        <option value="true_false">{t('instructorPortal.trueFalse')}</option>
-                        <option value="essay">{t('instructorPortal.essay')}</option>
-                        <option value="short_answer">{t('instructorPortal.shortAnswer')}</option>
-                        <option value="matching">{t('instructorPortal.matching')}</option>
+                        {QUESTION_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {t(`instructorPortal.${opt.key}`)}
+                          </option>
+                        ))}
                       </select>
+                    </div>
+                    <div className="fg" style={{ marginBottom: 0, maxWidth: 100 }}>
+                      <label className="fl">{t('instructorPortal.totalMarks')}</label>
                       <input
-                        type="text"
+                        type="number"
                         className="fc"
-                        value={questionForm.question_text}
-                        onChange={(e) => setQuestionForm((p) => ({ ...p, question_text: e.target.value }))}
-                        placeholder={t('instructorPortal.optionFocus')}
+                        value={questionForm.marks}
+                        onChange={(e) => setQuestionForm((p) => ({ ...p, marks: Number(e.target.value) || 0 }))}
+                        min={0}
+                        aria-label={t('instructorPortal.totalMarks')}
                       />
                     </div>
-                    <input
-                      type="number"
-                      className="fc"
-                      value={questionForm.marks}
-                      onChange={(e) => setQuestionForm((p) => ({ ...p, marks: Number(e.target.value) || 0 }))}
-                      style={{ width: 70 }}
-                      aria-label={t('instructorPortal.totalMarks')}
-                    />
                   </div>
-                  {questionForm.question_type !== 'essay' && questionForm.question_type !== 'short_answer' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {usesLongQuestionPrompt(questionForm.question_type) ? (
+                    <textarea
+                      className="fc"
+                      rows={questionForm.question_type === 'matching' || questionForm.question_type === 'essay' ? 5 : 4}
+                      value={questionForm.question_text}
+                      onChange={(e) => setQuestionForm((p) => ({ ...p, question_text: e.target.value }))}
+                      placeholder={questionPromptPlaceholder(t, questionForm.question_type)}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      className="fc"
+                      value={questionForm.question_text}
+                      onChange={(e) => setQuestionForm((p) => ({ ...p, question_text: e.target.value }))}
+                      placeholder={t('instructorPortal.optionFocus')}
+                    />
+                  )}
+                  {(questionForm.question_type === 'fill_blank' ||
+                    questionForm.question_type === 'numeric' ||
+                    questionForm.question_type === 'file_upload') && (
+                    <div style={{ background: 'var(--bg)', borderRadius: 'var(--rs)', padding: 10, fontSize: 13, color: 'var(--muted)', marginTop: 10 }}>
+                      {questionForm.question_type === 'fill_blank' && t('instructorPortal.qbHintFillBlank')}
+                      {questionForm.question_type === 'numeric' && t('instructorPortal.qbHintNumeric')}
+                      {questionForm.question_type === 'file_upload' && t('instructorPortal.qbHintFileUpload')}
+                    </div>
+                  )}
+                  {questionForm.question_type === 'matching' && (
+                    <div style={{ background: 'var(--bg)', borderRadius: 'var(--rs)', padding: 10, fontSize: 13, color: 'var(--muted)', marginTop: 10 }}>
+                      {t('instructorPortal.qbHintMatching')}
+                    </div>
+                  )}
+                  {(questionForm.question_type === 'multiple_choice' || questionForm.question_type === 'true_false') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
                       {(Array.isArray(questionForm.options) ? questionForm.options : []).map((opt, i) => (
-                        <div key={i} className={`q-opt ${i === questionForm.correct_answer ? 'correct' : ''}`}>
+                        <div key={i} className={`q-opt q-opt--lite ${i === questionForm.correct_answer ? 'correct' : ''}`}>
                           <input
                             type="radio"
                             name="correct-q"
@@ -737,6 +877,38 @@ export default function InstructorAssessmentAuthoring() {
                             onChange={() => setQuestionForm((p) => ({ ...p, correct_answer: i }))}
                             aria-label={t('instructorPortal.correctAnswer', { index: i + 1 })}
                           />
+                          <input
+                            type="text"
+                            className="fc"
+                            value={typeof opt === 'string' ? opt : ''}
+                            onChange={(e) => updateOption(i, e.target.value)}
+                            placeholder={`${t('instructorPortal.optionLabel', 'Option')} ${i + 1}`}
+                            style={{ flex: 1, minWidth: 0 }}
+                          />
+                          {(Array.isArray(questionForm.options) ? questionForm.options : []).length > 2 &&
+                            questionForm.question_type === 'multiple_choice' && (
+                            <button
+                              type="button"
+                              className="btn btn-gh btn-sm"
+                              onClick={() => removeOption(i)}
+                              aria-label={t('instructorPortal.removeOption', 'Remove option')}
+                              style={{ padding: '4px 8px' }}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {questionForm.question_type === 'order' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+                      <div className="fl" style={{ fontSize: 12, color: 'var(--muted)' }}>
+                        {t('instructorPortal.orderOptionsHint')}
+                      </div>
+                      {(Array.isArray(questionForm.options) ? questionForm.options : []).map((opt, i) => (
+                        <div key={i} className="q-opt q-opt--lite">
+                          <span style={{ minWidth: 28, fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>{i + 1}</span>
                           <input
                             type="text"
                             className="fc"
@@ -760,15 +932,24 @@ export default function InstructorAssessmentAuthoring() {
                       ))}
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                    <button type="button" className="btn btn-gh btn-sm" onClick={addOption}>
-                      + {t('instructorPortal.addOption')}
-                    </button>
-                    <button type="button" className="btn btn-err btn-sm" onClick={() => setQuestionForm(getDefaultQuestionForm())}>
-                      {t('instructorPortal.deleteQuestion')}
+                  {questionForm.question_type === 'essay' || questionForm.question_type === 'short_answer' ? (
+                    <div style={{ background: 'var(--bg)', borderRadius: 'var(--rs)', padding: 10, fontSize: 13, color: 'var(--muted)', marginTop: 10 }}>
+                      {t('instructorPortal.essayRequiresManual')}
+                    </div>
+                  ) : null}
+                  <div className="qa-compose__actions">
+                    {(questionForm.question_type === 'multiple_choice' ||
+                      questionForm.question_type === 'true_false' ||
+                      questionForm.question_type === 'order') && (
+                      <button type="button" className="btn btn-gh btn-sm" onClick={addOption}>
+                        + {t('instructorPortal.addOption')}
+                      </button>
+                    )}
+                    <button type="button" className="btn btn-gh btn-sm" onClick={() => setQuestionForm(getDefaultQuestionForm())}>
+                      {t('instructorPortal.clearQuestionForm')}
                     </button>
                     <button type="button" className="btn btn-p btn-sm" onClick={addManualQuestion}>
-                      {t('instructorPortal.addNewQuestion')}
+                      {t('instructorPortal.addToAssessment')}
                     </button>
                   </div>
                 </div>
@@ -795,41 +976,72 @@ export default function InstructorAssessmentAuthoring() {
 
             {examQuestions.length > 0 && (
               <>
+                <div className="qa-section-label">
+                  {t('instructorPortal.questionsInAssessment', { count: examQuestions.length })}
+                </div>
                 {examQuestions.map((q, idx) => (
-                  <div key={`${q.id}-${idx}`} className="q-card" style={{ marginTop: 12 }}>
-                    <div className="q-card-hd">
+                  <div key={`${q.id}-${idx}`} className="q-card">
+                    <div className="q-card-hd" style={{ alignItems: 'flex-start' }}>
                       <div className="q-num">{idx + 1}</div>
-                      <div style={{ flex: 1 }}>
-                        <select className="fc" style={{ marginBottom: 8 }} value={q.question_type} readOnly disabled>
-                          <option>{q.question_type}</option>
-                        </select>
-                        <div className="q-text">{q.question_text}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="qa-qmeta">
+                          <span className="qa-qmeta__badge">{questionTypeLabel(t, q.question_type)}</span>
+                          <span className="qa-qmeta__marks">
+                            {q.marks} {t('instructorPortal.pts')}
+                          </span>
+                        </div>
+                        <div
+                          className="q-text"
+                          style={q.question_type === 'matching' ? { whiteSpace: 'pre-wrap' } : undefined}
+                        >
+                          {q.question_text}
+                        </div>
                       </div>
-                      <span style={{ fontWeight: 700 }}>{q.marks}</span>
-                      <button type="button" className="btn btn-err btn-sm" onClick={() => removeQuestion(idx)}>
-                        {t('instructorPortal.deleteQuestion')}
+                      <button type="button" className="btn btn-err btn-sm shrink-0" onClick={() => removeQuestion(idx)}>
+                        {t('instructorPortal.removeFromAssessment')}
                       </button>
                     </div>
-                    {Array.isArray(q.options) && q.options.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {q.question_type === 'order' && Array.isArray(q.options) && q.options.length > 0 && (
+                      <div className="qa-answer-preview" style={{ marginTop: 10 }}>
                         {q.options.map((opt, oi) => (
-                          <div key={oi} className={`q-opt ${q.correct_answers?.includes(oi) ? 'correct' : ''}`}>
-                            <input type="radio" disabled checked={q.correct_answers?.includes(oi)} />
-                            {opt}
+                          <div key={oi} className="qa-answer-preview__row">
+                            <span className="qa-answer-preview__badge">{oi + 1}</span>
+                            <span>{opt}</span>
                           </div>
                         ))}
                       </div>
                     )}
-                    {q.question_type === 'essay' && (
-                      <div style={{ background: 'var(--bg)', borderRadius: 'var(--rs)', padding: 10, fontSize: 13, color: 'var(--muted)' }}>
+                    {(q.question_type === 'multiple_choice' || q.question_type === 'true_false') &&
+                      Array.isArray(q.options) &&
+                      q.options.length > 0 && (
+                        <div className="qa-answer-preview">
+                          {q.options.map((opt, oi) => (
+                            <div
+                              key={oi}
+                              className={`qa-answer-preview__row ${q.correct_answers?.includes(oi) ? 'is-correct' : ''}`}
+                            >
+                              <span className="qa-answer-preview__badge">{String.fromCharCode(65 + oi)}</span>
+                              <span>{opt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    {(q.question_type === 'essay' || q.question_type === 'short_answer') && (
+                      <div
+                        style={{
+                          background: 'var(--bg)',
+                          borderRadius: 'var(--rs)',
+                          padding: 10,
+                          fontSize: 13,
+                          color: 'var(--muted)',
+                          marginTop: 10,
+                        }}
+                      >
                         {t('instructorPortal.essayRequiresManual')}
                       </div>
                     )}
                   </div>
                 ))}
-                <Link to="#" className="btn btn-out btn-bl" style={{ marginTop: 8 }}>
-                  + {t('instructorPortal.addNewQuestion')}
-                </Link>
               </>
             )}
           </div>
