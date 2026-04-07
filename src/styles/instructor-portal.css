@@ -561,6 +561,9 @@
 .instructor-portal .prog-fill.ok {
   background: var(--ok);
 }
+.instructor-portal .prog-fill.info {
+  background: var(--info);
+}
 .instructor-portal .prog-fill.warn {
   background: #d97706;
 }
@@ -805,6 +808,18 @@
   gap: 18px;
 }
 
+.instructor-portal .fr3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .instructor-portal .fr3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Table */
 .instructor-portal .tw {
   overflow-x: auto;
@@ -843,6 +858,26 @@
 .instructor-portal .tw tbody td {
   padding: 12px 16px;
   vertical-align: middle;
+}
+
+/* Interactive controls inside data tables (release schedule, etc.) */
+.instructor-portal .tw tbody td select.fc,
+.instructor-portal .tw tbody td input.fc:not(:disabled) {
+  background: var(--sur);
+  color: var(--txt);
+  opacity: 1;
+  max-width: 100%;
+}
+.instructor-portal .tw tbody td select.fc {
+  cursor: pointer;
+}
+.instructor-portal .tw tbody td input.fc:not(:disabled) {
+  cursor: text;
+}
+.instructor-portal .tw tbody td .cr-cell-muted {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 /* Lesson builder blocks */

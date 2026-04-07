@@ -209,7 +209,7 @@ export default function InstructorCurriculumMap({ embedded = false, embedClassId
             <div className="ph-acts">
               {classSelector}
               <Link to={`/instructor/build-lessons?classId=${selectedClassId || ''}`} className="btn btn-p">
-                + {t('instructorPortal.buildLesson')}
+                + {t('instructorPortal.addLessonContent')}
               </Link>
             </div>
           </div>

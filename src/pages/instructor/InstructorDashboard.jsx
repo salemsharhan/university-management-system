@@ -155,7 +155,7 @@ export default function InstructorDashboard() {
             <p className="ph-sub">{semesterLabel ? `${semesterLabel} — ` : ''}{t('instructorPortal.lastLoginToday')}</p>
           </div>
           <div className="ph-acts">
-            <Link to="/instructor/build-lessons" className="btn btn-p">✏️ {t('instructorPortal.createNewLesson')}</Link>
+            <Link to="/instructor/build-lessons" className="btn btn-p">✏️ {t('instructorPortal.navLessonContent')}</Link>
             <Link to="/instructor/assessments" className="btn btn-a">📝 {t('instructorPortal.createAssessment')}</Link>
           </div>
         </div>

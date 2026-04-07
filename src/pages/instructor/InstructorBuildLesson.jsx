@@ -38,11 +38,14 @@ function createElement(type) {
   }
 }
 
-export default function InstructorBuildLesson({ embedded = false, embedClassId = null } = {}) {
+/** @param {'instructor'|'admin'} variant — admin: create lessons + metadata; instructor: elements only */
+export default function InstructorBuildLesson({ embedded = false, embedClassId = null, variant = 'instructor' } = {}) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { language } = useLanguage()
   const [searchParams, setSearchParams] = useSearchParams()
+  const isAdmin = variant === 'admin'
+  const elementsOnly = !isAdmin
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -64,21 +67,14 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
 
   useEffect(() => {
     if (!user?.email) return
-    loadInstructorClasses()
-  }, [user?.email])
+    if (isAdmin) loadAdminClasses()
+    else loadInstructorClasses()
+  }, [user?.email, isAdmin])
 
   useEffect(() => {
     if (!selectedClassId) return
-    if (!embedded) {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev)
-        next.set('classId', String(selectedClassId))
-        if (selectedLessonId) next.set('lessonId', String(selectedLessonId))
-        return next
-      })
-    }
     loadClassData(selectedClassId)
-  }, [selectedClassId, embedded, selectedLessonId])
+  }, [selectedClassId, embedded, searchParams])
 
   useEffect(() => {
     if (!selectedLessonId) {
@@ -126,6 +122,30 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
     }
   }
 
+  const loadAdminClasses = async () => {
+    setLoading(true)
+    try {
+      const { data: cls } = await supabase
+        .from('classes')
+        .select('id, section, subject_id, subjects(id, code, name_en, name_ar)')
+        .eq('status', 'active')
+        .order('id', { ascending: false })
+        .limit(500)
+
+      const list = cls || []
+      setClasses(list)
+
+      const classIdFromQuery = embedded && embedClassId ? embedClassId : Number(searchParams.get('classId'))
+      const initialClassId = list.find((c) => c.id === classIdFromQuery)?.id || list[0]?.id || null
+      setSelectedClassId(initialClassId)
+
+      if (!initialClassId) setLoading(false)
+    } catch (err) {
+      console.error(err)
+      setLoading(false)
+    }
+  }
+
   const loadClassData = async (classId) => {
     try {
       const currentClass = classes.find((c) => c.id === classId)
@@ -155,9 +175,19 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
       setClos(closData || [])
       setLessons(lessonsData || [])
 
-      const lessonIdFromQuery = Number(searchParams.get('lessonId'))
-      const nextLesson = (lessonsData || []).find((l) => l.id === lessonIdFromQuery)
-      setSelectedLessonId(nextLesson?.id || null)
+      const rawLesson = searchParams.get('lessonId')
+      const lessonIdFromQuery =
+        rawLesson != null && rawLesson !== '' && !Number.isNaN(Number(rawLesson)) ? Number(rawLesson) : null
+      const nextLesson = lessonIdFromQuery != null ? (lessonsData || []).find((l) => l.id === lessonIdFromQuery) : null
+      setSelectedLessonId(nextLesson?.id ?? null)
+
+      if (lessonIdFromQuery != null && !nextLesson && !embedded) {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('lessonId')
+          return next
+        }, { replace: true })
+      }
 
       if (!nextLesson) {
         setLessonForm(emptyLesson)
@@ -205,6 +235,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
   }
 
   const handleAddElement = (type) => {
+    if (elementsOnly && !selectedLessonId) return
     setElements((prev) => [...prev, createElement(type)])
   }
 
@@ -252,7 +283,39 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
     }
   }
 
+  const saveLessonElementsOnly = async () => {
+    if (!selectedClass || !selectedLessonId) return
+
+    setSaving(true)
+    try {
+      await supabase.from('class_lesson_elements').delete().eq('lesson_id', selectedLessonId)
+      if (elements.length) {
+        const rows = elements.map((el, index) => ({
+          lesson_id: selectedLessonId,
+          element_type: el.element_type,
+          title: el.title || null,
+          content: el.content || {},
+          display_order: index,
+        }))
+        const { error } = await supabase.from('class_lesson_elements').insert(rows)
+        if (error) throw error
+      }
+      await supabase
+        .from('class_lessons')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', selectedLessonId)
+      await loadLesson(selectedLessonId)
+      alert(t('instructorPortal.saveLessonContentDone', 'Lesson content saved.'))
+    } catch (err) {
+      console.error(err)
+      alert(t('common.error', 'Error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const saveLesson = async (publish = false) => {
+    if (elementsOnly) return
     if (!selectedClass || !lessonForm.title.trim()) return
 
     setSaving(true)
@@ -288,6 +351,14 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
         if (error) throw error
         lessonId = data.id
         setSelectedLessonId(lessonId)
+        if (!embedded) {
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.set('classId', String(selectedClass.id))
+            next.set('lessonId', String(lessonId))
+            return next
+          }, { replace: true })
+        }
       }
 
       await supabase.from('class_lesson_clos').delete().eq('lesson_id', lessonId)
@@ -332,42 +403,82 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
       {!embedded && (
         <>
           <nav className="bc" aria-label={t('instructorPortal.curriculumMap')}>
-            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <Link to="/dashboard">{t('navigation.dashboard')}</Link>
             <span className="bc-sep">&rsaquo;</span>
-            <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
-            <span className="bc-sep">&rsaquo;</span>
-            <span>{t('instructorPortal.buildLesson')}</span>
+            {isAdmin ? (
+              <>
+                <Link to="/admin/colleges">{t('navigation.colleges')}</Link>
+                <span className="bc-sep">&rsaquo;</span>
+              </>
+            ) : (
+              <>
+                <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+                <span className="bc-sep">&rsaquo;</span>
+                <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
+                <span className="bc-sep">&rsaquo;</span>
+              </>
+            )}
+            <span>{isAdmin ? t('navigation.buildLessonsAdmin') : t('instructorPortal.lessonContentOnlyTitle')}</span>
           </nav>
 
           <div className="ph">
             <div>
-              <h1>{t('instructorPortal.buildInteractiveLesson')}</h1>
+              <h1>{isAdmin ? t('instructorPortal.buildInteractiveLesson') : t('instructorPortal.lessonContentOnlyTitle')}</h1>
               <p className="ph-sub">
-                {selectedClass?.subjects?.code || '-'} -{' '}
-                {t('instructorPortal.unitLessonSubtitle', {
-                  unit: lessonForm.unit_number || 1,
-                  lesson: lessonForm.lesson_number || 1,
-                  title: lessonForm.title || '',
-                })}
+                {isAdmin ? (
+                  <>
+                    {selectedClass?.subjects?.code || '-'} -{' '}
+                    {t('instructorPortal.unitLessonSubtitle', {
+                      unit: lessonForm.unit_number || 1,
+                      lesson: lessonForm.lesson_number || 1,
+                      title: lessonForm.title || '',
+                    })}
+                  </>
+                ) : (
+                  t('instructorPortal.lessonContentOnlySubtitle')
+                )}
               </p>
             </div>
             <div className="ph-acts" style={{ gap: 8 }}>
-              <span
-                data-status={lessonForm.status === 'published' ? 'active' : 'draft'}
-                className="badge"
-                style={{ fontSize: 13, padding: '6px 14px' }}
-              >
-                {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
-              </span>
-              <Link
-                to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
-                className="btn btn-gh"
-              >
-                {t('instructorPortal.preview')}
-              </Link>
-              <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>
-                {t('instructorPortal.publishLesson')}
-              </button>
+              {isAdmin && (
+                <>
+                  <span
+                    data-status={lessonForm.status === 'published' ? 'active' : 'draft'}
+                    className="badge"
+                    style={{ fontSize: 13, padding: '6px 14px' }}
+                  >
+                    {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
+                  </span>
+                  <Link
+                    to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
+                    className="btn btn-gh"
+                  >
+                    {t('instructorPortal.preview')}
+                  </Link>
+                  <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>
+                    {t('instructorPortal.publishLesson')}
+                  </button>
+                </>
+              )}
+              {elementsOnly && (
+                <>
+                  <Link
+                    to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
+                    className={`btn btn-gh${!selectedLessonId ? ' disabled' : ''}`}
+                    style={!selectedLessonId ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
+                  >
+                    {t('instructorPortal.preview')}
+                  </Link>
+                  <button
+                    type="button"
+                    className="btn btn-ok"
+                    onClick={() => saveLessonElementsOnly()}
+                    disabled={saving || !selectedLessonId}
+                  >
+                    {t('instructorPortal.saveLessonContent')}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </>
@@ -376,28 +487,36 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
       {embedded && (
         <div className="ph" style={{ marginBottom: 16 }}>
           <div>
-            <h1 style={{ fontSize: 20 }}>{t('instructorPortal.buildInteractiveLesson')}</h1>
+            <h1 style={{ fontSize: 20 }}>{t('instructorPortal.lessonContentOnlyTitle')}</h1>
             <p className="ph-sub">
               {selectedClass?.subjects?.code || '-'} — {t('instructorPortal.section')}{' '}
               {selectedClass?.section}
             </p>
           </div>
           <div className="ph-acts" style={{ gap: 8 }}>
-            <span
-              data-status={lessonForm.status === 'published' ? 'active' : 'draft'}
-              className="badge"
-              style={{ fontSize: 13, padding: '6px 14px' }}
-            >
-              {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
-            </span>
+            {selectedLessonId && (
+              <span
+                data-status={lessonForm.status === 'published' ? 'active' : 'draft'}
+                className="badge"
+                style={{ fontSize: 13, padding: '6px 14px' }}
+              >
+                {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
+              </span>
+            )}
             <Link
               to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
-              className="btn btn-gh"
+              className={`btn btn-gh${!selectedLessonId ? ' disabled' : ''}`}
+              style={!selectedLessonId ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
             >
               {t('instructorPortal.preview')}
             </Link>
-            <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>
-              {t('instructorPortal.publishLesson')}
+            <button
+              type="button"
+              className="btn btn-ok"
+              onClick={() => saveLessonElementsOnly()}
+              disabled={saving || !selectedLessonId}
+            >
+              {t('instructorPortal.saveLessonContent')}
             </button>
           </div>
         </div>
@@ -407,7 +526,22 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
         <div className="fr">
           <div className="fg">
             <label className="fl">{t('instructorPortal.courseName')}</label>
-            <select className="fc" value={selectedClassId || ''} onChange={(e) => setSelectedClassId(Number(e.target.value))}>
+            <select
+              className="fc"
+              value={selectedClassId || ''}
+              onChange={(e) => {
+                const id = Number(e.target.value)
+                setSelectedClassId(id)
+                if (!embedded) {
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev)
+                    next.set('classId', String(id))
+                    next.delete('lessonId')
+                    return next
+                  }, { replace: true })
+                }
+              }}
+            >
               {classes.map((cls) => (
                 <option key={cls.id} value={cls.id}>
                   {cls.subjects?.code} - {getLocalizedName(cls.subjects, language === 'ar')} ({t('instructorPortal.section')} {cls.section})
@@ -417,8 +551,28 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
           </div>
           <div className="fg">
             <label className="fl">{t('instructorPortal.lesson', 'Lesson')}</label>
-            <select className="fc" value={selectedLessonId || ''} onChange={(e) => setSelectedLessonId(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">{t('common.new', 'New')}</option>
+            <select
+              className="fc"
+              value={selectedLessonId || ''}
+              onChange={(e) => {
+                const v = e.target.value ? Number(e.target.value) : null
+                setSelectedLessonId(v)
+                if (!embedded) {
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev)
+                    next.set('classId', String(selectedClassId))
+                    if (v) next.set('lessonId', String(v))
+                    else next.delete('lessonId')
+                    return next
+                  }, { replace: true })
+                }
+              }}
+            >
+              {isAdmin ? (
+                <option value="">{t('common.new', 'New')}</option>
+              ) : (
+                <option value="">{t('instructorPortal.selectLessonPlaceholder')}</option>
+              )}
               {lessons.map((l) => (
                 <option key={l.id} value={l.id}>
                   U{l.unit_number} L{l.lesson_number} - {l.title}
@@ -429,8 +583,21 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
         </div>
       </div>
 
+      {elementsOnly && lessons.length === 0 && selectedClassId && (
+        <div className="card" style={{ marginBottom: 16, color: 'var(--muted)' }}>
+          {t('instructorPortal.noLessonsContactAdmin')}
+        </div>
+      )}
+
+      {elementsOnly && !selectedLessonId && lessons.length > 0 && (
+        <div className="card" style={{ marginBottom: 16, color: 'var(--muted)' }}>
+          {t('instructorPortal.selectLessonToEditElements')}
+        </div>
+      )}
+
       <div className="grid2" style={{ alignItems: 'flex-start' }}>
         <div>
+          {isAdmin && (
           <div className="card">
             <div className="card-hd"><div className="card-title">{t('instructorPortal.lessonInformation')}</div></div>
             <div className="fg">
@@ -506,12 +673,20 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
               </div>
             </div>
           </div>
+          )}
 
           <div className="card">
             <div className="card-hd"><div className="card-title">{t('instructorPortal.addLessonElement')}</div></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {ELEMENT_TYPES.map((el) => (
-                <button key={el.key} type="button" className="btn btn-gh btn-bl" style={{ padding: 14, flexDirection: 'column', gap: 4, height: 'auto' }} onClick={() => handleAddElement(el.key)}>
+                <button
+                  key={el.key}
+                  type="button"
+                  className="btn btn-gh btn-bl"
+                  style={{ padding: 14, flexDirection: 'column', gap: 4, height: 'auto' }}
+                  disabled={elementsOnly && !selectedLessonId}
+                  onClick={() => handleAddElement(el.key)}
+                >
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{el.icon}</span>
                   <span style={{ fontSize: 13 }}>{el.label}</span>
                 </button>
@@ -637,9 +812,37 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
             {elements.length === 0 && <div style={{ color: 'var(--muted)' }}>{t('instructorPortal.noData', 'No data available')}</div>}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-              <button type="button" className="btn btn-gh" onClick={() => saveLesson(false)} disabled={saving}>{t('instructorPortal.saveDraft')}</button>
-              <Link to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`} className="btn btn-out">{t('instructorPortal.preview')}</Link>
-              <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>{t('instructorPortal.publishLesson')}</button>
+              {isAdmin ? (
+                <>
+                  <button type="button" className="btn btn-gh" onClick={() => saveLesson(false)} disabled={saving}>
+                    {t('instructorPortal.saveDraft')}
+                  </button>
+                  <Link to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`} className="btn btn-out">
+                    {t('instructorPortal.preview')}
+                  </Link>
+                  <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>
+                    {t('instructorPortal.publishLesson')}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-ok"
+                    onClick={() => saveLessonElementsOnly()}
+                    disabled={saving || !selectedLessonId}
+                  >
+                    {t('instructorPortal.saveLessonContent')}
+                  </button>
+                  <Link
+                    to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
+                    className={`btn btn-out${!selectedLessonId ? ' disabled' : ''}`}
+                    style={!selectedLessonId ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
+                  >
+                    {t('instructorPortal.preview')}
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

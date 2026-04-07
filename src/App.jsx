@@ -73,6 +73,7 @@ import CreateApplication from './pages/admissions/CreateApplication'
 import ViewApplication from './pages/admissions/ViewApplication'
 import UniversitySettings from './pages/admin/UniversitySettings'
 import AdminCurriculumMap from './pages/admin/AdminCurriculumMap'
+import AdminBuildLesson from './pages/admin/AdminBuildLesson'
 import GradeManagement from './pages/grading/GradeManagement'
 import ClassGrades from './pages/grading/ClassGrades'
 import StudentGrades from './pages/grading/StudentGrades'
@@ -91,6 +92,8 @@ import StudentComingSoon from './pages/student/StudentComingSoon'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
 import InstructorDashboard from './pages/instructor/InstructorDashboard'
 import InstructorMyCourses from './pages/instructor/InstructorMyCourses'
+import InstructorCourseAnalytics from './pages/instructor/InstructorCourseAnalytics'
+import InstructorCommunication from './pages/instructor/InstructorCommunication'
 import InstructorCurriculumMap from './pages/instructor/InstructorCurriculumMap'
 import InstructorBuildLesson from './pages/instructor/InstructorBuildLesson'
 import InstructorLessonPreview from './pages/instructor/InstructorLessonPreview'
@@ -414,6 +417,16 @@ function App() {
               <ProtectedRoute allowedRoles={['admin', 'user']}>
                 <RoleBasedLayout>
                   <AdminCurriculumMap />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/build-lessons"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <AdminBuildLesson />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }
@@ -941,6 +954,26 @@ function App() {
             }
           />
           <Route
+            path="/instructor/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorCourseAnalytics />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/communication"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorCommunication />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/instructor/curriculum-map"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
@@ -963,7 +996,7 @@ function App() {
           <Route
             path="/instructor/lesson-preview"
             element={
-              <ProtectedRoute allowedRoles={['instructor']}>
+              <ProtectedRoute allowedRoles={['instructor', 'admin', 'user']}>
                 <RoleBasedLayout>
                   <InstructorLessonPreview />
                 </RoleBasedLayout>

@@ -418,7 +418,7 @@ export default function InstructorMyCourses() {
                   <Link to={`/instructor/gradebook?classId=${cls.id}`} className="btn btn-gh btn-sm">
                     {t('instructorPortal.grades')}
                   </Link>
-                  <Link to={`/instructor/subjects/${cls.subject_id}`} className="btn btn-gh btn-sm">
+                  <Link to={`/instructor/analytics?classId=${cls.id}`} className="btn btn-gh btn-sm">
                     {t('instructorPortal.analytics')}
                   </Link>
                 </div>

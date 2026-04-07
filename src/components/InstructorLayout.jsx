@@ -10,7 +10,7 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.dashboard', href: '/instructor/dashboard', icon: '🏠' },
   { translationKey: 'instructorPortal.myCourses', href: '/instructor/courses', icon: '📚' },
   { translationKey: 'instructorPortal.curriculumMap', href: '/instructor/curriculum-map', icon: '🗺️' },
-  { translationKey: 'instructorPortal.buildLessons', href: '/instructor/build-lessons', icon: '✏️' },
+  { translationKey: 'instructorPortal.navLessonContent', href: '/instructor/build-lessons', icon: '✏️' },
   { translationKey: 'instructorPortal.contentRelease', href: '/instructor/content-release', icon: '📅' },
   { translationKey: 'instructorPortal.templates', href: '/instructor/templates', icon: '📋' },
   { translationKey: 'instructorPortal.questionBank', href: '/instructor/question-bank', icon: '🗃️' },
@@ -21,6 +21,8 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.integritySettings', href: '/instructor/integrity-settings', icon: '🔒' },
   { translationKey: 'instructorPortal.gradebook', href: '/instructor/gradebook', icon: '📊' },
   { translationKey: 'instructorPortal.submitFinalGrades', href: '/instructor/grade-submission', icon: '✅' },
+  { translationKey: 'instructorPortal.analyticsAndEngagement', href: '/instructor/analytics', icon: '📈' },
+  { translationKey: 'instructorPortal.communicationNav', href: '/instructor/communication', icon: '💬' },
 ]
 
 export default function InstructorLayout({ children }) {
@@ -53,6 +55,9 @@ export default function InstructorLayout({ children }) {
 
   const getPageTitle = () => {
     const path = location.pathname
+    if (path === '/instructor/communication') {
+      return t('instructorPortal.communicationPageTopbarTitle')
+    }
     const current = instructorNavigation.find((n) => path === n.href || (n.href !== '/instructor/dashboard' && path.startsWith(n.href)))
     return current ? t(current.translationKey) : t('instructorPortal.dashboard')
   }

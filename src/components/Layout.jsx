@@ -100,6 +100,7 @@ const navigation = [
     submenu: [
       { name: 'All Colleges', translationKey: 'navigation.allColleges', href: '/admin/colleges' },
       { name: 'University Settings', translationKey: 'navigation.universitySettings', href: '/admin/university-settings' },
+      { name: 'Build lessons', translationKey: 'navigation.buildLessonsAdmin', href: '/admin/build-lessons' },
     ]
   },
   { name: 'Academic Years', translationKey: 'navigation.academicYears', href: '/academic/years', icon: CalendarDays, roles: ['admin', 'user'] },
