@@ -20,7 +20,11 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
     meeting_date: '',
     meeting_time: '',
     meeting_duration_minutes: 60,
-    send_invites: true
+    send_invites: true,
+    /** 'one_time' | 'recurring_weekly' */
+    schedule_type: 'one_time',
+    recurrence_day: 'monday',
+    recurrence_end_date: '',
   })
 
   useEffect(() => {
@@ -67,6 +71,31 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         parseInt(formData.meeting_duration_minutes)
       )
 
+      let recurrence = undefined
+      if (formData.schedule_type === 'recurring_weekly') {
+        if (!formData.recurrence_end_date) {
+          throw new Error(t('instructorPortal.teamsRecurrenceEndRequired'))
+        }
+        const startD = formData.meeting_date
+        const endD = formData.recurrence_end_date
+        if (new Date(endD) < new Date(startD)) {
+          throw new Error(t('instructorPortal.teamsRecurrenceEndBeforeStart'))
+        }
+        const day = String(formData.recurrence_day || 'monday').toLowerCase()
+        recurrence = {
+          pattern: {
+            type: 'weekly',
+            interval: 1,
+            daysOfWeek: [day],
+          },
+          range: {
+            type: 'endDate',
+            startDate: startD,
+            endDate: endD,
+          },
+        }
+      }
+
       // Get enrolled students for this class to send invites
       const { data: enrollments } = await supabase
         .from('enrollments')
@@ -92,7 +121,8 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         startDateTime,
         endDateTime,
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-        attendees
+        attendees,
+        recurrence,
       })
 
       if (!teamsMeeting.joinUrl) {
@@ -100,6 +130,15 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
       }
 
       // Save to database
+      const recurrencePatternJson =
+        formData.schedule_type === 'recurring_weekly'
+          ? JSON.stringify({
+              type: 'weekly',
+              day: formData.recurrence_day,
+              endDate: formData.recurrence_end_date,
+            })
+          : null
+
       const { data: savedMeeting, error: saveError } = await supabase
         .from('class_teams_meetings')
         .insert({
@@ -113,7 +152,9 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
           teams_meeting_id: teamsMeeting.meetingId,
           teams_join_url: teamsMeeting.joinUrl,
           teams_organizer_email: instructorEmail,
-          teams_event_id: teamsMeeting.eventId
+          teams_event_id: teamsMeeting.eventId,
+          is_recurring: formData.schedule_type === 'recurring_weekly',
+          recurrence_pattern: recurrencePatternJson,
         })
         .select()
         .single()
@@ -128,7 +169,10 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         meeting_date: '',
         meeting_time: '',
         meeting_duration_minutes: 60,
-        send_invites: true
+        send_invites: true,
+        schedule_type: 'one_time',
+        recurrence_day: 'monday',
+        recurrence_end_date: '',
       })
       fetchMeetings()
     } catch (err) {
@@ -238,7 +282,14 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
             <div key={meeting.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 mb-2">{meeting.meeting_title}</h4>
+                  <h4 className="font-semibold text-gray-900 mb-2 flex flex-wrap items-center gap-2">
+                    {meeting.meeting_title}
+                    {meeting.is_recurring && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                        {t('instructorPortal.teamsRecurringBadge')}
+                      </span>
+                    )}
+                  </h4>
                   {meeting.meeting_description && (
                     <p className="text-sm text-gray-600 mb-3">{meeting.meeting_description}</p>
                   )}
@@ -323,10 +374,64 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                 />
               </div>
 
+              <div>
+                <span className="block text-sm font-medium text-gray-700 mb-2">{t('instructorPortal.teamsScheduleType')}</span>
+                <div className="flex flex-wrap gap-4">
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="schedule_type"
+                      checked={formData.schedule_type === 'one_time'}
+                      onChange={() => setFormData({ ...formData, schedule_type: 'one_time' })}
+                    />
+                    {t('instructorPortal.teamsOneTime')}
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="schedule_type"
+                      checked={formData.schedule_type === 'recurring_weekly'}
+                      onChange={() => setFormData({ ...formData, schedule_type: 'recurring_weekly' })}
+                    />
+                    {t('instructorPortal.teamsRecurringWeekly')}
+                  </label>
+                </div>
+              </div>
+
+              {formData.schedule_type === 'recurring_weekly' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('instructorPortal.teamsRecurrenceDay')}</label>
+                    <select
+                      value={formData.recurrence_day}
+                      onChange={(e) => setFormData({ ...formData, recurrence_day: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].map((d) => (
+                        <option key={d} value={d}>
+                          {t(`instructorPortal.weekday.${d}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t('instructorPortal.teamsRecurrenceUntil')}</label>
+                    <input
+                      type="date"
+                      value={formData.recurrence_end_date}
+                      onChange={(e) => setFormData({ ...formData, recurrence_end_date: e.target.value })}
+                      min={formData.meeting_date || new Date().toISOString().split('T')[0]}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date *
+                    {formData.schedule_type === 'recurring_weekly' ? t('instructorPortal.teamsFirstSessionDate') : t('instructorPortal.teamsDateLabel')}
+                    {' *'}
                   </label>
                   <input
                     type="date"

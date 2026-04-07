@@ -12,12 +12,12 @@ import {
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
 
-export default function InstructorGradebook() {
+export default function InstructorGradebook({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { language } = useLanguage()
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
-  const classIdParam = searchParams.get('classId')
+  const classIdParam = embedded && embedClassId != null ? String(embedClassId) : searchParams.get('classId')
 
   const [loading, setLoading] = useState(true)
   const [instructor, setInstructor] = useState(null)
@@ -240,49 +240,77 @@ export default function InstructorGradebook() {
 
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.dashboard')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to={`/instructor/gradebook${selectedClassId ? `?classId=${selectedClassId}` : ''}`}>
-          {subjectCode || t('instructorPortal.gradebook')}
-        </Link>
-        <span className="bc-sep">›</span>
-        <span>{t('instructorPortal.gradebook')}</span>
-      </nav>
+      {!embedded && (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.dashboard')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">›</span>
+            <Link to={`/instructor/gradebook${selectedClassId ? `?classId=${selectedClassId}` : ''}`}>
+              {subjectCode || t('instructorPortal.gradebook')}
+            </Link>
+            <span className="bc-sep">›</span>
+            <span>{t('instructorPortal.gradebook')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.gradebook')}</h1>
-          <p className="ph-sub">
-            {subjectCode} — {semesterLabel} | {t('instructorPortal.studentsCount', { count: enrollments.length })}
-          </p>
+          <div className="ph">
+            <div>
+              <h1>{t('instructorPortal.gradebook')}</h1>
+              <p className="ph-sub">
+                {subjectCode} — {semesterLabel} | {t('instructorPortal.studentsCount', { count: enrollments.length })}
+              </p>
+            </div>
+            <div className="ph-acts">
+              {classes.length > 1 && (
+                <select
+                  className="fc"
+                  style={{ width: 'auto' }}
+                  value={selectedClassId || ''}
+                  onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button type="button" className="btn btn-gh" disabled>
+                📥 {t('instructorPortal.exportExcel')}
+              </button>
+              <Link
+                to={`/instructor/grade-submission${selectedClassId ? `?classId=${selectedClassId}` : ''}`}
+                className="btn btn-p"
+              >
+                📤 {t('instructorPortal.submitGradesToRecord')}
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
+      {embedded && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-hd">
+            <div className="card-title">{t('instructorPortal.gradebook')}</div>
+            {classes.length > 1 ? (
+              <select
+                className="fc"
+                style={{ width: 'auto' }}
+                value={selectedClassId || ''}
+                onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+              >
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="ts">{subjectCode}</span>
+            )}
+          </div>
         </div>
-        <div className="ph-acts">
-          {classes.length > 1 && (
-            <select
-              className="fc"
-              style={{ width: 'auto' }}
-              value={selectedClassId || ''}
-              onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
-            >
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
-                </option>
-              ))}
-            </select>
-          )}
-          <button type="button" className="btn btn-gh" disabled>
-            📥 {t('instructorPortal.exportExcel')}
-          </button>
-          <Link
-            to={`/instructor/grade-submission${selectedClassId ? `?classId=${selectedClassId}` : ''}`}
-            className="btn btn-p"
-          >
-            📤 {t('instructorPortal.submitGradesToRecord')}
-          </Link>
-        </div>
-      </div>
+      )}
 
       <div className="sg">
         <div className="sc ok">

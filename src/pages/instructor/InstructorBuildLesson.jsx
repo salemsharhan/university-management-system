@@ -38,7 +38,7 @@ function createElement(type) {
   }
 }
 
-export default function InstructorBuildLesson() {
+export default function InstructorBuildLesson({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { language } = useLanguage()
@@ -69,14 +69,16 @@ export default function InstructorBuildLesson() {
 
   useEffect(() => {
     if (!selectedClassId) return
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.set('classId', String(selectedClassId))
-      if (selectedLessonId) next.set('lessonId', String(selectedLessonId))
-      return next
-    })
+    if (!embedded) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('classId', String(selectedClassId))
+        if (selectedLessonId) next.set('lessonId', String(selectedLessonId))
+        return next
+      })
+    }
     loadClassData(selectedClassId)
-  }, [selectedClassId])
+  }, [selectedClassId, embedded, selectedLessonId])
 
   useEffect(() => {
     if (!selectedLessonId) {
@@ -113,7 +115,7 @@ export default function InstructorBuildLesson() {
       const list = cls || []
       setClasses(list)
 
-      const classIdFromQuery = Number(searchParams.get('classId'))
+      const classIdFromQuery = embedded && embedClassId ? embedClassId : Number(searchParams.get('classId'))
       const initialClassId = list.find((c) => c.id === classIdFromQuery)?.id || list[0]?.id || null
       setSelectedClassId(initialClassId)
 
@@ -327,33 +329,79 @@ export default function InstructorBuildLesson() {
 
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.curriculumMap')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">&rsaquo;</span>
-        <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
-        <span className="bc-sep">&rsaquo;</span>
-        <span>{t('instructorPortal.buildLesson')}</span>
-      </nav>
+      {!embedded && (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.curriculumMap')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">&rsaquo;</span>
+            <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
+            <span className="bc-sep">&rsaquo;</span>
+            <span>{t('instructorPortal.buildLesson')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.buildInteractiveLesson')}</h1>
-          <p className="ph-sub">
-            {selectedClass?.subjects?.code || '-'} - {t('instructorPortal.unitLessonSubtitle', {
-              unit: lessonForm.unit_number || 1,
-              lesson: lessonForm.lesson_number || 1,
-              title: lessonForm.title || '',
-            })}
-          </p>
+          <div className="ph">
+            <div>
+              <h1>{t('instructorPortal.buildInteractiveLesson')}</h1>
+              <p className="ph-sub">
+                {selectedClass?.subjects?.code || '-'} -{' '}
+                {t('instructorPortal.unitLessonSubtitle', {
+                  unit: lessonForm.unit_number || 1,
+                  lesson: lessonForm.lesson_number || 1,
+                  title: lessonForm.title || '',
+                })}
+              </p>
+            </div>
+            <div className="ph-acts" style={{ gap: 8 }}>
+              <span
+                data-status={lessonForm.status === 'published' ? 'active' : 'draft'}
+                className="badge"
+                style={{ fontSize: 13, padding: '6px 14px' }}
+              >
+                {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
+              </span>
+              <Link
+                to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
+                className="btn btn-gh"
+              >
+                {t('instructorPortal.preview')}
+              </Link>
+              <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>
+                {t('instructorPortal.publishLesson')}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {embedded && (
+        <div className="ph" style={{ marginBottom: 16 }}>
+          <div>
+            <h1 style={{ fontSize: 20 }}>{t('instructorPortal.buildInteractiveLesson')}</h1>
+            <p className="ph-sub">
+              {selectedClass?.subjects?.code || '-'} — {t('instructorPortal.section')}{' '}
+              {selectedClass?.section}
+            </p>
+          </div>
+          <div className="ph-acts" style={{ gap: 8 }}>
+            <span
+              data-status={lessonForm.status === 'published' ? 'active' : 'draft'}
+              className="badge"
+              style={{ fontSize: 13, padding: '6px 14px' }}
+            >
+              {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
+            </span>
+            <Link
+              to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`}
+              className="btn btn-gh"
+            >
+              {t('instructorPortal.preview')}
+            </Link>
+            <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>
+              {t('instructorPortal.publishLesson')}
+            </button>
+          </div>
         </div>
-        <div className="ph-acts" style={{ gap: 8 }}>
-          <span data-status={lessonForm.status === 'published' ? 'active' : 'draft'} className="badge" style={{ fontSize: 13, padding: '6px 14px' }}>
-            {lessonForm.status === 'published' ? t('instructorPortal.badgeActive') : t('instructorPortal.draft')}
-          </span>
-          <Link to={`/instructor/lesson-preview?classId=${selectedClassId || ''}&lessonId=${selectedLessonId || ''}`} className="btn btn-gh">{t('instructorPortal.preview')}</Link>
-          <button type="button" className="btn btn-ok" onClick={() => saveLesson(true)} disabled={saving}>{t('instructorPortal.publishLesson')}</button>
-        </div>
-      </div>
+      )}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="fr">

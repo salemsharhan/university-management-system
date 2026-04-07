@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
+import { getLocalizedName } from '../../utils/localizedName'
 import { useAuth } from '../../contexts/AuthContext'
 import { 
   ArrowLeft, BookOpen, FileText, Video, Upload, Plus, Edit, Trash2,
@@ -11,14 +12,22 @@ import {
   MessageSquare, HelpCircle, Calendar, BarChart3, Users, Settings,
   FileVideo, File, Link as LinkIcon, Play, Download, FolderOpen, Users2
 } from 'lucide-react'
-import TeamsMeetingManager from '../../components/teams/TeamsMeetingManager'
+import InstructorSubjectHome, { COURSE_PANEL } from './InstructorSubjectHome'
+import InstructorSubjectHomeDashboard from './InstructorSubjectHomeDashboard'
+import InstructorSubjectSessionsPanel from './InstructorSubjectSessionsPanel'
+import InstructorCurriculumMap from './InstructorCurriculumMap'
+import InstructorBuildLesson from './InstructorBuildLesson'
+import InstructorQuestionBank from './InstructorQuestionBank'
+import InstructorGradebook from './InstructorGradebook'
+import InstructorAssessmentAuthoring from './InstructorAssessmentAuthoring'
+import InstructorComingSoon from './InstructorComingSoon'
 
 export default function InstructorSubjectView() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { isRTL, language } = useLanguage()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [subject, setSubject] = useState(null)
@@ -34,15 +43,16 @@ export default function InstructorSubjectView() {
   const [forumPosts, setForumPosts] = useState([])
   const [questions, setQuestions] = useState([])
   const [gradeTypes, setGradeTypes] = useState([])
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview')
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home')
   const [error, setError] = useState('')
+  const [classLessons, setClassLessons] = useState([])
+  const [coursePanel, setCoursePanel] = useState(COURSE_PANEL.home)
 
-  // Update active tab when query parameter changes
+  // Update active tab when query parameter changes (no tab → course home)
   useEffect(() => {
     const tabParam = searchParams.get('tab')
-    if (tabParam) {
-      setActiveTab(tabParam)
-    }
+    if (tabParam) setActiveTab(tabParam)
+    else setActiveTab('home')
   }, [searchParams])
 
   useEffect(() => {
@@ -123,6 +133,7 @@ export default function InstructorSubjectView() {
         fetchExams(instructorClassIds),
         fetchRecordings(),
         fetchClasses(instructorData.id),
+        fetchClassLessons(instructorClassIds),
         fetchForumPosts(),
         fetchQuestions(),
       ])
@@ -266,7 +277,7 @@ export default function InstructorSubjectView() {
         .select(`
           *,
           enrollments(id, student_id, status),
-          semesters(id, name_en, code)
+          semesters(id, name_en, name_ar, code)
         `)
         .eq('subject_id', id)
         .eq('instructor_id', instructorId) // Only show classes where instructor is assigned
@@ -283,6 +294,27 @@ export default function InstructorSubjectView() {
       setClasses(classesWithCounts)
     } catch (err) {
       console.error('Error fetching classes:', err)
+    }
+  }
+
+  const fetchClassLessons = async (instructorClassIds) => {
+    try {
+      if (!instructorClassIds?.length) {
+        setClassLessons([])
+        return
+      }
+      const { data, error } = await supabase
+        .from('class_lessons')
+        .select('id, title, title_ar, unit_number, lesson_number, estimated_minutes, status, class_id')
+        .in('class_id', instructorClassIds)
+        .order('unit_number')
+        .order('lesson_number')
+
+      if (error) throw error
+      setClassLessons(data || [])
+    } catch (err) {
+      console.error('Error fetching class lessons:', err)
+      setClassLessons([])
     }
   }
 
@@ -519,6 +551,102 @@ export default function InstructorSubjectView() {
     }
   }
 
+  const primaryClassId = classes[0]?.id
+  const classIdForLinks = primaryClassId || 0
+
+  const subjectName = subject ? getLocalizedName(subject, language === 'ar') : ''
+  const semesterName = classes[0]?.semesters ? getLocalizedName(classes[0].semesters, language === 'ar') : ''
+
+  const lessonsPrimary = useMemo(
+    () => classLessons.filter((l) => l.class_id === classIdForLinks),
+    [classLessons, classIdForLinks]
+  )
+
+  const unitsGrouped = useMemo(() => {
+    const map = new Map()
+    for (const l of lessonsPrimary) {
+      const u = l.unit_number || 1
+      if (!map.has(u)) map.set(u, [])
+      map.get(u).push(l)
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([unitNum, lessons]) => ({
+        unitNum,
+        lessons,
+        totalMin: lessons.reduce((s, x) => s + (x.estimated_minutes || 0), 0),
+        allPublished: lessons.length > 0 && lessons.every((x) => x.status === 'published'),
+        anyDraft: lessons.some((x) => x.status === 'draft'),
+      }))
+  }, [lessonsPrimary])
+
+  const publishedCount = useMemo(
+    () => lessonsPrimary.filter((l) => l.status === 'published').length,
+    [lessonsPrimary]
+  )
+
+  const completionPct = useMemo(() => {
+    const total = lessonsPrimary.length
+    if (!total) return 0
+    return Math.round((publishedCount / total) * 100)
+  }, [lessonsPrimary, publishedCount])
+
+  const mergedGrade = useMemo(
+    () => mergeGradeConfigWithTypes(subject?.grade_configuration, gradeTypes),
+    [subject?.grade_configuration, gradeTypes]
+  )
+
+  const gradePointsTotal = useMemo(() => {
+    if (!mergedGrade?.length) return 100
+    const w = mergedGrade.reduce((s, x) => s + (Number(x.weight) || 0), 0)
+    if (w > 0) return Math.round(w)
+    const m = mergedGrade.reduce((s, x) => s + (Number(x.maximum) || 0), 0)
+    return m > 0 ? Math.round(m) : 100
+  }, [mergedGrade])
+
+  const recentAssessments = useMemo(() => {
+    const items = []
+    for (const e of exams) {
+      items.push({
+        kind: 'exam',
+        id: e.id,
+        title: e.title,
+        status: e.status,
+        sortDate: e.scheduled_date || e.created_at,
+        submissionCount: e.submissionCount,
+        gradedCount: e.gradedCount,
+        scheduled_date: e.scheduled_date,
+      })
+    }
+    for (const h of homework) {
+      items.push({
+        kind: 'hw',
+        id: h.id,
+        title: h.title,
+        status: h.status,
+        sortDate: h.due_date || h.created_at,
+        submissionCount: h.submissionCount,
+        gradedCount: h.gradedCount,
+        due_date: h.due_date,
+      })
+    }
+    return items
+      .sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate))
+      .slice(0, 3)
+  }, [exams, homework])
+
+  const totalEnrolled = useMemo(
+    () => classes.reduce((s, c) => s + (c.enrollmentCount || 0), 0),
+    [classes]
+  )
+
+  const deliveryKey = useMemo(() => {
+    const ty = classes[0]?.type
+    if (ty === 'online') return 'courseTypeOnline'
+    if (ty === 'hybrid') return 'courseTypeBlended'
+    return 'courseTypeInPerson'
+  }, [classes])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -549,6 +677,118 @@ export default function InstructorSubjectView() {
   }
 
   return (
+    <>
+      {activeTab === 'home' ? (
+        <InstructorSubjectHome
+          subjectId={id}
+          subjectCode={subject.code}
+          subjectName={subjectName}
+          classId={classIdForLinks}
+          section={classes[0]?.section}
+          semesterName={semesterName}
+          totalEnrolled={totalEnrolled}
+          deliveryKey={deliveryKey}
+          coursePanel={coursePanel}
+          onCoursePanelChange={setCoursePanel}
+          onNewLesson={() => setCoursePanel(COURSE_PANEL.lessons)}
+          onAnnouncement={() => setCoursePanel(COURSE_PANEL.communication)}
+          onOpenWorkspace={() => {
+            setActiveTab('overview')
+            navigate(`/instructor/subjects/${id}?tab=overview`)
+          }}
+          mainContent={
+            <>
+              {coursePanel === COURSE_PANEL.home && (
+                <InstructorSubjectHomeDashboard
+                  unitsGrouped={unitsGrouped}
+                  language={language}
+                  totalEnrolled={totalEnrolled}
+                  completionPct={completionPct}
+                  gradePointsTotal={gradePointsTotal}
+                  deliveryKey={deliveryKey}
+                  recentAssessments={recentAssessments}
+                  subjectId={id}
+                  classId={classIdForLinks}
+                  onPanel={setCoursePanel}
+                  COURSE_PANEL={COURSE_PANEL}
+                  onTemplatesClick={() => navigate('/instructor/templates')}
+                />
+              )}
+              {coursePanel === COURSE_PANEL.sessions && (
+                <InstructorSubjectSessionsPanel
+                  subjectId={id}
+                  classes={classes}
+                  instructor={instructor}
+                  onTakeAttendance={(cid) => {
+                    fetchAttendance(cid)
+                    setActiveTab('attendance')
+                    navigate(`/instructor/subjects/${id}?tab=attendance`)
+                  }}
+                />
+              )}
+              {coursePanel === COURSE_PANEL.curriculum && (
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorCurriculumMap embedded embedClassId={classIdForLinks} />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.lessons && (
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorBuildLesson embedded embedClassId={classIdForLinks} />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.questionBank && (
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorQuestionBank embedded embedClassId={classIdForLinks} />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.assessments && (
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorAssessmentAuthoring embedded embedClassId={classIdForLinks} />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.grades && (
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorGradebook embedded embedClassId={classIdForLinks} />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.analytics && (
+                <div className="card">
+                  <InstructorComingSoon />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.communication && (
+                <div className="card">
+                  <InstructorComingSoon />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.integrity && (
+                <div className="card">
+                  <InstructorComingSoon />
+                </div>
+              )}
+              {coursePanel === COURSE_PANEL.settings && (
+                <div className="card">
+                  <div className="card-hd">
+                    <div className="card-title">{t('instructorPortal.subjectHome.tabSettings')}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="btn btn-p"
+                      onClick={() => navigate(`/academic/subjects/${id}/edit`)}
+                    >
+                      {t('instructorPortal.subjectHome.editSettings')}
+                    </button>
+                    <button type="button" className="btn btn-gh" onClick={() => navigate('/instructor/templates')}>
+                      {t('instructorPortal.templates')}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          }
+        />
+      ) : (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -578,9 +818,9 @@ export default function InstructorSubjectView() {
           {/* Tabs */}
           <div className="mt-4 flex space-x-1 border-b border-gray-200 overflow-x-auto">
             {[
+              { id: 'home', label: t('instructorPortal.subjectHome.breadcrumbCourse'), icon: BookOpen },
               { id: 'overview', label: 'Overview', icon: BookOpen },
-              { id: 'classes', label: 'Sessions', icon: Users },
-              { id: 'teams', label: 'Teams Meetings', icon: Video },
+              { id: 'sessions', label: t('instructorPortal.subjectHome.tabSessions'), icon: Users },
               { id: 'materials', label: 'Materials', icon: FolderOpen },
               { id: 'homework', label: 'Homework', icon: FileText },
               { id: 'exams', label: 'Exams', icon: GraduationCap },
@@ -596,6 +836,11 @@ export default function InstructorSubjectView() {
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id)
+                    if (tab.id === 'home') {
+                      navigate(`/instructor/subjects/${id}`)
+                      return
+                    }
+                    navigate(`/instructor/subjects/${id}?tab=${tab.id}`)
                     if (tab.id === 'attendance' && classes.length > 0) {
                       fetchAttendance(classes[0].id)
                     }
@@ -679,83 +924,17 @@ export default function InstructorSubjectView() {
           </div>
         )}
 
-        {/* Classes Tab */}
-        {activeTab === 'classes' && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Classes</h2>
-                <button
-                  onClick={() => navigate(`/academic/classes/create?subjectId=${id}`)}
-                  className="px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create Class</span>
-                </button>
-              </div>
-              {classes.length > 0 ? (
-                <div className="space-y-3">
-                  {classes.map(cls => (
-                    <div key={cls.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{cls.code} - Section {cls.section}</h3>
-                          <p className="text-sm text-gray-600">
-                            {cls.enrollmentCount || 0} students enrolled
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => {
-                              navigate(`/academic/classes/${cls.id}`)
-                            }}
-                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => {
-                              fetchAttendance(cls.id)
-                              setActiveTab('attendance')
-                            }}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Take Attendance
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No classes created yet</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Teams Meetings Tab */}
-        {activeTab === 'teams' && (
-          <div className="space-y-4">
-            {classes.length > 0 ? (
-              classes.map(cls => (
-                <div key={cls.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4">{cls.code} - Section {cls.section}</h3>
-                  <TeamsMeetingManager
-                    classId={cls.id}
-                    subjectId={id}
-                    instructorId={instructor?.id}
-                    instructorEmail={instructor?.email}
-                  />
-                </div>
-              ))
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center py-8">
-                <Video className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                <p className="text-gray-500">No classes found. Please create a class first to manage Teams meetings.</p>
-              </div>
-            )}
-          </div>
+        {/* Sessions: scheduled sessions + Teams (merged) */}
+        {activeTab === 'sessions' && (
+          <InstructorSubjectSessionsPanel
+            subjectId={id}
+            classes={classes}
+            instructor={instructor}
+            onTakeAttendance={(cid) => {
+              fetchAttendance(cid)
+              setActiveTab('attendance')
+            }}
+          />
         )}
 
         {/* Materials Tab */}
@@ -1374,6 +1553,8 @@ export default function InstructorSubjectView() {
         )}
       </div>
     </div>
+      )}
+    </>
   )
 }
 

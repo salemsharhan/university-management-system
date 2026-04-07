@@ -113,7 +113,7 @@ function getBloomLabel(t, bloom) {
   return t(`instructorPortal.${map[bloom] || 'bloomUnderstand'}`)
 }
 
-export default function InstructorQuestionBank() {
+export default function InstructorQuestionBank({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { language } = useLanguage()
@@ -184,7 +184,7 @@ export default function InstructorQuestionBank() {
       const list = cls || []
       setClasses(list)
 
-      const queryClassId = Number(searchParams.get('classId'))
+      const queryClassId = embedded && embedClassId ? embedClassId : Number(searchParams.get('classId'))
       const classId = list.find((c) => c.id === queryClassId)?.id || list[0]?.id || null
       setSelectedClassId(classId)
       if (!classId) setLoading(false)
@@ -537,20 +537,24 @@ export default function InstructorQuestionBank() {
 
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.dashboard')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to={`/instructor/assessments?classId=${selectedClassId || ''}`}>{subjectCode}</Link>
-        <span className="bc-sep">›</span>
-        <span>{t('instructorPortal.questionBankTitle')}</span>
-      </nav>
+      {!embedded && (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.dashboard')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">›</span>
+            <Link to={`/instructor/assessments?classId=${selectedClassId || ''}`}>{subjectCode}</Link>
+            <span className="bc-sep">›</span>
+            <span>{t('instructorPortal.questionBankTitle')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.questionBankTitle')} — {subjectCode}</h1>
-          <p className="ph-sub">{t('instructorPortal.questionBankSubtitle', { code: subjectCode })}</p>
-        </div>
-        <div className="ph-acts">
+          <div className="ph">
+            <div>
+              <h1>
+                {t('instructorPortal.questionBankTitle')} — {subjectCode}
+              </h1>
+              <p className="ph-sub">{t('instructorPortal.questionBankSubtitle', { code: subjectCode })}</p>
+            </div>
+            <div className="ph-acts">
           <select
             className="fc"
             style={{ width: 'auto' }}
@@ -619,6 +623,30 @@ export default function InstructorQuestionBank() {
           </button>
         </div>
       </div>
+        </>
+      )}
+
+      {embedded && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-hd">
+            <div className="card-title">{t('instructorPortal.questionBankTitle')} — {subjectCode}</div>
+            <select
+              className="fc"
+              style={{ width: 'auto' }}
+              value={selectedClassId || ''}
+              onChange={(e) => setSelectedClassId(Number(e.target.value))}
+              aria-label={t('instructorPortal.questionType')}
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')} ({t('instructorPortal.section')}{' '}
+                  {cls.section})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       <div className="sg">
         <div className="sc acc">

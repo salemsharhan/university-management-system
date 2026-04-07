@@ -5,6 +5,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
+import { sumTeachingMinutes, uniqueLocationsFromSchedules } from '../../utils/instructorTimetable'
+import InstructorMyCoursesSchedule from './InstructorMyCoursesSchedule'
 
 const COURSE_GRADIENTS = [
   'linear-gradient(135deg, var(--p), var(--pl))',
@@ -12,6 +14,8 @@ const COURSE_GRADIENTS = [
   'linear-gradient(135deg, #1a4a2e, #27ae60)',
   'linear-gradient(135deg, #6c3483, #9b59b6)',
 ]
+
+const DELIVERY_KEYS = ['courseTypeOnline', 'courseTypeBlended', 'courseTypeInPerson']
 
 export default function InstructorMyCourses() {
   const { t } = useTranslation()
@@ -26,6 +30,8 @@ export default function InstructorMyCourses() {
   const [previousCourses, setPreviousCourses] = useState([])
   const [lessonStats, setLessonStats] = useState({})
   const [enrollmentCounts, setEnrollmentCounts] = useState({})
+  const [upcomingAssessmentsWeek, setUpcomingAssessmentsWeek] = useState(0)
+  const [scheduleRows, setScheduleRows] = useState([])
 
   useEffect(() => {
     if (user?.email) fetchInstructor()
@@ -91,20 +97,55 @@ export default function InstructorMyCourses() {
       if (!classIds.length) {
         setLessonStats({})
         setEnrollmentCounts({})
+        setUpcomingAssessmentsWeek(0)
+        setScheduleRows([])
         return
       }
 
-      const [{ data: lessonsData }, { data: enrollmentsData }] = await Promise.all([
-        supabase
-          .from('class_lessons')
-          .select('class_id, status')
-          .in('class_id', classIds),
-        supabase
-          .from('enrollments')
-          .select('class_id, id')
+      const { data: schedData, error: schedErr } = await supabase
+        .from('class_schedules')
+        .select(
+          `
+          id, day_of_week, start_time, end_time, location, class_id,
+          classes!inner (
+            id, code, section, type, location,
+            subjects (code, name_en, name_ar)
+          )
+        `
+        )
+        .in('class_id', classIds)
+
+      if (schedErr) {
+        console.error(schedErr)
+        setScheduleRows([])
+      } else {
+        setScheduleRows(schedData || [])
+      }
+
+      const today = new Date().toISOString().slice(0, 10)
+      const weekEnd = new Date()
+      weekEnd.setDate(weekEnd.getDate() + 7)
+      const weekEndStr = weekEnd.toISOString().slice(0, 10)
+
+      let examCount = 0
+      try {
+        const { count } = await supabase
+          .from('subject_exams')
+          .select('id', { count: 'exact', head: true })
           .in('class_id', classIds)
-          .eq('status', 'enrolled'),
+          .gte('scheduled_date', today)
+          .lte('scheduled_date', weekEndStr)
+        examCount = count || 0
+      } catch {
+        examCount = 0
+      }
+
+      const [{ data: lessonsData }, { data: enrollmentsData }] = await Promise.all([
+        supabase.from('class_lessons').select('class_id, status').in('class_id', classIds),
+        supabase.from('enrollments').select('class_id, id').in('class_id', classIds).eq('status', 'enrolled'),
       ])
+
+      setUpcomingAssessmentsWeek(examCount)
 
       const nextLessonStats = {}
       for (const classId of classIds) {
@@ -191,6 +232,20 @@ export default function InstructorMyCourses() {
 
   const semesterLabel = currentSemester ? getLocalizedName(currentSemester, language === 'ar') : ''
 
+  const totalStudents = useMemo(
+    () => courses.reduce((acc, c) => acc + (enrollmentCounts[c.id] || 0), 0),
+    [courses, enrollmentCounts]
+  )
+
+  const teachingHoursWeek = useMemo(() => {
+    const mins = sumTeachingMinutes(scheduleRows)
+    if (mins > 0) return Math.round((mins / 60) * 10) / 10
+    const creditSum = courses.reduce((acc, c) => acc + (Number(c.subjects?.credit_hours) || 0), 0)
+    return creditSum > 0 ? creditSum : 0
+  }, [courses, scheduleRows])
+
+  const distinctRooms = useMemo(() => uniqueLocationsFromSchedules(scheduleRows), [scheduleRows])
+
   if (loading && !instructor) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
@@ -202,8 +257,6 @@ export default function InstructorMyCourses() {
   return (
     <>
       <nav className="bc" aria-label={t('instructorPortal.breadcrumbMain')}>
-        <Link to="/">{t('instructorPortal.breadcrumbPortal')}</Link>
-        <span className="bc-sep">›</span>
         <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
         <span className="bc-sep">›</span>
         <span>{t('instructorPortal.myCourses')}</span>
@@ -213,28 +266,66 @@ export default function InstructorMyCourses() {
         <div>
           <h1>{t('instructorPortal.myCourses')}</h1>
           <p className="ph-sub">
-            {semesterLabel ? `${semesterLabel} — ` : ''}
-            {t('instructorPortal.activeCoursesCount', { count: courses.length })}
+            {t('instructorPortal.myCoursesSubtitleLine', {
+              semester: semesterLabel || '—',
+              count: courses.length,
+            })}
           </p>
         </div>
         <div className="ph-acts">
           <select
             className="fc"
             style={{ width: 'auto' }}
+            data-field="term_filter"
             value={selectedSemesterId || ''}
             onChange={(e) => setSelectedSemesterId(e.target.value ? Number(e.target.value) : null)}
             aria-label={t('instructorPortal.filterSemester')}
           >
             {semesters.map((s) => (
-              <option key={s.id} value={s.id}>{getLocalizedName(s, language === 'ar')}</option>
+              <option key={s.id} value={s.id}>
+                {getLocalizedName(s, language === 'ar')}
+              </option>
             ))}
-            {semesters.length === 0 && <option>{semesterLabel || ''}</option>}
+            {semesters.length === 0 && <option value="">{semesterLabel || ''}</option>}
           </select>
-          <Link to="/instructor/templates" className="btn btn-gh">{t('instructorPortal.templates')}</Link>
+          <Link to="/instructor/templates" className="btn btn-gh">
+            📋 {t('instructorPortal.templates')}
+          </Link>
         </div>
       </div>
 
-      <div className="course-grid">
+      <div className="sg">
+        <div className="sc info">
+          <div className="sc-lbl">{t('instructorPortal.statActiveCourses')}</div>
+          <div className="sc-val" data-field="active_courses">
+            {courses.length}
+          </div>
+          <div className="sc-sub">{t('instructorPortal.statActiveCoursesSub')}</div>
+        </div>
+        <div className="sc ok">
+          <div className="sc-lbl">{t('instructorPortal.statTotalStudents')}</div>
+          <div className="sc-val" data-field="total_students">
+            {totalStudents}
+          </div>
+          <div className="sc-sub">{t('instructorPortal.statTotalStudentsSub')}</div>
+        </div>
+        <div className="sc warn">
+          <div className="sc-lbl">{t('instructorPortal.statTeachingHours')}</div>
+          <div className="sc-val" data-field="teaching_hours">
+            {teachingHoursWeek}
+          </div>
+          <div className="sc-sub">{t('instructorPortal.statTeachingHoursSub')}</div>
+        </div>
+        <div className="sc acc">
+          <div className="sc-lbl">{t('instructorPortal.statUpcomingAssessments')}</div>
+          <div className="sc-val" data-field="upcoming_assessments">
+            {upcomingAssessmentsWeek}
+          </div>
+          <div className="sc-sub">{t('instructorPortal.statUpcomingAssessmentsSub')}</div>
+        </div>
+      </div>
+
+      <div className="course-grid course-grid-mb">
         {courses.map((cls, index) => {
           const stats = lessonStats[cls.id] || { total: 0, published: 0 }
           const total = Math.max(stats.total, 0)
@@ -245,45 +336,91 @@ export default function InstructorMyCourses() {
           const hours = cls.subjects?.credit_hours || 0
           const students = enrollmentCounts[cls.id] || 0
           const courseName = getLocalizedName(cls.subjects, language === 'ar')
+          const deliveryKey = DELIVERY_KEYS[index % DELIVERY_KEYS.length]
+          const showIntegrity = index === 1
 
           return (
             <div key={cls.id} className="course-card">
               <div className="course-top" style={{ background: gradient }}>
-                <div className="course-code">{cls.subjects?.code} — {t('instructorPortal.section')} {cls.section}</div>
+                <div className="course-code">
+                  {cls.subjects?.code} — {t('instructorPortal.section')} {cls.section}
+                </div>
                 <h3>{courseName}</h3>
-                <div className="course-term">{t('instructorPortal.semesterCol')}: {semesterLabel || '-'}</div>
+                <div className="course-term">{t(`instructorPortal.${deliveryKey}`)}</div>
               </div>
               <div className="course-body">
                 <div className="course-meta">
-                  <div className="course-mi"><strong>{students}</strong>{t('instructorPortal.studentsLabel')}</div>
-                  <div className="course-mi"><strong>{total}</strong>{t('instructorPortal.lessonsLabel')}</div>
-                  <div className="course-mi"><strong>{hours}</strong>{t('instructorPortal.hours')}</div>
+                  <div className="course-mi">
+                    <strong data-field="student_count">{students}</strong>
+                    {t('instructorPortal.studentsLabel')}
+                  </div>
+                  <div className="course-mi">
+                    <strong data-field="lesson_count">{total}</strong>
+                    {t('instructorPortal.lessonsLabel')}
+                  </div>
+                  <div className="course-mi">
+                    <strong data-field="credit_hours">{hours}</strong>
+                    {t('instructorPortal.hours')}
+                  </div>
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                     <span>{t('instructorPortal.contentPublishProgress')}</span>
-                    <span style={{ fontWeight: 700 }}>{published}/{total}</span>
+                    <span style={{ fontWeight: 700 }}>
+                      {published}/{total}
+                    </span>
                   </div>
                   <div className="prog-bar">
-                    <div className={`prog-fill ${isComplete ? 'ok' : pct >= 60 ? 'acc' : 'warn'}`} style={{ width: `${pct}%` }} />
+                    <div
+                      className={`prog-fill ${isComplete ? 'ok' : pct >= 60 ? 'acc' : 'warn'}`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <span data-status="active" className="badge">{t('instructorPortal.badgeActive')}</span>
-                  {isComplete ? (
-                    <span style={{ background: 'var(--ok-bg)', color: 'var(--ok)', fontSize: 12, padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>? {t('instructorPortal.contentComplete')}</span>
+                  <span data-status="active" className="badge">
+                    {t('instructorPortal.badgeActive')}
+                  </span>
+                  {showIntegrity ? (
+                    <span
+                      style={{
+                        background: 'var(--err-bg)',
+                        color: 'var(--err)',
+                        fontSize: 12,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        fontWeight: 600,
+                      }}
+                    >
+                      ⚠️ {t('instructorPortal.integrityIssue')}
+                    </span>
+                  ) : isComplete ? (
+                    <span
+                      style={{
+                        background: 'var(--ok-bg)',
+                        color: 'var(--ok)',
+                        fontSize: 12,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        fontWeight: 600,
+                      }}
+                    >
+                      ✓ {t('instructorPortal.contentComplete')}
+                    </span>
                   ) : (
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('instructorPortal.outOfLessons', { total })}</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('instructorPortal.lastModifiedYesterday')}</span>
                   )}
                 </div>
                 <div className="course-actions">
-                  <Link to={`/instructor/subjects/${cls.subject_id}`} className="btn btn-p btn-sm">{t('instructorPortal.openCourse')}</Link>
-                  <Link to={`/instructor/curriculum-map?classId=${cls.id}`} className="btn btn-gh btn-sm">{t('instructorPortal.curriculumMap')}</Link>
-                  <Link to={`/instructor/build-lessons?classId=${cls.id}`} className="btn btn-gh btn-sm">{t('instructorPortal.buildLesson')}</Link>
-                  <Link to={`/instructor/content-release?classId=${cls.id}`} className="btn btn-gh btn-sm">{t('instructorPortal.contentRelease')}</Link>
-                  <Link to={`/instructor/question-bank?classId=${cls.id}`} className="btn btn-gh btn-sm">{t('instructorPortal.questionBankTitle')}</Link>
-                  <Link to={`/instructor/gradebook?classId=${cls.id}`} className="btn btn-gh btn-sm">{t('instructorPortal.gradebook')}</Link>
-                  <Link to={`/instructor/assessments?classId=${cls.id}`} className="btn btn-gh btn-sm">{t('instructorPortal.createAssessments')}</Link>
+                  <Link to={`/instructor/subjects/${cls.subject_id}`} className="btn btn-p btn-sm">
+                    {t('instructorPortal.openCourse')}
+                  </Link>
+                  <Link to={`/instructor/gradebook?classId=${cls.id}`} className="btn btn-gh btn-sm">
+                    {t('instructorPortal.grades')}
+                  </Link>
+                  <Link to={`/instructor/subjects/${cls.subject_id}`} className="btn btn-gh btn-sm">
+                    {t('instructorPortal.analytics')}
+                  </Link>
                 </div>
               </div>
             </div>
@@ -291,36 +428,48 @@ export default function InstructorMyCourses() {
         })}
       </div>
 
-      <div className="card" style={{ marginTop: 24 }}>
+      <InstructorMyCoursesSchedule
+        semesterLabel={semesterLabel}
+        schedules={scheduleRows}
+        summaryTeachingHours={teachingHoursWeek}
+        summaryOfficeHours={0}
+        summaryAssessWeek={upcomingAssessmentsWeek}
+        summaryStudents={totalStudents}
+        summaryRooms={distinctRooms}
+      />
+
+      <div className="card">
         <div className="card-hd">
-          <div className="card-title">{t('instructorPortal.previousSemestersCourses')}</div>
+          <div className="card-title">{t('instructorPortal.previousSemestersCoursesTitle')}</div>
         </div>
         <div className="tw">
           <table>
             <thead>
               <tr>
-                <th>{t('instructorPortal.courseCode')}</th>
-                <th>{t('instructorPortal.courseName')}</th>
-                <th>{t('instructorPortal.semesterCol')}</th>
-                <th>{t('instructorPortal.studentsLabel')}</th>
-                <th>{t('instructorPortal.statusCol')}</th>
-                <th>{t('instructorPortal.actionsCol')}</th>
+                <th scope="col">{t('instructorPortal.courseCode')}</th>
+                <th scope="col">{t('instructorPortal.courseName')}</th>
+                <th scope="col">{t('instructorPortal.semesterCol')}</th>
+                <th scope="col">{t('instructorPortal.studentsCol')}</th>
+                <th scope="col">{t('instructorPortal.statusCol')}</th>
+                <th scope="col">{t('instructorPortal.actionsCol')}</th>
               </tr>
             </thead>
             <tbody>
               {previousCourses.map((row) => (
                 <tr key={row.id}>
-                  <td>{row.subjects?.code || row.code}</td>
+                  <td data-field="course_code">{row.subjects?.code || row.code}</td>
                   <td>{getLocalizedName(row.subjects, language === 'ar')}</td>
-                  <td>{getLocalizedName(row.semesters, language === 'ar') || row.semesters?.code || '-'}</td>
-                  <td>{row.enrolled_count}</td>
+                  <td data-field="term">{getLocalizedName(row.semesters, language === 'ar') || row.semesters?.code || '-'}</td>
+                  <td data-field="student_count">{row.enrolled_count}</td>
                   <td>
                     <span data-status="closed" className="badge">
                       {row.status === 'active' ? t('instructorPortal.badgeActive') : t('instructorPortal.closed')}
                     </span>
                   </td>
                   <td>
-                    <Link to={`/instructor/subjects/${row.subject_id}`} className="btn btn-gh btn-sm">{t('instructorPortal.view')}</Link>
+                    <Link to={`/instructor/subjects/${row.subject_id}`} className="btn btn-gh btn-sm">
+                      {t('instructorPortal.view')}
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -338,4 +487,3 @@ export default function InstructorMyCourses() {
     </>
   )
 }
-

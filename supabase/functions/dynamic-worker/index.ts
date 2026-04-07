@@ -135,7 +135,7 @@ async function getAccessToken() {
 
 async function createTeamsMeeting(body: any) {
   try {
-    const { organizerEmail, subject, description, startDateTime, endDateTime, timeZone = 'UTC', attendees = [] } = body
+    const { organizerEmail, subject, description, startDateTime, endDateTime, timeZone = 'UTC', attendees = [], recurrence } = body
 
     // Use default organizer email (always use the configured default)
     const finalOrganizerEmail = MICROSOFT_CONFIG.defaultOrganizerEmail
@@ -183,6 +183,11 @@ async function createTeamsMeeting(body: any) {
     // Add attendees only if provided
     if (attendeesFormatted.length > 0) {
       requestBody.attendees = attendeesFormatted
+    }
+
+    // Optional recurring series (Microsoft Graph patternedRecurrence)
+    if (recurrence && typeof recurrence === 'object') {
+      requestBody.recurrence = recurrence
     }
 
     const graphApiUrl = `${MICROSOFT_CONFIG.graphApiUrl}/users/${encodeURIComponent(finalOrganizerEmail)}/events`

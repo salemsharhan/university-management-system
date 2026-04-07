@@ -91,7 +91,7 @@ function questionPromptPlaceholder(t, type) {
   return t('instructorPortal.optionFocus')
 }
 
-export default function InstructorAssessmentAuthoring() {
+export default function InstructorAssessmentAuthoring({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { language } = useLanguage()
@@ -201,7 +201,7 @@ export default function InstructorAssessmentAuthoring() {
       const list = cls || []
       setClasses(list)
 
-      const queryClassId = Number(searchParams.get('classId'))
+      const queryClassId = embedded && embedClassId ? embedClassId : Number(searchParams.get('classId'))
       const classId = list.find((c) => c.id === queryClassId)?.id || list[0]?.id || null
       setSelectedClassId(classId)
 
@@ -495,55 +495,115 @@ export default function InstructorAssessmentAuthoring() {
 
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.dashboard')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to={`/instructor/assessments?classId=${selectedClassId || ''}`}>{subjectCode}</Link>
-        <span className="bc-sep">›</span>
-        <span>{t('instructorPortal.createAssessments')}</span>
-      </nav>
+      {!embedded && (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.dashboard')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">›</span>
+            <Link to={`/instructor/assessments?classId=${selectedClassId || ''}`}>{subjectCode}</Link>
+            <span className="bc-sep">›</span>
+            <span>{t('instructorPortal.createAssessments')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.createNewAssessment')}</h1>
-          <p className="ph-sub">{subjectCode} — {semesterLabel || ''}</p>
+          <div className="ph">
+            <div>
+              <h1>{t('instructorPortal.createNewAssessment')}</h1>
+              <p className="ph-sub">
+                {subjectCode} — {semesterLabel || ''}
+              </p>
+            </div>
+            <div className="ph-acts">
+              {classes.length > 1 && (
+                <select
+                  className="fc"
+                  style={{ width: 'auto' }}
+                  value={selectedClassId || ''}
+                  onChange={(e) => {
+                    setSelectedClassId(Number(e.target.value))
+                    setSelectedExamId(null)
+                    setExamForm(defaultExamForm)
+                    setExamQuestions([])
+                  }}
+                >
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {exams.length > 0 && (
+                <select
+                  className="fc"
+                  style={{ width: 'auto' }}
+                  value={selectedExamId || ''}
+                  onChange={(e) => setSelectedExamId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">— {t('instructorPortal.createNewAssessment')} —</option>
+                  {exams.map((exam) => (
+                    <option key={exam.id} value={exam.id}>
+                      {exam.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button type="button" className="btn btn-gh" onClick={saveAssessment} disabled={saving}>
+                💾 {t('instructorPortal.saveDraft')}
+              </button>
+              <Link
+                to={`/instructor/exam-settings?classId=${selectedClassId || ''}&examId=${selectedExamId || ''}`}
+                className="btn btn-p"
+              >
+                {t('instructorPortal.nextExamSettings')} ←
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
+
+      {embedded && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-hd">
+            <div className="card-title">{t('instructorPortal.createNewAssessment')}</div>
+            <div className="ph-acts" style={{ margin: 0, flexWrap: 'wrap', gap: 8 }}>
+              {classes.length > 1 && (
+                <select
+                  className="fc"
+                  style={{ width: 'auto' }}
+                  value={selectedClassId || ''}
+                  onChange={(e) => {
+                    setSelectedClassId(Number(e.target.value))
+                    setSelectedExamId(null)
+                    setExamForm(defaultExamForm)
+                    setExamQuestions([])
+                  }}
+                >
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {exams.length > 0 && (
+                <select
+                  className="fc"
+                  style={{ width: 'auto' }}
+                  value={selectedExamId || ''}
+                  onChange={(e) => setSelectedExamId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  <option value="">— {t('instructorPortal.createNewAssessment')} —</option>
+                  {exams.map((exam) => (
+                    <option key={exam.id} value={exam.id}>
+                      {exam.title}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="ph-acts">
-          {classes.length > 1 && (
-            <select
-              className="fc"
-              style={{ width: 'auto' }}
-              value={selectedClassId || ''}
-              onChange={(e) => { setSelectedClassId(Number(e.target.value)); setSelectedExamId(null); setExamForm(defaultExamForm); setExamQuestions([]) }}
-            >
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
-                </option>
-              ))}
-            </select>
-          )}
-          {exams.length > 0 && (
-            <select
-              className="fc"
-              style={{ width: 'auto' }}
-              value={selectedExamId || ''}
-              onChange={(e) => setSelectedExamId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">— {t('instructorPortal.createNewAssessment')} —</option>
-              {exams.map((exam) => (
-                <option key={exam.id} value={exam.id}>{exam.title}</option>
-              ))}
-            </select>
-          )}
-          <button type="button" className="btn btn-gh" onClick={saveAssessment} disabled={saving}>
-            💾 {t('instructorPortal.saveDraft')}
-          </button>
-          <Link to={`/instructor/exam-settings?classId=${selectedClassId || ''}&examId=${selectedExamId || ''}`} className="btn btn-p">
-            {t('instructorPortal.nextExamSettings')} ←
-          </Link>
-        </div>
-      </div>
+      )}
 
       <div className="grid2">
         <div>

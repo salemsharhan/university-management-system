@@ -80,7 +80,7 @@ export const getAccessToken = async () => {
  */
 export const createTeamsMeeting = async (meetingData) => {
   try {
-    const { organizerEmail, subject, description, startDateTime, endDateTime, timeZone = 'UTC', attendees = [] } = meetingData
+    const { organizerEmail, subject, description, startDateTime, endDateTime, timeZone = 'UTC', attendees = [], recurrence } = meetingData
 
     if (!organizerEmail || !subject || !startDateTime || !endDateTime) {
       throw new Error('Missing required meeting data: organizerEmail, subject, startDateTime, endDateTime')
@@ -97,7 +97,8 @@ export const createTeamsMeeting = async (meetingData) => {
         startDateTime,
         endDateTime,
         timeZone,
-        attendees
+        attendees,
+        ...(recurrence ? { recurrence } : {}),
       }
     })
 

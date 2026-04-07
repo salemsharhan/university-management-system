@@ -6,7 +6,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 
-export default function InstructorCurriculumMap() {
+export default function InstructorCurriculumMap({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { language } = useLanguage()
   const { user } = useAuth()
@@ -27,17 +27,19 @@ export default function InstructorCurriculumMap() {
   useEffect(() => {
     if (!user?.email) return
     loadInstructorClasses()
-  }, [user?.email])
+  }, [user?.email, embedded, embedClassId])
 
   useEffect(() => {
     if (!selectedClassId) return
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      next.set('classId', String(selectedClassId))
-      return next
-    })
+    if (!embedded) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.set('classId', String(selectedClassId))
+        return next
+      })
+    }
     loadCurriculumData(selectedClassId)
-  }, [selectedClassId])
+  }, [selectedClassId, embedded])
 
   const loadInstructorClasses = async () => {
     setLoading(true)
@@ -74,7 +76,9 @@ export default function InstructorCurriculumMap() {
       setClasses(list)
 
       const fromQuery = Number(searchParams.get('classId'))
-      const initialClassId = list.find((c) => c.id === fromQuery)?.id || list[0]?.id || null
+      const initialClassId = embedded && embedClassId
+        ? list.find((c) => c.id === embedClassId)?.id || list[0]?.id || null
+        : list.find((c) => c.id === fromQuery)?.id || list[0]?.id || null
       setSelectedClassId(initialClassId)
 
       if (!initialClassId) setLoading(false)
@@ -168,41 +172,65 @@ export default function InstructorCurriculumMap() {
     )
   }
 
+  const classSelector = (
+    <select
+      className="fc"
+      style={{ width: 'auto', minWidth: 220 }}
+      value={selectedClassId || ''}
+      onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+    >
+      {classes.map((cls) => (
+        <option key={cls.id} value={cls.id}>
+          {cls.subjects?.code} - {getLocalizedName(cls.subjects, language === 'ar')} ({t('instructorPortal.section')} {cls.section})
+        </option>
+      ))}
+    </select>
+  )
+
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.curriculumMap')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
-        <span className="bc-sep">›</span>
-        <span>{t('instructorPortal.curriculumMap')}</span>
-      </nav>
+      {!embedded ? (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.curriculumMap')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">›</span>
+            <Link to="/instructor/courses">{t('instructorPortal.myCourses')}</Link>
+            <span className="bc-sep">›</span>
+            <span>{t('instructorPortal.curriculumMap')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.curriculumMap')}</h1>
-          <p className="ph-sub">{subjectCode} — {t('instructorPortal.curriculumMapSubtitle')}</p>
-        </div>
-        <div className="ph-acts">
-          <select
-            className="fc"
-            style={{ width: 'auto' }}
-            value={selectedClassId || ''}
-            onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
-          >
-            {classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {cls.subjects?.code} - {getLocalizedName(cls.subjects, language === 'ar')} ({t('instructorPortal.section')} {cls.section})
-              </option>
-            ))}
-          </select>
-          <Link to={`/instructor/build-lessons?classId=${selectedClassId || ''}`} className="btn btn-p">+ {t('instructorPortal.buildLesson')}</Link>
-        </div>
-      </div>
+          <div className="ph">
+            <div>
+              <h1>{t('instructorPortal.curriculumMap')}</h1>
+              <p className="ph-sub">
+                {subjectCode} — {t('instructorPortal.curriculumMapSubtitle')}
+              </p>
+            </div>
+            <div className="ph-acts">
+              {classSelector}
+              <Link to={`/instructor/build-lessons?classId=${selectedClassId || ''}`} className="btn btn-p">
+                + {t('instructorPortal.buildLesson')}
+              </Link>
+            </div>
+          </div>
 
-      <div className="alert alert-info" style={{ marginBottom: 16 }}>
-        {t('instructorPortal.curriculumMapViewOnlyHint')}
-      </div>
+          <div className="alert alert-info" style={{ marginBottom: 16 }}>
+            {t('instructorPortal.curriculumMapViewOnlyHint')}
+          </div>
+        </>
+      ) : (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-hd">
+            <div className="card-title">{t('instructorPortal.curriculumMap')}</div>
+            <div className="ph-acts" style={{ margin: 0 }}>
+              {classSelector}
+            </div>
+          </div>
+          <div className="alert alert-info" style={{ margin: 0, border: 'none' }}>
+            {t('instructorPortal.curriculumMapViewOnlyHint')}
+          </div>
+        </div>
+      )}
 
       <div className="grid2">
         <div>
