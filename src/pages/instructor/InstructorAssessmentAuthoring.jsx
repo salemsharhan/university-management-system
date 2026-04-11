@@ -24,7 +24,15 @@ const defaultExamForm = {
   late_policy: 'deduct_10_daily',
   assessment_file_url: '',
   assessment_file_name: '',
+  rubric_id: '',
 }
+
+/** Catalog IDs must match rubrics defined in Admin → Rubric builder. */
+const RUBRIC_CATALOG = [
+  { id: '', key: 'rubricOptionNone' },
+  { id: 'academic_writing_default', key: 'rubricOptionAcademicWriting' },
+  { id: 'oral_presentation_default', key: 'rubricOptionOral' },
+]
 
 const defaultOptions = ['Option 1', 'Option 2', 'Option 3', 'Option 4']
 const DEFAULT_ORDER_ITEMS = ['Item 1', 'Item 2', 'Item 3']
@@ -276,6 +284,7 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
         late_policy: settings.late_policy || 'deduct_10_daily',
         assessment_file_url: settings.assessment_file_url || '',
         assessment_file_name: settings.assessment_file_name || '',
+        rubric_id: settings.rubric_id || '',
       })
 
       setExamQuestions(
@@ -329,6 +338,7 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
           late_policy: examForm.late_policy,
           assessment_file_url: examForm.assessment_file_url || null,
           assessment_file_name: examForm.assessment_file_name || null,
+          rubric_id: examForm.rubric_id || null,
         },
       }
 
@@ -738,6 +748,30 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                   onChange={(e) => setExamForm((p) => ({ ...p, max_attempts: Number(e.target.value) || 1 }))}
                 />
               </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-hd">
+              <div className="card-title">📐 {t('instructorPortal.rubricAttachSectionTitle')}</div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>{t('instructorPortal.rubricAttachHelp')}</p>
+            <div className="fg" style={{ marginBottom: 0 }}>
+              <label className="fl" htmlFor="assess-rubric">
+                {t('instructorPortal.attachRubric')}
+              </label>
+              <select
+                id="assess-rubric"
+                className="fc"
+                value={examForm.rubric_id}
+                onChange={(e) => setExamForm((p) => ({ ...p, rubric_id: e.target.value }))}
+              >
+                {RUBRIC_CATALOG.map((r) => (
+                  <option key={r.id || 'none'} value={r.id}>
+                    {t(`instructorPortal.${r.key}`)}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

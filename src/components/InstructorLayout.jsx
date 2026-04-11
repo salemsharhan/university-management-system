@@ -15,7 +15,7 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.templates', href: '/instructor/templates', icon: '📋' },
   { translationKey: 'instructorPortal.questionBank', href: '/instructor/question-bank', icon: '🗃️' },
   { translationKey: 'instructorPortal.createAssessments', href: '/instructor/assessments', icon: '📝' },
-  { translationKey: 'instructorPortal.examSettings', href: '/instructor/exam-settings', icon: '⚙️' },
+  { translationKey: 'instructorPortal.examSettingsNav', href: '/instructor/exam-settings', icon: '⚙️' },
   { translationKey: 'instructorPortal.previewExamPage', href: '/instructor/preview-exam', icon: '👁️' },
   { translationKey: 'instructorPortal.monitorExam', href: '/instructor/monitor-exam', icon: '📡' },
   { translationKey: 'instructorPortal.integritySettings', href: '/instructor/integrity-settings', icon: '🔒' },
@@ -23,6 +23,7 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.submitFinalGrades', href: '/instructor/grade-submission', icon: '✅' },
   { translationKey: 'instructorPortal.analyticsAndEngagement', href: '/instructor/analytics', icon: '📈' },
   { translationKey: 'instructorPortal.communicationNav', href: '/instructor/communication', icon: '💬' },
+  { translationKey: 'instructorPortal.integrityCasesNav', href: '/instructor/integrity-cases', icon: '⚖️' },
 ]
 
 export default function InstructorLayout({ children }) {
@@ -57,6 +58,12 @@ export default function InstructorLayout({ children }) {
     const path = location.pathname
     if (path === '/instructor/communication') {
       return t('instructorPortal.communicationPageTopbarTitle')
+    }
+    if (path === '/instructor/exam-settings') {
+      return t('instructorPortal.examSettingsPageTopbarTitle')
+    }
+    if (path === '/instructor/integrity-cases') {
+      return t('instructorPortal.integrityCasesPageTopbarTitle')
     }
     const current = instructorNavigation.find((n) => path === n.href || (n.href !== '/instructor/dashboard' && path.startsWith(n.href)))
     return current ? t(current.translationKey) : t('instructorPortal.dashboard')

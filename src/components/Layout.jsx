@@ -101,6 +101,7 @@ const navigation = [
       { name: 'All Colleges', translationKey: 'navigation.allColleges', href: '/admin/colleges' },
       { name: 'University Settings', translationKey: 'navigation.universitySettings', href: '/admin/university-settings' },
       { name: 'Build lessons', translationKey: 'navigation.buildLessonsAdmin', href: '/admin/build-lessons' },
+      { name: 'Rubric builder', translationKey: 'navigation.rubricBuilderAdmin', href: '/admin/rubric-builder' },
     ]
   },
   { name: 'Academic Years', translationKey: 'navigation.academicYears', href: '/academic/years', icon: CalendarDays, roles: ['admin', 'user'] },

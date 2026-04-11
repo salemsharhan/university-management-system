@@ -74,6 +74,7 @@ import ViewApplication from './pages/admissions/ViewApplication'
 import UniversitySettings from './pages/admin/UniversitySettings'
 import AdminCurriculumMap from './pages/admin/AdminCurriculumMap'
 import AdminBuildLesson from './pages/admin/AdminBuildLesson'
+import AdminRubricBuilder from './pages/admin/AdminRubricBuilder'
 import GradeManagement from './pages/grading/GradeManagement'
 import ClassGrades from './pages/grading/ClassGrades'
 import StudentGrades from './pages/grading/StudentGrades'
@@ -94,6 +95,8 @@ import InstructorDashboard from './pages/instructor/InstructorDashboard'
 import InstructorMyCourses from './pages/instructor/InstructorMyCourses'
 import InstructorCourseAnalytics from './pages/instructor/InstructorCourseAnalytics'
 import InstructorCommunication from './pages/instructor/InstructorCommunication'
+import InstructorIntegrityCases from './pages/instructor/InstructorIntegrityCases'
+import InstructorExamSettings from './pages/instructor/InstructorExamSettings'
 import InstructorCurriculumMap from './pages/instructor/InstructorCurriculumMap'
 import InstructorBuildLesson from './pages/instructor/InstructorBuildLesson'
 import InstructorLessonPreview from './pages/instructor/InstructorLessonPreview'
@@ -427,6 +430,16 @@ function App() {
               <ProtectedRoute allowedRoles={['admin', 'user']}>
                 <RoleBasedLayout>
                   <AdminBuildLesson />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/rubric-builder"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <AdminRubricBuilder />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }
@@ -1048,7 +1061,17 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
                 <RoleBasedLayout>
-                  <InstructorComingSoon />
+                  <InstructorExamSettings />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/integrity-cases"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorIntegrityCases />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

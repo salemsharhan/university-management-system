@@ -589,13 +589,17 @@
   color: var(--warn);
 }
 .instructor-portal [data-status='upcoming'],
-.instructor-portal [data-status='new'] {
+.instructor-portal [data-status='new'],
+.instructor-portal [data-status='in-review'],
+.instructor-portal [data-status='under-review'] {
   background: var(--info-bg);
   color: var(--info);
 }
 .instructor-portal [data-status='active'],
 .instructor-portal [data-status='open'],
-.instructor-portal [data-status='published'] {
+.instructor-portal [data-status='published'],
+.instructor-portal [data-status='approved'],
+.instructor-portal [data-status='confirmed'] {
   background: var(--ok-bg);
   color: var(--ok);
 }
