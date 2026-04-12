@@ -24,6 +24,8 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.analyticsAndEngagement', href: '/instructor/analytics', icon: '📈' },
   { translationKey: 'instructorPortal.communicationNav', href: '/instructor/communication', icon: '💬' },
   { translationKey: 'instructorPortal.integrityCasesNav', href: '/instructor/integrity-cases', icon: '⚖️' },
+  { translationKey: 'instructorPortal.workloadNav', href: '/instructor/workload', icon: '📋' },
+  { translationKey: 'instructorPortal.reportsNav', href: '/instructor/reports', icon: '📑' },
 ]
 
 export default function InstructorLayout({ children }) {
@@ -64,6 +66,12 @@ export default function InstructorLayout({ children }) {
     }
     if (path === '/instructor/integrity-cases') {
       return t('instructorPortal.integrityCasesPageTopbarTitle')
+    }
+    if (path === '/instructor/workload') {
+      return t('instructorPortal.workloadPageTitle')
+    }
+    if (path === '/instructor/reports') {
+      return t('instructorPortal.reportsPageTitle')
     }
     const current = instructorNavigation.find((n) => path === n.href || (n.href !== '/instructor/dashboard' && path.startsWith(n.href)))
     return current ? t(current.translationKey) : t('instructorPortal.dashboard')

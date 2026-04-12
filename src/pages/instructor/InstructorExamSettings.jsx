@@ -205,17 +205,17 @@ export default function InstructorExamSettings() {
                         <input type="number" className="fc" defaultValue={50} style={{ width: 80 }} data-field="extra_time_percent" /> %
                       </td>
                       <td>
-                        <button type="button" className="btn btn-err btn-sm">
+                        <a href="#" className="btn btn-err btn-sm" onClick={(e) => e.preventDefault()}>
                           {t('instructorPortal.examSettingsDelete')}
-                        </button>
+                        </a>
                       </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
-              <button type="button" className="btn btn-gh btn-sm" style={{ marginTop: 8 }}>
+              <a href="#" className="btn btn-gh btn-sm" style={{ marginTop: 8 }} onClick={(e) => e.preventDefault()}>
                 + {t('instructorPortal.examSettingsAddStudent')}
-              </button>
+              </a>
             </div>
           </div>
         </div>

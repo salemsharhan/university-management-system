@@ -47,7 +47,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
       setMeetings(data || [])
     } catch (err) {
       console.error('Error fetching Teams meetings:', err)
-      setError('Failed to load Teams meetings')
+      setError(t('instructorPortal.teamsLoadFailed'))
     } finally {
       setLoading(false)
     }
@@ -61,7 +61,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
 
     try {
       if (!instructorEmail) {
-        throw new Error('Instructor email is required to create Teams meetings')
+        throw new Error(t('instructorPortal.teamsEmailRequired'))
       }
 
       // Combine date and time
@@ -161,7 +161,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
 
       if (saveError) throw saveError
 
-      setSuccess('Teams meeting created successfully!')
+      setSuccess(t('instructorPortal.teamsSuccessCreated'))
       setShowCreateModal(false)
       setFormData({
         meeting_title: '',
@@ -177,14 +177,14 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
       fetchMeetings()
     } catch (err) {
       console.error('Error creating Teams meeting:', err)
-      setError(err.message || 'Failed to create Teams meeting. Please check your Microsoft Teams configuration.')
+      setError(err.message || t('instructorPortal.teamsCreateFailed'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleDeleteMeeting = async (meetingId) => {
-    if (!confirm('Are you sure you want to delete this Teams meeting?')) return
+    if (!confirm(t('instructorPortal.teamsDeleteConfirm'))) return
 
     try {
       setLoading(true)
@@ -201,11 +201,11 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
       // Optionally delete from Microsoft Teams (commented out to keep meetings in Teams calendar)
       // await deleteTeamsMeeting(meeting.teams_organizer_email, meeting.teams_event_id)
 
-      setSuccess('Meeting deleted successfully')
+      setSuccess(t('instructorPortal.teamsDeleteSuccess'))
       fetchMeetings()
     } catch (err) {
       console.error('Error deleting meeting:', err)
-      setError('Failed to delete meeting')
+      setError(t('instructorPortal.teamsDeleteFailed'))
     } finally {
       setLoading(false)
     }
@@ -229,7 +229,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Video className="w-6 h-6 text-blue-600" />
-          <h3 className="text-xl font-bold text-gray-900">Microsoft Teams Meetings</h3>
+          <h3 className="text-xl font-bold text-gray-900">{t('instructorPortal.teamsMeetingsHeader')}</h3>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
@@ -237,7 +237,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
           disabled={loading || !instructorEmail}
         >
           <Plus className="w-5 h-5" />
-          <span>Create Meeting</span>
+          <span>{t('instructorPortal.teamsCreateMeetingBtn')}</span>
         </button>
       </div>
 
@@ -245,7 +245,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-2">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-red-700 font-medium">Error</p>
+            <p className="text-red-700 font-medium">{t('instructorPortal.teamsErrorHeading')}</p>
             <p className="text-red-600 text-sm">{error}</p>
           </div>
         </div>
@@ -262,19 +262,19 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <p className="text-yellow-700 text-sm">
             <AlertCircle className="w-4 h-4 inline mr-2" />
-            Instructor email is required to create Teams meetings. Please update your instructor profile.
+            {t('instructorPortal.teamsEmailRequired')}
           </p>
         </div>
       )}
 
       {/* Meetings List */}
       {loading && meetings.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">Loading meetings...</div>
+        <div className="text-center py-8 text-gray-500">{t('instructorPortal.teamsLoadingMeetings')}</div>
       ) : meetings.length === 0 ? (
         <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
           <Video className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-          <p>No Teams meetings scheduled yet.</p>
-          <p className="text-sm mt-1">Click "Create Meeting" to schedule a Teams meeting for this class.</p>
+          <p>{t('instructorPortal.teamsEmptyTitle')}</p>
+          <p className="text-sm mt-1">{t('instructorPortal.teamsEmptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -311,14 +311,14 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                       className="inline-flex items-center space-x-2 mt-3 text-blue-600 hover:text-blue-700 font-medium"
                     >
                       <ExternalLink className="w-4 h-4" />
-                      <span>Join Teams Meeting</span>
+                      <span>{t('instructorPortal.teamsJoinMeeting')}</span>
                     </a>
                   )}
                 </div>
                 <button
                   onClick={() => handleDeleteMeeting(meeting.id)}
                   className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete meeting"
+                  title={t('instructorPortal.teamsDeleteMeetingTitle')}
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>
@@ -331,9 +331,12 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
       {/* Create Meeting Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            dir={isRTL ? 'rtl' : 'ltr'}
+          >
             <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Create Teams Meeting</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{t('instructorPortal.teamsModalTitle')}</h2>
               <button
                 onClick={() => {
                   setShowCreateModal(false)
@@ -349,7 +352,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
             <form onSubmit={handleCreateMeeting} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Meeting Title *
+                  {t('instructorPortal.teamsMeetingTitleLabel')}
                 </label>
                 <input
                   type="text"
@@ -357,20 +360,20 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                   onChange={(e) => setFormData({ ...formData, meeting_title: e.target.value })}
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g., Weekly Lecture - Chapter 5"
+                  placeholder={t('instructorPortal.teamsMeetingTitlePlaceholder')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
+                  {t('instructorPortal.teamsDescriptionLabel')}
                 </label>
                 <textarea
                   value={formData.meeting_description}
                   onChange={(e) => setFormData({ ...formData, meeting_description: e.target.value })}
                   rows={3}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Meeting description or agenda..."
+                  placeholder={t('instructorPortal.teamsDescriptionPlaceholder')}
                 />
               </div>
 
@@ -445,7 +448,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Time *
+                    {t('instructorPortal.teamsTimeLabel')}
                   </label>
                   <input
                     type="time"
@@ -459,7 +462,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Duration (minutes) *
+                  {t('instructorPortal.teamsDurationLabel')}
                 </label>
                 <select
                   value={formData.meeting_duration_minutes}
@@ -467,10 +470,10 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                   required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="30">30 minutes</option>
-                  <option value="60">60 minutes</option>
-                  <option value="90">90 minutes</option>
-                  <option value="120">120 minutes (2 hours)</option>
+                  <option value="30">{t('instructorPortal.teamsDurationOpt30')}</option>
+                  <option value="60">{t('instructorPortal.teamsDurationOpt60')}</option>
+                  <option value="90">{t('instructorPortal.teamsDurationOpt90')}</option>
+                  <option value="120">{t('instructorPortal.teamsDurationOpt120')}</option>
                 </select>
               </div>
 
@@ -483,7 +486,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="send_invites" className="text-sm text-gray-700">
-                  Send email invites to enrolled students
+                  {t('instructorPortal.teamsSendInvitesLabel')}
                 </label>
               </div>
 
@@ -497,14 +500,14 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                   }}
                   className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('instructorPortal.teamsModalCancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Creating...' : 'Create Meeting'}
+                  {loading ? t('instructorPortal.teamsModalSubmitting') : t('instructorPortal.teamsModalSubmit')}
                 </button>
               </div>
             </form>

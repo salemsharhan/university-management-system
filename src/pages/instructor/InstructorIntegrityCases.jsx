@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
@@ -7,15 +7,24 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 
 /** Academic integrity cases — matches instructor portal reference. */
-export default function InstructorIntegrityCases() {
+export default function InstructorIntegrityCases({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
-  const classIdParam = searchParams.get('classId')
-  const classId = classIdParam ? Number(classIdParam) : null
+  const classId = useMemo(() => {
+    if (embedded && embedClassId != null && embedClassId !== '' && embedClassId !== 0) {
+      const n = Number(embedClassId)
+      return Number.isNaN(n) ? null : n
+    }
+    const p = searchParams.get('classId')
+    return p ? Number(p) : null
+  }, [embedded, embedClassId, searchParams])
 
-  const [loading, setLoading] = useState(!!classIdParam)
+  const [loading, setLoading] = useState(() => {
+    if (embedded) return !!embedClassId
+    return !!searchParams.get('classId')
+  })
   const [classRow, setClassRow] = useState(null)
 
   useEffect(() => {
@@ -95,27 +104,37 @@ export default function InstructorIntegrityCases() {
     )
   }
 
+  if (embedded && (!classId || Number.isNaN(classId))) {
+    return (
+      <div className="alert alert-info">{t('instructorPortal.analyticsPickClass')}</div>
+    )
+  }
+
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.breadcrumbMain')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to={crumbHref}>{subjectCode}</Link>
-        <span className="bc-sep">›</span>
-        <span>{t('instructorPortal.integrityCasesBreadcrumb')}</span>
-      </nav>
+      {!embedded && (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.breadcrumbMain')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">›</span>
+            <Link to={crumbHref}>{subjectCode}</Link>
+            <span className="bc-sep">›</span>
+            <span>{t('instructorPortal.integrityCasesBreadcrumb')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.integrityCasesPageTitle')}</h1>
-          <p className="ph-sub">{subtitle}</p>
-        </div>
-        <div className="ph-acts">
-          <button type="button" className="btn btn-err">
-            {t('instructorPortal.integrityCasesNewReport')}
-          </button>
-        </div>
-      </div>
+          <div className="ph">
+            <div>
+              <h1>{t('instructorPortal.integrityCasesPageTitle')}</h1>
+              <p className="ph-sub">{subtitle}</p>
+            </div>
+            <div className="ph-acts">
+              <button type="button" className="btn btn-err">
+                {t('instructorPortal.integrityCasesNewReport')}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="sg">
         <div className="sc warn">

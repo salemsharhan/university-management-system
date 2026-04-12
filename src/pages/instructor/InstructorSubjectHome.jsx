@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 
 /** Tab ids for in-page course panels (no route navigation). */
 export const COURSE_PANEL = {
-  home: 'home',
   sessions: 'sessions',
   curriculum: 'curriculum',
   lessons: 'lessons',
@@ -88,14 +87,11 @@ export default function InstructorSubjectHome({
       </div>
 
       <div className="tabs" role="tablist">
-        <TabButton active={is(COURSE_PANEL.home)} onClick={() => onCoursePanelChange(COURSE_PANEL.home)}>
-          🏠 {t('instructorPortal.subjectHome.tabHome')}
+        <TabButton active={is(COURSE_PANEL.curriculum)} onClick={() => onCoursePanelChange(COURSE_PANEL.curriculum)}>
+          🗺️ {t('instructorPortal.subjectHome.tabCurriculum')}
         </TabButton>
         <TabButton active={is(COURSE_PANEL.sessions)} onClick={() => onCoursePanelChange(COURSE_PANEL.sessions)}>
           👥 {t('instructorPortal.subjectHome.tabSessions')}
-        </TabButton>
-        <TabButton active={is(COURSE_PANEL.curriculum)} onClick={() => onCoursePanelChange(COURSE_PANEL.curriculum)}>
-          🗺️ {t('instructorPortal.subjectHome.tabCurriculum')}
         </TabButton>
         <TabButton active={is(COURSE_PANEL.lessons)} onClick={() => onCoursePanelChange(COURSE_PANEL.lessons)}>
           📖 {t('instructorPortal.subjectHome.tabLessons')}

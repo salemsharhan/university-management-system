@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
@@ -7,13 +7,19 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 
 /** Course analytics dashboard — matches instructor portal reference (stats, CLOs, at-risk, assessments, activity). */
-export default function InstructorCourseAnalytics() {
+export default function InstructorCourseAnalytics({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
-  const classIdParam = searchParams.get('classId')
-  const classId = classIdParam ? Number(classIdParam) : null
+  const classId = useMemo(() => {
+    if (embedded && embedClassId != null && embedClassId !== '' && embedClassId !== 0) {
+      const n = Number(embedClassId)
+      return Number.isNaN(n) ? null : n
+    }
+    const p = searchParams.get('classId')
+    return p ? Number(p) : null
+  }, [embedded, embedClassId, searchParams])
 
   const [loading, setLoading] = useState(true)
   const [classRow, setClassRow] = useState(null)
@@ -108,11 +114,13 @@ export default function InstructorCourseAnalytics() {
     return (
       <div className="alert alert-info">
         {t('instructorPortal.analyticsPickClass')}
-        <div style={{ marginTop: 12 }}>
-          <Link to="/instructor/courses" className="btn btn-p btn-sm">
-            {t('instructorPortal.myCourses')}
-          </Link>
-        </div>
+        {!embedded && (
+          <div style={{ marginTop: 12 }}>
+            <Link to="/instructor/courses" className="btn btn-p btn-sm">
+              {t('instructorPortal.myCourses')}
+            </Link>
+          </div>
+        )}
       </div>
     )
   }
@@ -121,11 +129,13 @@ export default function InstructorCourseAnalytics() {
     return (
       <div className="alert alert-err">
         {t('instructorPortal.analyticsClassNotFound')}
-        <div style={{ marginTop: 12 }}>
-          <Link to="/instructor/courses" className="btn btn-gh btn-sm">
-            {t('instructorPortal.myCourses')}
-          </Link>
-        </div>
+        {!embedded && (
+          <div style={{ marginTop: 12 }}>
+            <Link to="/instructor/courses" className="btn btn-gh btn-sm">
+              {t('instructorPortal.myCourses')}
+            </Link>
+          </div>
+        )}
       </div>
     )
   }
@@ -147,28 +157,32 @@ export default function InstructorCourseAnalytics() {
 
   return (
     <>
-      <nav className="bc" aria-label={t('instructorPortal.breadcrumbMain')}>
-        <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
-        <span className="bc-sep">›</span>
-        <Link to={`/instructor/subjects/${classRow.subject_id}`}>{subjectCode}</Link>
-        <span className="bc-sep">›</span>
-        <span>{t('instructorPortal.analyticsBreadcrumb')}</span>
-      </nav>
+      {!embedded && (
+        <>
+          <nav className="bc" aria-label={t('instructorPortal.breadcrumbMain')}>
+            <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
+            <span className="bc-sep">›</span>
+            <Link to={`/instructor/subjects/${classRow.subject_id}`}>{subjectCode}</Link>
+            <span className="bc-sep">›</span>
+            <span>{t('instructorPortal.analyticsBreadcrumb')}</span>
+          </nav>
 
-      <div className="ph">
-        <div>
-          <h1>{t('instructorPortal.analyticsPageTitle')}</h1>
-          <p className="ph-sub">{subtitle}</p>
-        </div>
-        <div className="ph-acts">
-          <button type="button" className="btn btn-gh" onClick={() => window.print()}>
-            📥 {t('instructorPortal.analyticsExportReport')}
-          </button>
-          <Link to="/grading/analytics" className="btn btn-p">
-            📊 {t('instructorPortal.analyticsDetailedReports')}
-          </Link>
-        </div>
-      </div>
+          <div className="ph">
+            <div>
+              <h1>{t('instructorPortal.analyticsPageTitle')}</h1>
+              <p className="ph-sub">{subtitle}</p>
+            </div>
+            <div className="ph-acts">
+              <button type="button" className="btn btn-gh" onClick={() => window.print()}>
+                📥 {t('instructorPortal.analyticsExportReport')}
+              </button>
+              <Link to="/grading/analytics" className="btn btn-p">
+                📊 {t('instructorPortal.analyticsDetailedReports')}
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="sg">
         <div className="sc ok">

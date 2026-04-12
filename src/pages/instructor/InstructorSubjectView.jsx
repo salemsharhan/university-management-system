@@ -13,14 +13,15 @@ import {
   FileVideo, File, Link as LinkIcon, Play, Download, FolderOpen, Users2
 } from 'lucide-react'
 import InstructorSubjectHome, { COURSE_PANEL } from './InstructorSubjectHome'
-import InstructorSubjectHomeDashboard from './InstructorSubjectHomeDashboard'
 import InstructorSubjectSessionsPanel from './InstructorSubjectSessionsPanel'
 import InstructorCurriculumMap from './InstructorCurriculumMap'
 import InstructorBuildLesson from './InstructorBuildLesson'
 import InstructorQuestionBank from './InstructorQuestionBank'
 import InstructorGradebook from './InstructorGradebook'
 import InstructorAssessmentAuthoring from './InstructorAssessmentAuthoring'
-import InstructorComingSoon from './InstructorComingSoon'
+import InstructorCourseAnalytics from './InstructorCourseAnalytics'
+import InstructorCommunication from './InstructorCommunication'
+import InstructorIntegrityCases from './InstructorIntegrityCases'
 
 export default function InstructorSubjectView() {
   const { id } = useParams()
@@ -46,7 +47,7 @@ export default function InstructorSubjectView() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'home')
   const [error, setError] = useState('')
   const [classLessons, setClassLessons] = useState([])
-  const [coursePanel, setCoursePanel] = useState(COURSE_PANEL.home)
+  const [coursePanel, setCoursePanel] = useState(COURSE_PANEL.curriculum)
 
   // Update active tab when query parameter changes (no tab → course home)
   useEffect(() => {
@@ -557,84 +558,6 @@ export default function InstructorSubjectView() {
   const subjectName = subject ? getLocalizedName(subject, language === 'ar') : ''
   const semesterName = classes[0]?.semesters ? getLocalizedName(classes[0].semesters, language === 'ar') : ''
 
-  const lessonsPrimary = useMemo(
-    () => classLessons.filter((l) => l.class_id === classIdForLinks),
-    [classLessons, classIdForLinks]
-  )
-
-  const unitsGrouped = useMemo(() => {
-    const map = new Map()
-    for (const l of lessonsPrimary) {
-      const u = l.unit_number || 1
-      if (!map.has(u)) map.set(u, [])
-      map.get(u).push(l)
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([unitNum, lessons]) => ({
-        unitNum,
-        lessons,
-        totalMin: lessons.reduce((s, x) => s + (x.estimated_minutes || 0), 0),
-        allPublished: lessons.length > 0 && lessons.every((x) => x.status === 'published'),
-        anyDraft: lessons.some((x) => x.status === 'draft'),
-      }))
-  }, [lessonsPrimary])
-
-  const publishedCount = useMemo(
-    () => lessonsPrimary.filter((l) => l.status === 'published').length,
-    [lessonsPrimary]
-  )
-
-  const completionPct = useMemo(() => {
-    const total = lessonsPrimary.length
-    if (!total) return 0
-    return Math.round((publishedCount / total) * 100)
-  }, [lessonsPrimary, publishedCount])
-
-  const mergedGrade = useMemo(
-    () => mergeGradeConfigWithTypes(subject?.grade_configuration, gradeTypes),
-    [subject?.grade_configuration, gradeTypes]
-  )
-
-  const gradePointsTotal = useMemo(() => {
-    if (!mergedGrade?.length) return 100
-    const w = mergedGrade.reduce((s, x) => s + (Number(x.weight) || 0), 0)
-    if (w > 0) return Math.round(w)
-    const m = mergedGrade.reduce((s, x) => s + (Number(x.maximum) || 0), 0)
-    return m > 0 ? Math.round(m) : 100
-  }, [mergedGrade])
-
-  const recentAssessments = useMemo(() => {
-    const items = []
-    for (const e of exams) {
-      items.push({
-        kind: 'exam',
-        id: e.id,
-        title: e.title,
-        status: e.status,
-        sortDate: e.scheduled_date || e.created_at,
-        submissionCount: e.submissionCount,
-        gradedCount: e.gradedCount,
-        scheduled_date: e.scheduled_date,
-      })
-    }
-    for (const h of homework) {
-      items.push({
-        kind: 'hw',
-        id: h.id,
-        title: h.title,
-        status: h.status,
-        sortDate: h.due_date || h.created_at,
-        submissionCount: h.submissionCount,
-        gradedCount: h.gradedCount,
-        due_date: h.due_date,
-      })
-    }
-    return items
-      .sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate))
-      .slice(0, 3)
-  }, [exams, homework])
-
   const totalEnrolled = useMemo(
     () => classes.reduce((s, c) => s + (c.enrollmentCount || 0), 0),
     [classes]
@@ -698,22 +621,6 @@ export default function InstructorSubjectView() {
           }}
           mainContent={
             <>
-              {coursePanel === COURSE_PANEL.home && (
-                <InstructorSubjectHomeDashboard
-                  unitsGrouped={unitsGrouped}
-                  language={language}
-                  totalEnrolled={totalEnrolled}
-                  completionPct={completionPct}
-                  gradePointsTotal={gradePointsTotal}
-                  deliveryKey={deliveryKey}
-                  recentAssessments={recentAssessments}
-                  subjectId={id}
-                  classId={classIdForLinks}
-                  onPanel={setCoursePanel}
-                  COURSE_PANEL={COURSE_PANEL}
-                  onTemplatesClick={() => navigate('/instructor/templates')}
-                />
-              )}
               {coursePanel === COURSE_PANEL.sessions && (
                 <InstructorSubjectSessionsPanel
                   subjectId={id}
@@ -752,18 +659,18 @@ export default function InstructorSubjectView() {
                 </div>
               )}
               {coursePanel === COURSE_PANEL.analytics && (
-                <div className="card">
-                  <InstructorComingSoon />
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorCourseAnalytics embedded embedClassId={classIdForLinks} />
                 </div>
               )}
               {coursePanel === COURSE_PANEL.communication && (
-                <div className="card">
-                  <InstructorComingSoon />
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorCommunication embedded embedClassId={classIdForLinks} />
                 </div>
               )}
               {coursePanel === COURSE_PANEL.integrity && (
-                <div className="card">
-                  <InstructorComingSoon />
+                <div style={{ maxHeight: '72vh', overflow: 'auto' }}>
+                  <InstructorIntegrityCases embedded embedClassId={classIdForLinks} />
                 </div>
               )}
               {coursePanel === COURSE_PANEL.settings && (

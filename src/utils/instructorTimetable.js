@@ -1,6 +1,14 @@
-/** Weekly grid for instructor portal (Sun–Thu columns). */
+/** Weekly grid for instructor portal (Sun–Sat columns). */
 
-export const TIMETABLE_DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday']
+export const TIMETABLE_DAY_KEYS = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+]
 
 const GRAD_CLASSES = ['course-eng', 'course-cs', 'course-math', 'course-bus']
 

@@ -96,6 +96,9 @@ import InstructorMyCourses from './pages/instructor/InstructorMyCourses'
 import InstructorCourseAnalytics from './pages/instructor/InstructorCourseAnalytics'
 import InstructorCommunication from './pages/instructor/InstructorCommunication'
 import InstructorIntegrityCases from './pages/instructor/InstructorIntegrityCases'
+import InstructorWorkload from './pages/instructor/InstructorWorkload'
+import InstructorReports from './pages/instructor/InstructorReports'
+import InstructorExamPagePreview from './pages/instructor/InstructorExamPagePreview'
 import InstructorExamSettings from './pages/instructor/InstructorExamSettings'
 import InstructorCurriculumMap from './pages/instructor/InstructorCurriculumMap'
 import InstructorBuildLesson from './pages/instructor/InstructorBuildLesson'
@@ -1077,12 +1080,30 @@ function App() {
             }
           />
           <Route
-            path="/instructor/preview-exam"
+            path="/instructor/workload"
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
                 <RoleBasedLayout>
-                  <InstructorComingSoon />
+                  <InstructorWorkload />
                 </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/reports"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <RoleBasedLayout>
+                  <InstructorReports />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/instructor/preview-exam"
+            element={
+              <ProtectedRoute allowedRoles={['instructor']}>
+                <InstructorExamPagePreview />
               </ProtectedRoute>
             }
           />

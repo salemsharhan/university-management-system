@@ -7,6 +7,7 @@
 
 .instructor-portal {
   --p: #1a3a6b;
+  --p-bg: #e8edf5;
   --pl: #2a5298;
   --acc: #c8a84b;
   --bg: #f4f6fb;
@@ -1138,7 +1139,13 @@
 .instructor-portal .sched-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 700px;
+  table-layout: fixed;
+  min-width: 0;
+}
+.instructor-portal .sched-table thead th,
+.instructor-portal .sched-table tbody td {
+  width: 12.5%;
+  box-sizing: border-box;
 }
 .instructor-portal .sched-table thead tr {
   background: var(--p);

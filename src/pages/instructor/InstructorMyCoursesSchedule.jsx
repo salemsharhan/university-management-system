@@ -132,6 +132,8 @@ export default function InstructorMyCoursesSchedule({
               <th scope="col">{t('instructorPortal.schedDayTue')}</th>
               <th scope="col">{t('instructorPortal.schedDayWed')}</th>
               <th scope="col">{t('instructorPortal.schedDayThu')}</th>
+              <th scope="col">{t('instructorPortal.schedDayFri')}</th>
+              <th scope="col">{t('instructorPortal.schedDaySat')}</th>
             </tr>
           </thead>
           <tbody>
@@ -154,7 +156,7 @@ export default function InstructorMyCoursesSchedule({
               ))
             ) : (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>
+                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--muted)', padding: 24 }}>
                   {t('instructorPortal.scheduleEmptyHint')}
                 </td>
               </tr>
