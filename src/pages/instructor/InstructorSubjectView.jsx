@@ -4,13 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
+import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
 import { getLocalizedName } from '../../utils/localizedName'
 import { useAuth } from '../../contexts/AuthContext'
 import { 
   ArrowLeft, BookOpen, FileText, Video, Upload, Plus, Edit, Trash2,
   CheckCircle, XCircle, Clock, AlertCircle, GraduationCap, Eye, 
   MessageSquare, HelpCircle, Calendar, BarChart3, Users, Settings,
-  FileVideo, File, Link as LinkIcon, Play, Download, FolderOpen, Users2
+  FileVideo, File, Link as LinkIcon, Play, Download, FolderOpen, Users2,
+  X, Pin, Lock,
 } from 'lucide-react'
 import InstructorSubjectHome, { COURSE_PANEL } from './InstructorSubjectHome'
 import InstructorSubjectSessionsPanel from './InstructorSubjectSessionsPanel'
@@ -22,6 +24,7 @@ import InstructorAssessmentAuthoring from './InstructorAssessmentAuthoring'
 import InstructorCourseAnalytics from './InstructorCourseAnalytics'
 import InstructorCommunication from './InstructorCommunication'
 import InstructorIntegrityCases from './InstructorIntegrityCases'
+import InstructorAttendanceSessionTake from './InstructorAttendanceSessionTake'
 
 export default function InstructorSubjectView() {
   const { id } = useParams()
@@ -48,6 +51,14 @@ export default function InstructorSubjectView() {
   const [error, setError] = useState('')
   const [classLessons, setClassLessons] = useState([])
   const [coursePanel, setCoursePanel] = useState(COURSE_PANEL.curriculum)
+  const [platformUserId, setPlatformUserId] = useState(null)
+  const [attendanceEditRecord, setAttendanceEditRecord] = useState(null)
+  const [attendanceForm, setAttendanceForm] = useState({ status: 'present', notes: '' })
+  const [attendanceClassId, setAttendanceClassId] = useState(null)
+  const [forumActionId, setForumActionId] = useState(null)
+  const [answerModalQuestion, setAnswerModalQuestion] = useState(null)
+  const [answerDraft, setAnswerDraft] = useState('')
+  const [answerSaving, setAnswerSaving] = useState(false)
 
   // Update active tab when query parameter changes (no tab → course home)
   useEffect(() => {
@@ -79,6 +90,9 @@ export default function InstructorSubjectView() {
 
       if (instructorError) throw instructorError
       setInstructor(instructorData)
+
+      const { data: userRow } = await supabase.from('users').select('id').eq('email', user.email).maybeSingle()
+      setPlatformUserId(userRow?.id ?? null)
 
       // Fetch subject
       const { data: subjectData, error: subjectError } = await supabase
@@ -278,7 +292,7 @@ export default function InstructorSubjectView() {
         .select(`
           *,
           enrollments(id, student_id, status),
-          semesters(id, name_en, name_ar, code)
+          semesters(${INSTRUCTOR_SEMESTER_SELECT})
         `)
         .eq('subject_id', id)
         .eq('instructor_id', instructorId) // Only show classes where instructor is assigned
@@ -370,6 +384,84 @@ export default function InstructorSubjectView() {
       setAttendance(data || [])
     } catch (err) {
       console.error('Error fetching attendance:', err)
+    }
+  }
+
+  const canEditAttendanceForClass = (classId) => {
+    if (classId == null || classId === '') return false
+    const cls = classes.find((c) => String(c.id) === String(classId))
+    return cls?.semesters?.attendance_editing_allowed === true
+  }
+
+  const openAttendanceEdit = (record) => {
+    if (!canEditAttendanceForClass(record.class_id)) return
+    setAttendanceForm({
+      status: record.status || 'present',
+      notes: record.notes || '',
+    })
+    setAttendanceEditRecord(record)
+  }
+
+  const saveAttendanceEdit = async () => {
+    if (!attendanceEditRecord || !platformUserId) return
+    const classId = attendanceEditRecord.class_id
+    if (!canEditAttendanceForClass(classId)) return
+    const { error } = await supabase
+      .from('attendance')
+      .update({
+        status: attendanceForm.status,
+        notes: attendanceForm.notes.trim() || null,
+        recorded_by: platformUserId,
+      })
+      .eq('id', attendanceEditRecord.id)
+    if (error) {
+      console.error(error)
+      return
+    }
+    setAttendanceEditRecord(null)
+    fetchAttendance(classId)
+  }
+
+  const toggleForumPost = async (post, field) => {
+    setForumActionId(post.id)
+    const next = !post[field]
+    const { error } = await supabase
+      .from('subject_forum_posts')
+      .update({
+        [field]: next,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', post.id)
+    setForumActionId(null)
+    if (!error) fetchForumPosts()
+  }
+
+  const openAnswerModal = (question) => {
+    setAnswerModalQuestion(question)
+    setAnswerDraft('')
+  }
+
+  const submitQuestionAnswer = async () => {
+    if (!answerModalQuestion || !instructor?.id || !answerDraft.trim()) return
+    setAnswerSaving(true)
+    try {
+      const { error } = await supabase
+        .from('subject_questions')
+        .update({
+          answer_text: answerDraft.trim(),
+          answered_by_instructor_id: instructor.id,
+          answered_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', answerModalQuestion.id)
+      if (error) throw error
+      setAnswerModalQuestion(null)
+      setAnswerDraft('')
+      fetchQuestions()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setAnswerSaving(false)
     }
   }
 
@@ -627,6 +719,7 @@ export default function InstructorSubjectView() {
                   classes={classes}
                   instructor={instructor}
                   onTakeAttendance={(cid) => {
+                    setAttendanceClassId(cid)
                     fetchAttendance(cid)
                     setActiveTab('attendance')
                     navigate(`/instructor/subjects/${id}?tab=attendance`)
@@ -718,52 +811,78 @@ export default function InstructorSubjectView() {
               className="flex items-center space-x-2 px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
             >
               <Settings className="w-4 h-4" />
-              <span>Edit Subject</span>
+              <span>{t('instructorPortal.subjectDetail.editSubject')}</span>
             </button>
           </div>
 
-          {/* Tabs */}
-          <div className="mt-4 flex space-x-1 border-b border-gray-200 overflow-x-auto">
-            {[
-              { id: 'home', label: t('instructorPortal.subjectHome.breadcrumbCourse'), icon: BookOpen },
-              { id: 'overview', label: 'Overview', icon: BookOpen },
-              { id: 'sessions', label: t('instructorPortal.subjectHome.tabSessions'), icon: Users },
-              { id: 'materials', label: 'Materials', icon: FolderOpen },
-              { id: 'homework', label: 'Homework', icon: FileText },
-              { id: 'exams', label: 'Exams', icon: GraduationCap },
-              { id: 'recordings', label: 'Recordings', icon: Video },
-              { id: 'attendance', label: 'Attendance', icon: Calendar },
-              { id: 'grades', label: 'Grades', icon: BarChart3 },
-              { id: 'forum', label: 'Forum', icon: MessageSquare },
-              { id: 'qa', label: 'Q&A', icon: HelpCircle },
-            ].map(tab => {
-              const TabIcon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    setActiveTab(tab.id)
-                    if (tab.id === 'home') {
-                      navigate(`/instructor/subjects/${id}`)
-                      return
-                    }
-                    navigate(`/instructor/subjects/${id}?tab=${tab.id}`)
-                    if (tab.id === 'attendance' && classes.length > 0) {
-                      fetchAttendance(classes[0].id)
-                    }
-                  }}
-                  className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-primary-600 text-primary-600'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
-                  }`}
-                >
-                  <TabIcon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              )
-            })}
-          </div>
+          {activeTab === 'attendance' ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50"
+                onClick={() => {
+                  setActiveTab('home')
+                  setCoursePanel(COURSE_PANEL.sessions)
+                  navigate(`/instructor/subjects/${id}`)
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+                {t('instructorPortal.subjectDetail.attendance.backToCourse')}
+              </button>
+            </div>
+          ) : (
+            <div
+              className="mt-4 -mx-4 sm:mx-0 border-b border-gray-200"
+              role="tablist"
+              aria-label={t('instructorPortal.subjectDetail.tablistAria', 'Course area')}
+            >
+              <div className="flex flex-nowrap overflow-x-auto overflow-y-hidden scroll-smooth px-3 sm:px-1 pb-px [scrollbar-width:thin]">
+                {[
+                  { id: 'home', label: t('instructorPortal.subjectHome.breadcrumbCourse'), icon: BookOpen },
+                  { id: 'overview', label: t('instructorPortal.subjectDetail.tabs.overview'), icon: BookOpen },
+                  { id: 'sessions', label: t('instructorPortal.subjectHome.tabSessions'), icon: Users },
+                  { id: 'materials', label: t('instructorPortal.subjectDetail.tabs.materials'), icon: FolderOpen },
+                  { id: 'homework', label: t('instructorPortal.subjectDetail.tabs.homework'), icon: FileText },
+                  { id: 'exams', label: t('instructorPortal.subjectDetail.tabs.exams'), icon: GraduationCap },
+                  { id: 'recordings', label: t('instructorPortal.subjectDetail.tabs.recordings'), icon: Video },
+                  { id: 'attendance', label: t('instructorPortal.subjectDetail.tabs.attendance'), icon: Calendar },
+                  { id: 'grades', label: t('instructorPortal.subjectDetail.tabs.grades'), icon: BarChart3 },
+                  { id: 'forum', label: t('instructorPortal.subjectDetail.tabs.forum'), icon: MessageSquare },
+                  { id: 'qa', label: t('instructorPortal.subjectDetail.tabs.qa'), icon: HelpCircle },
+                ].map((tab) => {
+                  const TabIcon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => {
+                        setActiveTab(tab.id)
+                        if (tab.id === 'home') {
+                          navigate(`/instructor/subjects/${id}`)
+                          return
+                        }
+                        navigate(`/instructor/subjects/${id}?tab=${tab.id}`)
+                        if (tab.id === 'attendance' && classes.length > 0) {
+                          fetchAttendance(classes[0].id)
+                        }
+                      }}
+                      className={`inline-flex flex-shrink-0 items-center gap-2 whitespace-nowrap px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 transition-colors rounded-t-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 focus-visible:ring-offset-0 ${
+                        isActive
+                          ? 'border-primary-600 text-primary-600 bg-primary-50/60'
+                          : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50/90'
+                      }`}
+                    >
+                      <TabIcon className="h-4 w-4 flex-shrink-0 opacity-90" aria-hidden />
+                      <span className="leading-tight">{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -776,7 +895,7 @@ export default function InstructorSubjectView() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Students</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.overview.totalStudents')}</p>
                     <p className="text-3xl font-bold text-gray-900">
                       {classes.reduce((sum, cls) => sum + (cls.enrollmentCount || 0), 0)}
                     </p>
@@ -787,7 +906,7 @@ export default function InstructorSubjectView() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Active Classes</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.overview.activeClasses')}</p>
                     <p className="text-3xl font-bold text-gray-900">{classes.length}</p>
                   </div>
                   <BookOpen className="w-10 h-10 text-green-500" />
@@ -796,10 +915,16 @@ export default function InstructorSubjectView() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending Grading</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.overview.pendingGrading')}</p>
                     <p className="text-3xl font-bold text-gray-900">
-                      {homework.reduce((sum, hw) => sum + (hw.submissionCount - hw.gradedCount || 0), 0) +
-                       exams.reduce((sum, exam) => sum + (exam.submissionCount - exam.gradedCount || 0), 0)}
+                      {homework.reduce(
+                        (sum, hw) => sum + Math.max(0, (hw.submissionCount || 0) - (hw.gradedCount || 0)),
+                        0
+                      ) +
+                        exams.reduce(
+                          (sum, exam) => sum + Math.max(0, (exam.submissionCount || 0) - (exam.gradedCount || 0)),
+                          0
+                        )}
                     </p>
                   </div>
                   <FileText className="w-10 h-10 text-yellow-500" />
@@ -808,14 +933,14 @@ export default function InstructorSubjectView() {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Subject Information</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">{t('instructorPortal.subjectDetail.overview.subjectInformation')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Credit Hours</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.overview.creditHours')}</p>
                   <p className="font-semibold text-gray-900">{subject.credit_hours}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Type</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.overview.type')}</p>
                   <p className="font-semibold text-gray-900 capitalize">{subject.type}</p>
                 </div>
                 <div>
@@ -1202,20 +1327,29 @@ export default function InstructorSubjectView() {
         {activeTab === 'attendance' && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Attendance Management</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                {t('instructorPortal.subjectDetail.attendance.pageTitle')}
+              </h2>
               {classes.length > 0 ? (
                 <div className="space-y-4">
+                  {attendanceClassId != null && !canEditAttendanceForClass(attendanceClassId) && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      {t('instructorPortal.subjectDetail.attendance.editingLocked')}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
                     <select
+                      value={attendanceClassId != null ? String(attendanceClassId) : ''}
                       onChange={(e) => {
-                        if (e.target.value) {
-                          fetchAttendance(parseInt(e.target.value))
-                        }
+                        const raw = e.target.value
+                        const v = raw === '' ? null : Number(raw)
+                        setAttendanceClassId(Number.isFinite(v) ? v : null)
+                        if (v != null && Number.isFinite(v)) fetchAttendance(v)
                       }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                     >
-                      <option value="">Select a class...</option>
+                      <option value="">{t('instructorPortal.subjectDetail.attendance.selectClass')}</option>
                       {classes.map(cls => (
                         <option key={cls.id} value={cls.id}>
                           {cls.code} - Section {cls.section} ({cls.enrollmentCount || 0} students)
@@ -1223,6 +1357,17 @@ export default function InstructorSubjectView() {
                       ))}
                     </select>
                   </div>
+
+                  {attendanceClassId != null && (
+                    <InstructorAttendanceSessionTake
+                      key={String(attendanceClassId)}
+                      classId={attendanceClassId}
+                      classRow={classes.find((c) => String(c.id) === String(attendanceClassId))}
+                      canSave={canEditAttendanceForClass(attendanceClassId)}
+                      platformUserId={platformUserId}
+                      onSaved={() => fetchAttendance(attendanceClassId)}
+                    />
+                  )}
 
                   {attendance.length > 0 && (
                     <div>
@@ -1247,13 +1392,12 @@ export default function InstructorSubjectView() {
                                 </div>
                               </div>
                               <button
-                                onClick={() => {
-                                  // TODO: Open edit attendance modal
-                                  alert('Edit attendance functionality will be implemented')
-                                }}
-                                className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                                type="button"
+                                disabled={!canEditAttendanceForClass(record.class_id)}
+                                onClick={() => openAttendanceEdit(record)}
+                                className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                Edit
+                                {t('instructorPortal.subjectDetail.attendance.edit')}
                               </button>
                             </div>
                           )
@@ -1262,8 +1406,8 @@ export default function InstructorSubjectView() {
                     </div>
                   )}
 
-                  {attendance.length === 0 && (
-                    <p className="text-gray-500 text-center py-8">Select a class to view attendance records</p>
+                  {attendanceClassId == null && (
+                    <p className="text-gray-500 text-center py-8">{t('instructorPortal.subjectDetail.attendance.emptyHint')}</p>
                   )}
                 </div>
               ) : (
@@ -1278,7 +1422,7 @@ export default function InstructorSubjectView() {
           <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Grades Management</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('instructorPortal.subjectDetail.grades.title')}</h2>
                 <button
                   onClick={() => {
                     navigate(`/instructor/subjects/${id}/grades/upload`)
@@ -1376,7 +1520,7 @@ export default function InstructorSubjectView() {
         {activeTab === 'forum' && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Moderate Discussion Forum</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">{t('instructorPortal.subjectDetail.forum.title')}</h2>
               {forumPosts.length > 0 ? (
                 <div className="space-y-3">
                   {forumPosts.map(post => (
@@ -1386,21 +1530,34 @@ export default function InstructorSubjectView() {
                           <h3 className="font-semibold text-gray-900">{post.title || 'Untitled'}</h3>
                           <p className="text-sm text-gray-600">{new Date(post.created_at).toLocaleString()}</p>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center flex-wrap gap-2">
                           {post.is_pinned && (
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">Pinned</span>
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
+                              {t('instructorPortal.subjectDetail.forum.pinned')}
+                            </span>
                           )}
                           {post.is_locked && (
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded">Locked</span>
+                            <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs font-medium rounded">
+                              {t('instructorPortal.subjectDetail.forum.locked')}
+                            </span>
                           )}
                           <button
-                            onClick={() => {
-                              // TODO: Pin/unpin, lock/unlock
-                              alert('Moderation actions will be implemented')
-                            }}
-                            className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                            type="button"
+                            disabled={forumActionId === post.id}
+                            onClick={() => toggleForumPost(post, 'is_pinned')}
+                            className="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1"
                           >
-                            Moderate
+                            <Pin className="w-3.5 h-3.5" />
+                            {post.is_pinned ? t('instructorPortal.subjectDetail.forum.unpin') : t('instructorPortal.subjectDetail.forum.pin')}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={forumActionId === post.id}
+                            onClick={() => toggleForumPost(post, 'is_locked')}
+                            className="px-2 py-1 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 inline-flex items-center gap-1"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                            {post.is_locked ? t('instructorPortal.subjectDetail.forum.unlock') : t('instructorPortal.subjectDetail.forum.lock')}
                           </button>
                         </div>
                       </div>
@@ -1414,7 +1571,7 @@ export default function InstructorSubjectView() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">No forum posts yet</p>
+                <p className="text-gray-500 text-center py-8">{t('instructorPortal.subjectDetail.forum.empty')}</p>
               )}
             </div>
           </div>
@@ -1424,42 +1581,158 @@ export default function InstructorSubjectView() {
         {activeTab === 'qa' && (
           <div className="space-y-4">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Questions & Answers</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">{t('instructorPortal.subjectDetail.qa.title')}</h2>
               {questions.length > 0 ? (
                 <div className="space-y-4">
                   {questions.map(question => (
                     <div key={question.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="mb-3">
-                        <p className="font-semibold text-gray-900 mb-2">Q: {question.question_text}</p>
-                        <p className="text-xs text-gray-500">Asked on {new Date(question.created_at).toLocaleString()}</p>
+                        <p className="font-semibold text-gray-900 mb-2">
+                          {t('instructorPortal.subjectDetail.qa.questionPrefix')} {question.question_text}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {t('instructorPortal.subjectDetail.qa.askedOn')} {new Date(question.created_at).toLocaleString()}
+                        </p>
                       </div>
                       {question.answer_text ? (
                         <div className="mt-3 pt-3 border-t border-gray-200">
-                          <p className="font-semibold text-gray-900 mb-2">A: {question.answer_text}</p>
-                          <p className="text-xs text-gray-500">Answered on {new Date(question.answered_at).toLocaleString()}</p>
+                          <p className="font-semibold text-gray-900 mb-2">
+                            {t('instructorPortal.subjectDetail.qa.answerPrefix')} {question.answer_text}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {t('instructorPortal.subjectDetail.qa.answeredOn')} {new Date(question.answered_at).toLocaleString()}
+                          </p>
                         </div>
                       ) : (
                         <button
-                          onClick={() => {
-                            // TODO: Open answer modal
-                            navigate(`/instructor/subjects/${id}/questions/${question.id}/answer`)
-                          }}
+                          type="button"
+                          onClick={() => openAnswerModal(question)}
                           className="mt-3 px-4 py-2 bg-primary-gradient text-white rounded-lg hover:shadow-lg transition-all"
                         >
-                          Answer Question
+                          {t('instructorPortal.subjectDetail.qa.answerButton')}
                         </button>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-center py-8">No questions yet</p>
+                <p className="text-gray-500 text-center py-8">{t('instructorPortal.subjectDetail.qa.empty')}</p>
               )}
             </div>
           </div>
         )}
       </div>
     </div>
+      )}
+
+      {attendanceEditRecord && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('instructorPortal.subjectDetail.attendance.editTitle')}</h3>
+              <button
+                type="button"
+                className="p-1 rounded hover:bg-gray-100"
+                onClick={() => setAttendanceEditRecord(null)}
+                aria-label={t('instructorPortal.subjectDetail.modalClose')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.attendance.status')}</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  value={attendanceForm.status}
+                  onChange={(e) => setAttendanceForm((f) => ({ ...f, status: e.target.value }))}
+                >
+                  <option value="present">{t('instructorPortal.subjectDetail.attendance.statusPresent')}</option>
+                  <option value="absent">{t('instructorPortal.subjectDetail.attendance.statusAbsent')}</option>
+                  <option value="late">{t('instructorPortal.subjectDetail.attendance.statusLate')}</option>
+                  <option value="excused">{t('instructorPortal.subjectDetail.attendance.statusExcused')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">{t('instructorPortal.subjectDetail.attendance.notes')}</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                  value={attendanceForm.notes}
+                  onChange={(e) => setAttendanceForm((f) => ({ ...f, notes: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 border border-gray-300 rounded-lg"
+                  onClick={() => setAttendanceEditRecord(null)}
+                >
+                  {t('instructorPortal.subjectDetail.attendance.cancel')}
+                </button>
+                <button
+                  type="button"
+                  className="px-4 py-2 bg-primary-gradient text-white rounded-lg disabled:opacity-50"
+                  onClick={saveAttendanceEdit}
+                  disabled={!platformUserId}
+                >
+                  {t('instructorPortal.subjectDetail.attendance.save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {answerModalQuestion && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-lg font-bold text-gray-900">{t('instructorPortal.subjectDetail.qa.answerModalTitle')}</h3>
+              <button
+                type="button"
+                className="p-1 rounded hover:bg-gray-100"
+                onClick={() => setAnswerModalQuestion(null)}
+                aria-label={t('instructorPortal.subjectDetail.modalClose')}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-700 mb-3">{answerModalQuestion.question_text}</p>
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4"
+              rows={5}
+              placeholder={t('instructorPortal.subjectDetail.qa.answerPlaceholder')}
+              value={answerDraft}
+              onChange={(e) => setAnswerDraft(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+                onClick={() => setAnswerModalQuestion(null)}
+              >
+                {t('instructorPortal.subjectDetail.attendance.cancel')}
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 bg-primary-gradient text-white rounded-lg disabled:opacity-50"
+                onClick={submitQuestionAnswer}
+                disabled={answerSaving || !answerDraft.trim()}
+              >
+                {answerSaving ? '…' : t('instructorPortal.subjectDetail.qa.submitAnswer')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )

@@ -10,6 +10,7 @@ import {
   mergeGradeConfigWithTypes,
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
+import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
 
 export default function InstructorGradeSubmission() {
   const { t } = useTranslation()
@@ -42,6 +43,7 @@ export default function InstructorGradeSubmission() {
   const courseName = selectedClass?.subjects
     ? getLocalizedName(selectedClass.subjects, language === 'ar')
     : ''
+  const gradeEntryAllowed = selectedClass?.semesters?.grade_entry_allowed === true
 
   useEffect(() => {
     if (user?.email) {
@@ -66,7 +68,7 @@ export default function InstructorGradeSubmission() {
         subject_id,
         semester_id,
         subjects(id, code, name_en, name_ar, grade_configuration),
-        semesters(id, name_en, name_ar, code)
+        semesters(${INSTRUCTOR_SEMESTER_SELECT})
       `)
       .eq('instructor_id', instructor.id)
       .eq('status', 'active')
@@ -220,7 +222,7 @@ export default function InstructorGradeSubmission() {
   })
 
   const handleSubmit = async () => {
-    if (!declarationChecked || !selectedClassId) return
+    if (!declarationChecked || !selectedClassId || !gradeEntryAllowed) return
     setSubmitting(true)
     try {
       // Mark enrollments as grades_submitted or call a dedicated API when available
@@ -276,6 +278,12 @@ export default function InstructorGradeSubmission() {
         {t('instructorPortal.gradeSubmissionWarning')}
       </div>
 
+      {!gradeEntryAllowed && selectedClass && (
+        <div className="alert alert-err" role="alert">
+          {t('instructorPortal.semesterLifecycle.gradeSubmitBlocked')}
+        </div>
+      )}
+
       <div className="grid2">
         <div>
           <div className="card">
@@ -330,7 +338,7 @@ export default function InstructorGradeSubmission() {
               type="button"
               className="btn btn-err btn-lg btn-bl"
               onClick={handleSubmit}
-              disabled={!declarationChecked || submitting}
+              disabled={!declarationChecked || submitting || !gradeEntryAllowed}
             >
               ☁️ {t('instructorPortal.submitGradesFinally')}
             </button>

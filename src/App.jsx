@@ -109,6 +109,7 @@ import InstructorQuestionBank from './pages/instructor/InstructorQuestionBank'
 import InstructorGradebook from './pages/instructor/InstructorGradebook'
 import InstructorGradeSubmission from './pages/instructor/InstructorGradeSubmission'
 import InstructorComingSoon from './pages/instructor/InstructorComingSoon'
+import InstructorTemplates from './pages/instructor/InstructorTemplates'
 import CreateMaterial from './pages/instructor/CreateMaterial'
 import EditMaterial from './pages/instructor/EditMaterial'
 import CreateHomework from './pages/instructor/CreateHomework'
@@ -1034,7 +1035,7 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['instructor']}>
                 <RoleBasedLayout>
-                  <InstructorComingSoon />
+                  <InstructorTemplates />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

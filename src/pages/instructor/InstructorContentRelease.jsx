@@ -46,6 +46,7 @@ export default function InstructorContentRelease() {
   const [schedule, setSchedule] = useState([])
   const [students, setStudents] = useState([])
   const [progressRows, setProgressRows] = useState([])
+  const [notice, setNotice] = useState(null)
 
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
@@ -187,10 +188,10 @@ export default function InstructorContentRelease() {
         if (error) throw error
         if (data) setSettingsId(data.id)
       }
-      alert(t('instructorPortal.settingsSaved', 'Settings saved.'))
+      setNotice({ type: 'ok', message: t('instructorPortal.settingsSaved', 'Settings saved.') })
     } catch (err) {
       console.error(err)
-      alert(err?.message || t('common.error', 'Error'))
+      setNotice({ type: 'err', message: err?.message || t('common.error', 'Error') })
     } finally {
       setSavingSettings(false)
     }
@@ -264,11 +265,11 @@ export default function InstructorContentRelease() {
             : row
         )
       )
-      alert(t('instructorPortal.lessonScheduleSaved', 'Lesson release settings saved.'))
+      setNotice({ type: 'ok', message: t('instructorPortal.lessonScheduleSaved', 'Lesson release settings saved.') })
     } catch (err) {
       console.error(err)
       updateScheduleField(lessonId, { saving: false })
-      alert(err?.message || t('common.error', 'Error'))
+      setNotice({ type: 'err', message: err?.message || t('common.error', 'Error') })
     }
   }
 
@@ -369,6 +370,15 @@ export default function InstructorContentRelease() {
 
   return (
     <>
+      {notice && (
+        <div
+          className={`alert ${notice.type === 'ok' ? 'alert-ok' : 'alert-err'}`}
+          style={{ margin: '0 24px 12px', maxWidth: 960 }}
+          role="status"
+        >
+          {notice.message}
+        </div>
+      )}
       <nav className="bc" aria-label={t('instructorPortal.breadcrumbMain')}>
         <Link to="/instructor/dashboard">{t('instructorPortal.dashboard')}</Link>
         <span className="bc-sep">›</span>

@@ -334,17 +334,33 @@
   margin-top: 2px;
 }
 
-/* Tabs */
+/* Tabs — horizontal scroll without clipping first/last; no wrap */
 .instructor-portal .tabs {
   display: flex;
-  gap: 0;
+  flex-wrap: nowrap;
+  gap: 2px;
   border-bottom: 2px solid var(--bdr);
   margin-bottom: 24px;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 6px;
+  scroll-padding-inline: 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.instructor-portal .tabs::-webkit-scrollbar {
+  height: 6px;
+}
+
+.instructor-portal .tabs::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 35%, transparent);
+  border-radius: 4px;
 }
 
 .instructor-portal .tab {
-  padding: 10px 20px;
+  flex: 0 0 auto;
+  padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
   color: var(--muted);
@@ -354,7 +370,7 @@
   margin-bottom: -2px;
   white-space: nowrap;
   text-decoration: none;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
   background: transparent;
   font-family: var(--font);
 }
@@ -362,11 +378,13 @@
 .instructor-portal .tab:hover {
   color: var(--p);
   text-decoration: none;
+  background: color-mix(in srgb, var(--p) 6%, transparent);
 }
 
 .instructor-portal .tab.active {
   color: var(--p);
   border-bottom-color: var(--p);
+  background: color-mix(in srgb, var(--p) 8%, transparent);
 }
 
 /* Stats grid */

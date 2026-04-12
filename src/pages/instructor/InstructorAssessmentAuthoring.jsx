@@ -6,6 +6,8 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { QUESTION_TYPE_OPTIONS } from '../../constants/questionTypes'
+import { RUBRIC_CATALOG_FALLBACK } from '../../constants/instructorRubricCatalog'
+import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
 
 const defaultExamForm = {
   title: '',
@@ -26,13 +28,6 @@ const defaultExamForm = {
   assessment_file_name: '',
   rubric_id: '',
 }
-
-/** Catalog IDs must match rubrics defined in Admin → Rubric builder. */
-const RUBRIC_CATALOG = [
-  { id: '', key: 'rubricOptionNone' },
-  { id: 'academic_writing_default', key: 'rubricOptionAcademicWriting' },
-  { id: 'oral_presentation_default', key: 'rubricOptionOral' },
-]
 
 const defaultOptions = ['Option 1', 'Option 2', 'Option 3', 'Option 4']
 const DEFAULT_ORDER_ITEMS = ['Item 1', 'Item 2', 'Item 3']
@@ -118,6 +113,8 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
   const [questionBank, setQuestionBank] = useState([])
   const [activeTab, setActiveTab] = useState('manual')
   const [assessmentFileUploading, setAssessmentFileUploading] = useState(false)
+  const [rubricRows, setRubricRows] = useState([])
+  const [rubricsLoaded, setRubricsLoaded] = useState(false)
 
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
@@ -148,6 +145,18 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
     if (!user?.email) return
     initialize()
   }, [user?.email])
+
+  useEffect(() => {
+    supabase
+      .from('rubrics')
+      .select('code, name_en, name_ar')
+      .eq('is_active', true)
+      .order('name_en')
+      .then(({ data, error }) => {
+        if (!error && data?.length) setRubricRows(data)
+        setRubricsLoaded(true)
+      })
+  }, [])
 
   useEffect(() => {
     if (!selectedClassId) return
@@ -201,7 +210,7 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
 
       const { data: cls } = await supabase
         .from('classes')
-        .select('id, section, subject_id, subjects(id, code, name_en, name_ar), semesters(id, name_en, name_ar)')
+        .select(`id, section, subject_id, subjects(id, code, name_en, name_ar), semesters(${INSTRUCTOR_SEMESTER_SELECT})`)
         .eq('instructor_id', instructor.id)
         .eq('status', 'active')
         .order('id', { ascending: false })
@@ -537,7 +546,9 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                 >
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                      {cls.subjects?.code} — {t('instructorPortal.section')} {cls.section} —{' '}
+                      {getLocalizedName(cls.semesters || {}, language === 'ar') ||
+                        getLocalizedName(cls.subjects, language === 'ar')}
                     </option>
                   ))}
                 </select>
@@ -568,6 +579,15 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
               </Link>
             </div>
           </div>
+
+          {selectedClass?.semesters &&
+            (selectedClass.semesters.status === 'draft' || selectedClass.semesters.status === 'archived') && (
+              <div className="alert alert-warn" role="status" style={{ marginBottom: 16 }}>
+                {selectedClass.semesters.status === 'draft'
+                  ? t('instructorPortal.semesterLifecycle.bannerDraft')
+                  : t('instructorPortal.semesterLifecycle.bannerArchived')}
+              </div>
+            )}
         </>
       )}
 
@@ -590,7 +610,9 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                 >
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                      {cls.subjects?.code} — {t('instructorPortal.section')} {cls.section} —{' '}
+                      {getLocalizedName(cls.semesters || {}, language === 'ar') ||
+                        getLocalizedName(cls.subjects, language === 'ar')}
                     </option>
                   ))}
                 </select>
@@ -766,11 +788,22 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                 value={examForm.rubric_id}
                 onChange={(e) => setExamForm((p) => ({ ...p, rubric_id: e.target.value }))}
               >
-                {RUBRIC_CATALOG.map((r) => (
-                  <option key={r.id || 'none'} value={r.id}>
-                    {t(`instructorPortal.${r.key}`)}
-                  </option>
-                ))}
+                {rubricsLoaded && rubricRows.length > 0
+                  ? [
+                      <option key="rubric-none" value="">
+                        {t('instructorPortal.rubricOptionNone')}
+                      </option>,
+                      ...rubricRows.map((r) => (
+                        <option key={r.code} value={r.code}>
+                          {language === 'ar' && r.name_ar ? r.name_ar : r.name_en}
+                        </option>
+                      )),
+                    ]
+                  : RUBRIC_CATALOG_FALLBACK.map((r) => (
+                      <option key={r.id || 'none'} value={r.id}>
+                        {t(`instructorPortal.${r.key}`)}
+                      </option>
+                    ))}
               </select>
             </div>
           </div>

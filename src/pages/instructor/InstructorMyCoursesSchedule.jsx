@@ -95,7 +95,9 @@ export default function InstructorMyCoursesSchedule({
         <div className="sched-sum-item">
           <div className="sched-sum-icon">🏢</div>
           <div>
-            <div className="sched-sum-val">{summaryOfficeHours}</div>
+            <div className="sched-sum-val">
+              {summaryOfficeHours != null && summaryOfficeHours !== '' ? summaryOfficeHours : '—'}
+            </div>
             <div className="sched-sum-lbl">{t('instructorPortal.schedSumOffice')}</div>
           </div>
         </div>

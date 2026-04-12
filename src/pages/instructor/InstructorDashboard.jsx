@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
+import { pickPreferredSemesterForDashboard } from '../../utils/instructorSemesters'
 
 export default function InstructorDashboard() {
   const { t } = useTranslation()
@@ -36,13 +37,21 @@ export default function InstructorDashboard() {
       }
       setInstructor(instData)
 
-      const { data: semData } = await supabase
-        .from('semesters')
-        .select('id, name_en, name_ar, code, status')
-        .eq('college_id', instData.college_id)
-        .order('start_date', { ascending: false })
-        .limit(5)
-      const activeOrRecent = (semData || []).find(s => s.status === 'active' || s.status === 'registration_open') || semData?.[0]
+      const { data: classSemRows } = await supabase
+        .from('classes')
+        .select(`semester_id, semesters(id, name_en, name_ar, code, status, start_date)`)
+        .eq('instructor_id', instData.id)
+        .eq('status', 'active')
+
+      const semMap = new Map()
+      for (const row of classSemRows || []) {
+        const s = row.semesters
+        if (s?.id) semMap.set(s.id, s)
+      }
+      const semList = [...semMap.values()].sort(
+        (a, b) => new Date(b.start_date || 0) - new Date(a.start_date || 0)
+      )
+      const activeOrRecent = pickPreferredSemesterForDashboard(semList)
       setCurrentSemester(activeOrRecent)
 
       if (!activeOrRecent) {

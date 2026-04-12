@@ -6,6 +6,8 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { sumTeachingMinutes, uniqueLocationsFromSchedules } from '../../utils/instructorTimetable'
+import { formatRelativeTimePast } from '../../utils/formatRelativeTimePast'
+import { fetchSemestersForInstructor } from '../../utils/instructorSemesters'
 import InstructorMyCoursesSchedule from './InstructorMyCoursesSchedule'
 
 const COURSE_GRADIENTS = [
@@ -15,7 +17,12 @@ const COURSE_GRADIENTS = [
   'linear-gradient(135deg, #6c3483, #9b59b6)',
 ]
 
-const DELIVERY_KEYS = ['courseTypeOnline', 'courseTypeBlended', 'courseTypeInPerson']
+/** Maps `classes.type` (class_type enum) to instructorPortal i18n key suffix. */
+function deliveryKeyFromClassType(type) {
+  if (type === 'online') return 'courseTypeOnline'
+  if (type === 'hybrid') return 'courseTypeBlended'
+  return 'courseTypeInPerson'
+}
 
 export default function InstructorMyCourses() {
   const { t } = useTranslation()
@@ -32,14 +39,23 @@ export default function InstructorMyCourses() {
   const [enrollmentCounts, setEnrollmentCounts] = useState({})
   const [upcomingAssessmentsWeek, setUpcomingAssessmentsWeek] = useState(0)
   const [scheduleRows, setScheduleRows] = useState([])
+  const [lessonLastModified, setLessonLastModified] = useState({})
 
   useEffect(() => {
     if (user?.email) fetchInstructor()
   }, [user?.email])
 
   useEffect(() => {
-    if (instructor?.college_id) fetchSemesters()
-  }, [instructor?.college_id])
+    if (instructor?.id) fetchSemesters()
+  }, [instructor?.id, instructor?.college_id])
+
+  useEffect(() => {
+    if (!semesters.length) return
+    setSelectedSemesterId((prev) => {
+      if (prev && semesters.some((s) => s.id === prev)) return prev
+      return semesters[0].id
+    })
+  }, [semesters])
 
   useEffect(() => {
     if (instructor?.id && selectedSemesterId) {
@@ -60,15 +76,11 @@ export default function InstructorMyCourses() {
   }
 
   const fetchSemesters = async () => {
-    const { data } = await supabase
-      .from('semesters')
-      .select('id, name_en, name_ar, code, start_date')
-      .eq('college_id', instructor.college_id)
-      .order('start_date', { ascending: false })
-      .limit(10)
-
-    setSemesters(data || [])
-    if (data?.length && !selectedSemesterId) setSelectedSemesterId(data[0].id)
+    const list = await fetchSemestersForInstructor(supabase, {
+      instructorId: instructor.id,
+      collegeId: instructor.college_id,
+    })
+    setSemesters(list)
   }
 
   const fetchCourses = async () => {
@@ -83,6 +95,7 @@ export default function InstructorMyCourses() {
           subject_id,
           semester_id,
           status,
+          type,
           subjects(id, code, name_en, name_ar, credit_hours)
         `)
         .eq('instructor_id', instructor.id)
@@ -99,6 +112,7 @@ export default function InstructorMyCourses() {
         setEnrollmentCounts({})
         setUpcomingAssessmentsWeek(0)
         setScheduleRows([])
+        setLessonLastModified({})
         return
       }
 
@@ -127,27 +141,46 @@ export default function InstructorMyCourses() {
       weekEnd.setDate(weekEnd.getDate() + 7)
       const weekEndStr = weekEnd.toISOString().slice(0, 10)
 
+      const windowStart = new Date()
+      windowStart.setHours(0, 0, 0, 0)
+      const windowEnd = new Date(windowStart)
+      windowEnd.setDate(windowEnd.getDate() + 7)
+      windowEnd.setHours(23, 59, 59, 999)
+
       let examCount = 0
+      let homeworkCount = 0
       try {
-        const { count } = await supabase
-          .from('subject_exams')
-          .select('id', { count: 'exact', head: true })
-          .in('class_id', classIds)
-          .gte('scheduled_date', today)
-          .lte('scheduled_date', weekEndStr)
-        examCount = count || 0
+        const [{ count: ex }, { count: hw }] = await Promise.all([
+          supabase
+            .from('subject_exams')
+            .select('id', { count: 'exact', head: true })
+            .in('class_id', classIds)
+            .gte('scheduled_date', today)
+            .lte('scheduled_date', weekEndStr),
+          supabase
+            .from('subject_homework')
+            .select('id', { count: 'exact', head: true })
+            .in('class_id', classIds)
+            .in('status', ['HW_PUB', 'HW_CLD'])
+            .gte('due_date', windowStart.toISOString())
+            .lte('due_date', windowEnd.toISOString()),
+        ])
+        examCount = ex || 0
+        homeworkCount = hw || 0
       } catch {
         examCount = 0
+        homeworkCount = 0
       }
 
       const [{ data: lessonsData }, { data: enrollmentsData }] = await Promise.all([
-        supabase.from('class_lessons').select('class_id, status').in('class_id', classIds),
+        supabase.from('class_lessons').select('class_id, status, updated_at').in('class_id', classIds),
         supabase.from('enrollments').select('class_id, id').in('class_id', classIds).eq('status', 'enrolled'),
       ])
 
-      setUpcomingAssessmentsWeek(examCount)
+      setUpcomingAssessmentsWeek(examCount + homeworkCount)
 
       const nextLessonStats = {}
+      const nextLessonLastModified = {}
       for (const classId of classIds) {
         nextLessonStats[classId] = { total: 0, published: 0 }
       }
@@ -158,7 +191,13 @@ export default function InstructorMyCourses() {
         }
         nextLessonStats[lesson.class_id].total += 1
         if (lesson.status === 'published') nextLessonStats[lesson.class_id].published += 1
+        const u = lesson.updated_at
+        if (u) {
+          const prev = nextLessonLastModified[lesson.class_id]
+          if (!prev || new Date(u) > new Date(prev)) nextLessonLastModified[lesson.class_id] = u
+        }
       }
+      setLessonLastModified(nextLessonLastModified)
 
       const nextEnrollmentCounts = {}
       for (const classId of classIds) {
@@ -272,6 +311,7 @@ export default function InstructorMyCourses() {
             })}
           </p>
         </div>
+
         <div className="ph-acts">
           <select
             className="fc"
@@ -283,7 +323,7 @@ export default function InstructorMyCourses() {
           >
             {semesters.map((s) => (
               <option key={s.id} value={s.id}>
-                {getLocalizedName(s, language === 'ar')}
+                {getLocalizedName(s, language === 'ar')} — {t(`instructorPortal.semesterStatus.${s.status}`, s.status)}
               </option>
             ))}
             {semesters.length === 0 && <option value="">{semesterLabel || ''}</option>}
@@ -293,6 +333,31 @@ export default function InstructorMyCourses() {
           </Link>
         </div>
       </div>
+
+      {currentSemester && (
+        <>
+          {(currentSemester.status === 'draft' || currentSemester.status === 'archived') && (
+            <div className="alert alert-warn" role="status" style={{ marginBottom: 12 }}>
+              {currentSemester.status === 'draft'
+                ? t('instructorPortal.semesterLifecycle.bannerDraft')
+                : t('instructorPortal.semesterLifecycle.bannerArchived')}
+            </div>
+          )}
+          {(currentSemester.grade_entry_allowed !== true ||
+            currentSemester.attendance_editing_allowed !== true) && (
+            <div className="alert alert-ok" role="status" style={{ marginBottom: 16 }}>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {currentSemester.grade_entry_allowed !== true && (
+                  <li>{t('instructorPortal.semesterLifecycle.flagGradeEntryOff')}</li>
+                )}
+                {currentSemester.attendance_editing_allowed !== true && (
+                  <li>{t('instructorPortal.semesterLifecycle.flagAttendanceOff')}</li>
+                )}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
 
       <div className="sg">
         <div className="sc info">
@@ -336,8 +401,9 @@ export default function InstructorMyCourses() {
           const hours = cls.subjects?.credit_hours || 0
           const students = enrollmentCounts[cls.id] || 0
           const courseName = getLocalizedName(cls.subjects, language === 'ar')
-          const deliveryKey = DELIVERY_KEYS[index % DELIVERY_KEYS.length]
-          const showIntegrity = index === 1
+          const deliveryKey = deliveryKeyFromClassType(cls.type)
+          const lastMod = lessonLastModified[cls.id]
+          const allDraft = total > 0 && published === 0
 
           return (
             <div key={cls.id} className="course-card">
@@ -381,20 +447,7 @@ export default function InstructorMyCourses() {
                   <span data-status="active" className="badge">
                     {t('instructorPortal.badgeActive')}
                   </span>
-                  {showIntegrity ? (
-                    <span
-                      style={{
-                        background: 'var(--err-bg)',
-                        color: 'var(--err)',
-                        fontSize: 12,
-                        padding: '2px 8px',
-                        borderRadius: 20,
-                        fontWeight: 600,
-                      }}
-                    >
-                      ⚠️ {t('instructorPortal.integrityIssue')}
-                    </span>
-                  ) : isComplete ? (
+                  {isComplete ? (
                     <span
                       style={{
                         background: 'var(--ok-bg)',
@@ -407,8 +460,27 @@ export default function InstructorMyCourses() {
                     >
                       ✓ {t('instructorPortal.contentComplete')}
                     </span>
+                  ) : allDraft ? (
+                    <span
+                      style={{
+                        background: 'var(--warn-bg)',
+                        color: 'var(--warn)',
+                        fontSize: 12,
+                        padding: '2px 8px',
+                        borderRadius: 20,
+                        fontWeight: 600,
+                      }}
+                    >
+                      ⚠️ {t('instructorPortal.allLessonsDraftShort')}
+                    </span>
+                  ) : lastMod ? (
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      {t('instructorPortal.lastModified', {
+                        time: formatRelativeTimePast(lastMod, language === 'ar' ? 'ar' : 'en'),
+                      })}
+                    </span>
                   ) : (
-                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('instructorPortal.lastModifiedYesterday')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('instructorPortal.noLessonsYetShort')}</span>
                   )}
                 </div>
                 <div className="course-actions">
@@ -432,7 +504,7 @@ export default function InstructorMyCourses() {
         semesterLabel={semesterLabel}
         schedules={scheduleRows}
         summaryTeachingHours={teachingHoursWeek}
-        summaryOfficeHours={0}
+        summaryOfficeHours={null}
         summaryAssessWeek={upcomingAssessmentsWeek}
         summaryStudents={totalStudents}
         summaryRooms={distinctRooms}

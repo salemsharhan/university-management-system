@@ -11,6 +11,7 @@ import {
   numericGradeToGpaPoints,
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
+import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
 
 export default function InstructorGradebook({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
@@ -38,6 +39,7 @@ export default function InstructorGradebook({ embedded = false, embedClassId = n
   const semesterLabel = selectedClass?.semesters
     ? getLocalizedName(selectedClass.semesters, language === 'ar')
     : ''
+  const gradeEntryAllowed = selectedClass?.semesters?.grade_entry_allowed === true
 
   useEffect(() => {
     if (user?.email) {
@@ -63,7 +65,7 @@ export default function InstructorGradebook({ embedded = false, embedClassId = n
         subject_id,
         semester_id,
         subjects(id, code, name_en, name_ar, grade_configuration),
-        semesters(id, name_en, name_ar, code)
+        semesters(${INSTRUCTOR_SEMESTER_SELECT})
       `)
       .eq('instructor_id', instructor.id)
       .eq('status', 'active')
@@ -258,6 +260,11 @@ export default function InstructorGradebook({ embedded = false, embedClassId = n
               <p className="ph-sub">
                 {subjectCode} — {semesterLabel} | {t('instructorPortal.studentsCount', { count: enrollments.length })}
               </p>
+              {!gradeEntryAllowed && selectedClass && (
+                <div className="alert alert-warn" role="status" style={{ marginTop: 12 }}>
+                  {t('instructorPortal.semesterLifecycle.flagGradeEntryOff')}
+                </div>
+              )}
             </div>
             <div className="ph-acts">
               {classes.length > 1 && (
@@ -280,6 +287,11 @@ export default function InstructorGradebook({ embedded = false, embedClassId = n
               <Link
                 to={`/instructor/grade-submission${selectedClassId ? `?classId=${selectedClassId}` : ''}`}
                 className="btn btn-p"
+                style={!gradeEntryAllowed ? { pointerEvents: 'none', opacity: 0.5 } : undefined}
+                aria-disabled={!gradeEntryAllowed}
+                onClick={(e) => {
+                  if (!gradeEntryAllowed) e.preventDefault()
+                }}
               >
                 📤 {t('instructorPortal.submitGradesToRecord')}
               </Link>
@@ -309,6 +321,13 @@ export default function InstructorGradebook({ embedded = false, embedClassId = n
               <span className="ts">{subjectCode}</span>
             )}
           </div>
+          {!gradeEntryAllowed && selectedClass && (
+            <div style={{ padding: '0 16px 12px' }}>
+              <div className="alert alert-warn" role="status" style={{ margin: 0 }}>
+                {t('instructorPortal.semesterLifecycle.flagGradeEntryOff')}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
