@@ -29,28 +29,28 @@ const testUsers = [
     name: 'Super Admin',
     role: 'admin',
     college_id: null,
-  },
-  {
-    email: 'college@testuniversity.edu',
-    password: 'College123!',
-    name: 'College Admin',
-    role: 'user',
-    college_code: 'TEST001',
-  },
-  {
-    email: 'instructor@testuniversity.edu',
-    password: 'Instructor123!',
-    name: 'Test Instructor',
-    role: 'instructor',
-    college_code: 'TEST001',
-  },
-  {
-    email: 'student@testuniversity.edu',
-    password: 'Student123!',
-    name: 'Test Student',
-    role: 'student',
-    college_code: 'TEST001',
-  },
+  }
+  // {
+  //   email: 'college@testuniversity.edu',
+  //   password: 'College123!',
+  //   name: 'College Admin',
+  //   role: 'user',
+  //   college_code: 'TEST001',
+  // },
+  // {
+  //   email: 'instructor@testuniversity.edu',
+  //   password: 'Instructor123!',
+  //   name: 'Test Instructor',
+  //   role: 'instructor',
+  //   college_code: 'TEST001',
+  // },
+  // {
+  //   email: 'student@testuniversity.edu',
+  //   password: 'Student123!',
+  //   name: 'Test Student',
+  //   role: 'student',
+  //   college_code: 'TEST001',
+  // },
 ]
 
 async function setupTestUsers() {
@@ -58,42 +58,42 @@ async function setupTestUsers() {
 
   try {
     // Step 1: Ensure test college exists
-    console.log('📚 Checking test college...')
-    const { data: college, error: collegeError } = await supabaseAdmin
-      .from('colleges')
-      .select('id, code')
-      .eq('code', 'TEST001')
-      .single()
+    // console.log('📚 Checking test college...')
+    // const { data: college, error: collegeError } = await supabaseAdmin
+    //   .from('colleges')
+    //   .select('id, code')
+    //   .eq('code', 'TEST001')
+    //   .single()
 
-    let collegeId = null
-    if (collegeError || !college) {
-      console.log('   Creating test college...')
-      const { data: newCollege, error: createError } = await supabaseAdmin
-        .from('colleges')
-        .insert({
-          code: 'TEST001',
-          name_en: 'Test University',
-          name_ar: 'جامعة الاختبار',
-          abbreviation: 'TU',
-          official_email: 'admin@testuniversity.edu',
-          phone_number: '+966501234567',
-          primary_color: '#952562',
-          secondary_color: '#E82B5E',
-          status: 'active',
-        })
-        .select('id')
-        .single()
+    // let collegeId = null
+    // if (collegeError || !college) {
+    //   console.log('   Creating test college...')
+    //   const { data: newCollege, error: createError } = await supabaseAdmin
+    //     .from('colleges')
+    //     .insert({
+    //       code: 'TEST001',
+    //       name_en: 'Test University',
+    //       name_ar: 'جامعة الاختبار',
+    //       abbreviation: 'TU',
+    //       official_email: 'admin@testuniversity.edu',
+    //       phone_number: '+966501234567',
+    //       primary_color: '#952562',
+    //       secondary_color: '#E82B5E',
+    //       status: 'active',
+    //     })
+    //     .select('id')
+    //     .single()
 
-      if (createError) {
-        console.error('❌ Error creating college:', createError.message)
-        throw createError
-      }
-      collegeId = newCollege.id
-      console.log(`   ✅ College created with ID: ${collegeId}`)
-    } else {
-      collegeId = college.id
-      console.log(`   ✅ College already exists with ID: ${collegeId}`)
-    }
+    //   if (createError) {
+    //     console.error('❌ Error creating college:', createError.message)
+    //     throw createError
+    //   }
+    //   collegeId = newCollege.id
+    //   console.log(`   ✅ College created with ID: ${collegeId}`)
+    // } else {
+    //   collegeId = college.id
+    //   console.log(`   ✅ College already exists with ID: ${collegeId}`)
+    // }
 
     // Step 2: Create auth users and link to database
     console.log('\n👥 Creating auth users and linking to database...\n')

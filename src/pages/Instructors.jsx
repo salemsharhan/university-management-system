@@ -4,7 +4,25 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Search, Plus, Edit, Eye, Mail, Phone, User, Building2, BadgeInfo } from 'lucide-react'
+import { invokeAdminPasswordReset } from '../utils/invokeAdminPasswordReset'
+import PasswordResetModal from '../components/admin/PasswordResetModal'
+import CreatePortalAccountModal from '../components/admin/CreatePortalAccountModal'
+import {
+  Search,
+  Plus,
+  Edit,
+  Eye,
+  Mail,
+  Phone,
+  User,
+  Building2,
+  BadgeInfo,
+  MoreVertical,
+  KeyRound,
+  UserX,
+  UserCheck,
+  UserPlus,
+} from 'lucide-react'
 import { getLocalizedName } from '../utils/localizedName'
 
 export default function Instructors() {
@@ -18,14 +36,26 @@ export default function Instructors() {
   const [instructors, setInstructors] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
+  const [menuId, setMenuId] = useState(null)
+  const [pwdModalInstructorId, setPwdModalInstructorId] = useState(null)
+  const [linkPortalInstructor, setLinkPortalInstructor] = useState(null)
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [pwdError, setPwdError] = useState('')
+  const [toast, setToast] = useState('')
+
+  const canManageAccounts = userRole === 'admin' || userRole === 'user'
 
   const fetchInstructors = useCallback(async () => {
     try {
       setLoading(true)
-      let query = supabase
-        .from('instructors')
-        .select('*, departments(name_en, name_ar, code)')
-        .order('created_at', { ascending: false })
+      let query = supabase.from('instructors').select('*, departments(name_en, name_ar, code)')
+      if (showInactive) {
+        query = query.in('status', ['active', 'inactive', 'on_leave'])
+      } else {
+        query = query.in('status', ['active', 'on_leave'])
+      }
+      query = query.order('created_at', { ascending: false })
 
       // Filter by college_id for college admins - only show instructors from their college
       if (userRole === 'user' && collegeId) {
@@ -41,7 +71,41 @@ export default function Instructors() {
     } finally {
       setLoading(false)
     }
-  }, [collegeId, userRole])
+  }, [collegeId, userRole, showInactive])
+
+  const setInstructorStatus = async (instructorId, status) => {
+    setToast('')
+    const { error } = await supabase.from('instructors').update({ status }).eq('id', instructorId)
+    if (error) {
+      setToast(error.message)
+      return
+    }
+    setToast(status === 'inactive' ? t('adminAccount.deactivateSuccess') : t('adminAccount.reactivateSuccess'))
+    fetchInstructors()
+    setMenuId(null)
+    setTimeout(() => setToast(''), 4000)
+  }
+
+  const submitPasswordReset = async (password) => {
+    if (!pwdModalInstructorId) return
+    setPwdLoading(true)
+    setPwdError('')
+    try {
+      await invokeAdminPasswordReset({ instructorId: pwdModalInstructorId, newPassword: password })
+      setPwdModalInstructorId(null)
+      setToast(t('adminAccount.passwordResetSuccess'))
+      setTimeout(() => setToast(''), 4000)
+    } catch (e) {
+      const msg = e?.message || String(e)
+      if (msg.includes('Failed to fetch') || msg.includes('Function not found')) {
+        setPwdError(t('adminAccount.functionNotDeployed'))
+      } else {
+        setPwdError(msg)
+      }
+    } finally {
+      setPwdLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchInstructors()
@@ -107,9 +171,21 @@ export default function Instructors() {
         </button>
       </div>
 
+      {toast && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            toast.startsWith('ERR::')
+              ? 'border-red-200 bg-red-50 text-red-900'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+          }`}
+        >
+          {toast.startsWith('ERR::') ? toast.slice(5) : toast}
+        </div>
+      )}
+
       {/* Search and Filters */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col md:flex-row gap-4 md:items-center">
           <div className="flex-1 relative">
             <Search className={`absolute ${isArabicLayout ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
             <input
@@ -120,6 +196,17 @@ export default function Instructors() {
               className={`w-full ${isArabicLayout ? 'pr-10 pl-4 text-right' : 'pl-10 pr-4 text-left'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
             />
           </div>
+          {canManageAccounts && (
+            <label className={`flex items-center gap-2 text-sm text-gray-700 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={(e) => setShowInactive(e.target.checked)}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              {t('instructors.includeInactive')}
+            </label>
+          )}
         </div>
       </div>
 
@@ -188,7 +275,7 @@ export default function Instructors() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className={`grid gap-2 ${canManageAccounts ? 'grid-cols-3' : 'grid-cols-2'}`}>
                   <button
                     onClick={() => navigate(`/instructors/${instructor.id}`)}
                     className="flex items-center justify-center gap-1.5 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium"
@@ -203,12 +290,124 @@ export default function Instructors() {
                     <Edit className="w-4 h-4" />
                     {t('common.edit')}
                   </button>
+                  {canManageAccounts && (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setMenuId(menuId === instructor.id ? null : instructor.id)}
+                        className="w-full flex items-center justify-center gap-1.5 py-3 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium"
+                        title={t('instructors.moreActions')}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      {menuId === instructor.id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuId(null)} />
+                          <div
+                            className={`absolute bottom-full mb-1 ${isArabicLayout ? 'left-0' : 'right-0'} z-20 w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-1`}
+                          >
+                            {instructor.status !== 'inactive' && (
+                              <>
+                                {instructor.user_id ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPwdModalInstructorId(instructor.id)
+                                      setPwdError('')
+                                      setMenuId(null)
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+                                  >
+                                    <KeyRound className="w-4 h-4 shrink-0" />
+                                    {t('instructors.resetPassword')}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (!instructor.email?.trim()) {
+                                        setToast(`ERR::${t('adminAccount.noEmailForAccount')}`)
+                                        setMenuId(null)
+                                        setTimeout(() => setToast(''), 6000)
+                                        return
+                                      }
+                                      setLinkPortalInstructor(instructor)
+                                      setMenuId(null)
+                                    }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+                                  >
+                                    <UserPlus className="w-4 h-4 shrink-0" />
+                                    {t('instructors.createPortalLogin')}
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm(t('instructors.confirmDeactivate'))) {
+                                      setInstructorStatus(instructor.id, 'inactive')
+                                    }
+                                    setMenuId(null)
+                                  }}
+                                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+                                >
+                                  <UserX className="w-4 h-4 shrink-0" />
+                                  {t('instructors.deactivate')}
+                                </button>
+                              </>
+                            )}
+                            {instructor.status === 'inactive' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm(t('instructors.confirmReactivate'))) {
+                                    setInstructorStatus(instructor.id, 'active')
+                                  }
+                                  setMenuId(null)
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-50 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+                              >
+                                <UserCheck className="w-4 h-4 shrink-0" />
+                                {t('instructors.reactivate')}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))
           )}
         </div>
       )}
+
+      <PasswordResetModal
+        open={pwdModalInstructorId != null}
+        onClose={() => {
+          setPwdModalInstructorId(null)
+          setPwdError('')
+        }}
+        onSubmit={submitPasswordReset}
+        loading={pwdLoading}
+        error={pwdError}
+      />
+
+      <CreatePortalAccountModal
+        open={linkPortalInstructor != null}
+        onClose={() => setLinkPortalInstructor(null)}
+        kind="instructor"
+        recordId={linkPortalInstructor?.id}
+        email={linkPortalInstructor?.email}
+        collegeId={linkPortalInstructor?.college_id}
+        displayName={linkPortalInstructor ? getInstructorDisplayName(linkPortalInstructor) : ''}
+        onLinked={() => {
+          setToast(t('adminAccount.createPortalAccountSuccess'))
+          setLinkPortalInstructor(null)
+          fetchInstructors()
+          setTimeout(() => setToast(''), 4000)
+        }}
+      />
     </div>
   )
 }

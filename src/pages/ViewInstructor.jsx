@@ -4,7 +4,29 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { getLocalizedName } from '../utils/localizedName'
-import { ArrowLeft, Edit, User, Mail, Phone, Briefcase, GraduationCap, Award, BookOpen, Languages, FileText, BadgeCheck } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { invokeAdminPasswordReset } from '../utils/invokeAdminPasswordReset'
+import PasswordResetModal from '../components/admin/PasswordResetModal'
+import CreatePortalAccountModal from '../components/admin/CreatePortalAccountModal'
+import {
+  ArrowLeft,
+  Edit,
+  User,
+  Mail,
+  Phone,
+  Briefcase,
+  GraduationCap,
+  Award,
+  BookOpen,
+  Languages,
+  FileText,
+  BadgeCheck,
+  MoreVertical,
+  KeyRound,
+  UserX,
+  UserCheck,
+  UserPlus,
+} from 'lucide-react'
 
 export default function ViewInstructor() {
   const { id } = useParams()
@@ -18,6 +40,15 @@ export default function ViewInstructor() {
   const [instructor, setInstructor] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { userRole, collegeId } = useAuth()
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
+  const [pwdModalOpen, setPwdModalOpen] = useState(false)
+  const [linkPortalModalOpen, setLinkPortalModalOpen] = useState(false)
+  const [pwdLoading, setPwdLoading] = useState(false)
+  const [pwdError, setPwdError] = useState('')
+  const [toast, setToast] = useState('')
+
+  const canManageAccounts = userRole === 'admin' || userRole === 'user'
 
   const fetchInstructor = useCallback(async () => {
     try {
@@ -36,6 +67,40 @@ export default function ViewInstructor() {
       setLoading(false)
     }
   }, [id, isArabicLayout])
+
+  const setInstructorStatus = async (status) => {
+    setToast('')
+    const { error: updErr } = await supabase.from('instructors').update({ status }).eq('id', id)
+    if (updErr) {
+      setToast(updErr.message)
+      return
+    }
+    setToast(status === 'inactive' ? t('adminAccount.deactivateSuccess') : t('adminAccount.reactivateSuccess'))
+    setAdminMenuOpen(false)
+    await fetchInstructor()
+    setTimeout(() => setToast(''), 4000)
+  }
+
+  const submitPasswordReset = async (password) => {
+    setPwdLoading(true)
+    setPwdError('')
+    try {
+      await invokeAdminPasswordReset({ instructorId: id, newPassword: password })
+      setPwdModalOpen(false)
+      setAdminMenuOpen(false)
+      setToast(t('adminAccount.passwordResetSuccess'))
+      setTimeout(() => setToast(''), 4000)
+    } catch (e) {
+      const msg = e?.message || String(e)
+      if (msg.includes('Failed to fetch') || msg.includes('Function not found')) {
+        setPwdError(t('adminAccount.functionNotDeployed'))
+      } else {
+        setPwdError(msg)
+      }
+    } finally {
+      setPwdLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetchInstructor()
@@ -64,6 +129,13 @@ export default function ViewInstructor() {
   }
   const statusKey = instructor?.status || 'active'
   const status = statusMeta[statusKey] || statusMeta.active
+
+  const canManageThisInstructor =
+    canManageAccounts &&
+    (userRole === 'admin' ||
+      (collegeId != null &&
+        instructor?.college_id != null &&
+        String(instructor.college_id) === String(collegeId)))
 
   const titleLabel = (value) => {
     const map = {
@@ -163,14 +235,123 @@ export default function ViewInstructor() {
           <ArrowLeft className="w-5 h-5" />
           <span>{t('common.back')}</span>
         </button>
-        <button
-          onClick={() => navigate(`/instructors/${id}/edit`)}
-          className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all`}
-        >
-          <Edit className="w-4 h-4" />
-          <span>{t('common.edit')}</span>
-        </button>
+        <div className={`flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+          {canManageThisInstructor && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAdminMenuOpen((v) => !v)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+                title={t('instructors.moreActions')}
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {adminMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setAdminMenuOpen(false)} />
+                  <div
+                    className={`absolute top-full mt-1 z-20 w-56 rounded-xl border border-gray-200 bg-white py-1 shadow-lg ${
+                      isArabicLayout ? 'left-0' : 'right-0'
+                    }`}
+                  >
+                    {instructor?.status !== 'inactive' && (
+                      <>
+                        {instructor?.user_id ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPwdModalOpen(true)
+                              setPwdError('')
+                              setAdminMenuOpen(false)
+                            }}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
+                              isArabicLayout ? 'flex-row-reverse' : ''
+                            }`}
+                          >
+                            <KeyRound className="h-4 w-4 shrink-0" />
+                            {t('instructors.resetPassword')}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!instructor?.email?.trim()) {
+                                setToast(`ERR::${t('adminAccount.noEmailForAccount')}`)
+                                setAdminMenuOpen(false)
+                                setTimeout(() => setToast(''), 6000)
+                                return
+                              }
+                              setLinkPortalModalOpen(true)
+                              setAdminMenuOpen(false)
+                            }}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 ${
+                              isArabicLayout ? 'flex-row-reverse' : ''
+                            }`}
+                          >
+                            <UserPlus className="h-4 w-4 shrink-0" />
+                            {t('instructors.createPortalLogin')}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(t('instructors.confirmDeactivate'))) {
+                              setInstructorStatus('inactive')
+                            }
+                            setAdminMenuOpen(false)
+                          }}
+                          className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50 ${
+                            isArabicLayout ? 'flex-row-reverse' : ''
+                          }`}
+                        >
+                          <UserX className="h-4 w-4 shrink-0" />
+                          {t('instructors.deactivate')}
+                        </button>
+                      </>
+                    )}
+                    {instructor?.status === 'inactive' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(t('instructors.confirmReactivate'))) {
+                            setInstructorStatus('active')
+                          }
+                          setAdminMenuOpen(false)
+                        }}
+                        className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-50 ${
+                          isArabicLayout ? 'flex-row-reverse' : ''
+                        }`}
+                      >
+                        <UserCheck className="h-4 w-4 shrink-0" />
+                        {t('instructors.reactivate')}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <button
+            onClick={() => navigate(`/instructors/${id}/edit`)}
+            className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all`}
+          >
+            <Edit className="w-4 h-4" />
+            <span>{t('common.edit')}</span>
+          </button>
+        </div>
       </div>
+
+      {toast && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            toast.startsWith('ERR::')
+              ? 'border-red-200 bg-red-50 text-red-900'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+          }`}
+        >
+          {toast.startsWith('ERR::') ? toast.slice(5) : toast}
+        </div>
+      )}
 
       <div
         className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sm:p-8 ${alignMain}`}
@@ -416,6 +597,33 @@ export default function ViewInstructor() {
           </div>
         </section>
       )}
+
+      <PasswordResetModal
+        open={pwdModalOpen}
+        onClose={() => {
+          setPwdModalOpen(false)
+          setPwdError('')
+        }}
+        onSubmit={submitPasswordReset}
+        loading={pwdLoading}
+        error={pwdError}
+      />
+
+      <CreatePortalAccountModal
+        open={linkPortalModalOpen}
+        onClose={() => setLinkPortalModalOpen(false)}
+        kind="instructor"
+        recordId={id}
+        email={instructor?.email}
+        collegeId={instructor?.college_id}
+        displayName={primaryName}
+        onLinked={() => {
+          setToast(t('adminAccount.createPortalAccountSuccess'))
+          setLinkPortalModalOpen(false)
+          fetchInstructor()
+          setTimeout(() => setToast(''), 4000)
+        }}
+      />
     </div>
   )
 }

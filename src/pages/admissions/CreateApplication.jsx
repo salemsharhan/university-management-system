@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { getLocalizedName } from '../../utils/localizedName'
+import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2 } from 'lucide-react'
 
 export default function CreateApplication() {
@@ -125,7 +126,7 @@ export default function CreateApplication() {
       let query = supabase
         .from('majors')
         .select('id, name_en, name_ar, code, degree_level')
-        .eq('status', 'active')
+        .in('major_status', MAJOR_STATUS_FOR_APPLICATION_DROPDOWN)
         .order('name_en')
 
       if (collegeId) {

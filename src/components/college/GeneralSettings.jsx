@@ -1,5 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import {
+  STUDENT_ID_FORMAT_PRESETS,
+  INSTRUCTOR_ID_FORMAT_PRESETS,
+  detectStudentIdFormatPreset,
+  detectInstructorIdFormatPreset,
+} from '../../utils/collegeIdFormat'
 
 export default function GeneralSettings({ formData, handleChange, useUniversitySettings, setUseUniversitySettings, collegeTypes = [] }) {
   const { t } = useTranslation()
@@ -392,107 +398,120 @@ export default function GeneralSettings({ formData, handleChange, useUniversityS
 
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.studentIdConfiguration')}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdPrefix')}</label>
-            <input
-              type="text"
-              value={formData.student_id_prefix}
-              onChange={(e) => handleChange('student_id_prefix', e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdFormatPreset')}</label>
+            <select
+              value={detectStudentIdFormatPreset(formData.student_id_format)}
+              onChange={(e) => {
+                const key = e.target.value
+                if (key === 'custom') return
+                const fmt = STUDENT_ID_FORMAT_PRESETS[key]
+                if (fmt) handleChange('student_id_format', fmt)
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+            >
+              <option value="custom">{t('colleges.generalSettings.idFormatPresetCustom')}</option>
+              <option value="prefix_year_seq">{t('colleges.generalSettings.idFormatPresetPrefixYearSeq')}</option>
+              <option value="year_college_seq">{t('colleges.generalSettings.idFormatPresetYearCollegeSeq')}</option>
+              <option value="prefix_year_college_seq">{t('colleges.generalSettings.idFormatPresetPrefixYearCollegeSeq')}</option>
+            </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdFormat')}</label>
-            <input
-              type="text"
-              value={formData.student_id_format}
-              onChange={(e) => handleChange('student_id_format', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="{prefix}{year}{sequence:D4}"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdPrefix')}</label>
+              <input
+                type="text"
+                value={formData.student_id_prefix}
+                onChange={(e) => handleChange('student_id_prefix', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdFormat')}</label>
+              <input
+                type="text"
+                value={formData.student_id_format}
+                onChange={(e) => handleChange('student_id_format', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="{prefix}{year}{sequence:D4} or {year}{college_code}{sequence:D4}"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdStartingNumber')}</label>
+              <input
+                type="number"
+                value={formData.student_id_starting_number}
+                onChange={(e) => handleChange('student_id_starting_number', parseInt(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.studentIdStartingNumber')}</label>
-            <input
-              type="number"
-              value={formData.student_id_starting_number}
-              onChange={(e) => handleChange('student_id_starting_number', parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
+          <p className="text-sm text-gray-500">{t('colleges.generalSettings.idFormatPlaceholderHint')}</p>
         </div>
       </div>
 
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.instructorIdConfiguration')}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdPrefix')}</label>
-            <input
-              type="text"
-              value={formData.instructor_id_prefix}
-              onChange={(e) => handleChange('instructor_id_prefix', e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdFormatPreset')}</label>
+            <select
+              value={detectInstructorIdFormatPreset(formData.instructor_id_format)}
+              onChange={(e) => {
+                const key = e.target.value
+                if (key === 'custom') return
+                const fmt = INSTRUCTOR_ID_FORMAT_PRESETS[key]
+                if (fmt) handleChange('instructor_id_format', fmt)
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+            >
+              <option value="custom">{t('colleges.generalSettings.idFormatPresetCustom')}</option>
+              <option value="prefix_year_seq">{t('colleges.generalSettings.idFormatPresetPrefixYearSeq')}</option>
+              <option value="year_college_seq">{t('colleges.generalSettings.idFormatPresetYearCollegeSeq')}</option>
+              <option value="prefix_year_college_seq">{t('colleges.generalSettings.idFormatPresetPrefixYearCollegeSeq')}</option>
+            </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdFormat')}</label>
-            <input
-              type="text"
-              value={formData.instructor_id_format}
-              onChange={(e) => handleChange('instructor_id_format', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="{prefix}{year}{sequence:D4}"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdPrefix')}</label>
+              <input
+                type="text"
+                value={formData.instructor_id_prefix}
+                onChange={(e) => handleChange('instructor_id_prefix', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdFormat')}</label>
+              <input
+                type="text"
+                value={formData.instructor_id_format}
+                onChange={(e) => handleChange('instructor_id_format', e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="{prefix}{year}{sequence:D4} or {year}{college_code}{sequence:D4}"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdStartingNumber')}</label>
+              <input
+                type="number"
+                value={formData.instructor_id_starting_number}
+                onChange={(e) => handleChange('instructor_id_starting_number', parseInt(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.instructorIdStartingNumber')}</label>
-            <input
-              type="number"
-              value={formData.instructor_id_starting_number}
-              onChange={(e) => handleChange('instructor_id_starting_number', parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
+          <p className="text-sm text-gray-500">{t('colleges.generalSettings.idFormatPlaceholderHint')}</p>
         </div>
       </div>
 
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.generalSettings.localizationSettings')}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.defaultLanguage')}</label>
-            <select
-              value={formData.default_language}
-              onChange={(e) => handleChange('default_language', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            >
-              <option value="en">English</option>
-              <option value="ar">Arabic</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.timeZone')}</label>
-            <input
-              type="text"
-              value={formData.timezone}
-              onChange={(e) => handleChange('timezone', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="UTC"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.generalSettings.currency')}</label>
-            <input
-              type="text"
-              value={formData.currency}
-              onChange={(e) => handleChange('currency', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="USD"
-            />
-          </div>
-        </div>
+      <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+        <p className="font-medium mb-1">{t('colleges.generalSettings.localizationNoteTitle')}</p>
+        <ul className={`list-disc space-y-1 ${isRTL ? 'pr-5 text-right' : 'pl-5'}`}>
+          <li>{t('colleges.generalSettings.localizationNoteSystem')}</li>
+          <li>{t('colleges.generalSettings.localizationNoteFinance')}</li>
+        </ul>
       </div>
     </div>
   )

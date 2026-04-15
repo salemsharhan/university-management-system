@@ -53,7 +53,6 @@ import EditSubject from './pages/academic/EditSubject'
 import ViewClass from './pages/academic/ViewClass'
 import EditClass from './pages/academic/EditClass'
 import ViewInstructor from './pages/ViewInstructor'
-import EditInstructor from './pages/EditInstructor'
 import ViewStudent from './pages/ViewStudent'
 import EditStudent from './pages/EditStudent'
 import AttendanceDashboard from './pages/attendance/AttendanceDashboard'
@@ -432,9 +431,7 @@ function App() {
             path="/admin/build-lessons"
             element={
               <ProtectedRoute allowedRoles={['admin', 'user']}>
-                <RoleBasedLayout>
-                  <AdminBuildLesson />
-                </RoleBasedLayout>
+                <Navigate to="/academic/classes/build-lessons" replace />
               </ProtectedRoute>
             }
           />
@@ -619,6 +616,16 @@ function App() {
             }
           />
           <Route
+            path="/academic/classes/build-lessons"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <AdminBuildLesson />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/academic/years/:id"
             element={
               <ProtectedRoute>
@@ -763,7 +770,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <RoleBasedLayout>
-                  <EditInstructor />
+                  <CreateInstructor />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

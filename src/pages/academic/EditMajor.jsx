@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
+import { legacyMajorRecordStatus } from '../../utils/majorAdmissionStatus'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
 
@@ -248,7 +249,7 @@ export default function EditMajor() {
         head_of_major_id: formData.head_of_major_id ? parseInt(formData.head_of_major_id) : null,
         description: formData.description || null,
         description_ar: formData.description_ar || null,
-        status: formData.major_status === 'active' ? 'active' : 'inactive',
+        status: legacyMajorRecordStatus(formData.major_status),
         major_status: formData.major_status,
         is_university_wide: isUniversityWide,
         college_id: isUniversityWide ? null : (formData.college_id || collegeId),
@@ -458,7 +459,13 @@ export default function EditMajor() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className={`text-lg font-semibold text-gray-900 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicRequirements')}</h3>
+                <h3 className={`text-lg font-semibold text-gray-900 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.academicRequirements')}</h3>
+                <p
+                  className={`text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-4 ${isRTL ? 'text-right' : 'text-left'}`}
+                  role="note"
+                >
+                  {t('academic.majors.requirementsHierarchy.majorBody')}
+                </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? 'text-right' : 'text-left'}`}>{t('academic.majors.totalCredits')} *</label>

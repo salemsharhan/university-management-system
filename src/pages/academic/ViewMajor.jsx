@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
+import { legacyMajorRecordStatus } from '../../utils/majorAdmissionStatus'
+import { getGraduationCreditTotal } from '../../utils/academicRequirementsHierarchy'
 import {
   ArrowLeft, Edit, BookMarked, GraduationCap, Users, BarChart3,
   TrendingUp, Clock, FileText, Copy, AlertTriangle, UserPlus, Eye
@@ -36,6 +38,8 @@ export default function ViewMajor() {
   })
   const [activeYear, setActiveYear] = useState(null)
   const [activeSemester, setActiveSemester] = useState(null)
+  const [lifecycleBusy, setLifecycleBusy] = useState(false)
+  const [lifecycleMessage, setLifecycleMessage] = useState({ type: '', text: '' })
 
   useEffect(() => {
     fetchMajor()
@@ -64,6 +68,39 @@ export default function ViewMajor() {
       setError(err.message || 'Failed to load major')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const updateMajorLifecycle = async (nextMajorStatus) => {
+    if (!id || lifecycleBusy) return
+    setLifecycleBusy(true)
+    setLifecycleMessage({ type: '', text: '' })
+    try {
+      const { error: upErr } = await supabase
+        .from('majors')
+        .update({
+          major_status: nextMajorStatus,
+          status: legacyMajorRecordStatus(nextMajorStatus),
+        })
+        .eq('id', id)
+
+      if (upErr) throw upErr
+      await fetchMajor()
+      setLifecycleMessage({
+        type: 'success',
+        text:
+          nextMajorStatus === 'open_for_admission'
+            ? t('academic.majors.lifecycleOpenSuccess', 'Admissions are now open for this major. It will appear on the public registration form.')
+            : t('academic.majors.lifecycleCloseSuccess', 'Admissions are closed. The major remains active for enrolled students.'),
+      })
+    } catch (err) {
+      console.error('Lifecycle update failed:', err)
+      setLifecycleMessage({
+        type: 'error',
+        text: err.message || t('academic.majors.lifecycleUpdateFailed', 'Could not update major status.'),
+      })
+    } finally {
+      setLifecycleBusy(false)
     }
   }
 
@@ -96,9 +133,18 @@ export default function ViewMajor() {
   const fetchKPIs = async () => {
     if (!major) return
     try {
+      const { data: activePlan } = await supabase
+        .from('major_sheets')
+        .select('total_credits_required, min_gpa_for_graduation')
+        .eq('major_id', id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
       const { count: enrolled } = await supabase.from('students').select('*', { count: 'exact', head: true }).eq('major_id', id).eq('status', 'active')
       const { data: students } = await supabase.from('students').select('total_credits_earned, gpa').eq('major_id', id).eq('status', 'active')
-      const totalCredits = major.total_credits || 120
+      const totalCredits = getGraduationCreditTotal(activePlan, major)
       const onTrack = (students || []).filter(s => (s.total_credits_earned || 0) >= (totalCredits * 0.6)).length
       const atRisk = (students || []).filter(s => (s.total_credits_earned || 0) < (totalCredits * 0.4) && (s.total_credits_earned || 0) > 0).length
       const graduating = (students || []).filter(s => (s.total_credits_earned || 0) >= totalCredits - 15).length
@@ -267,32 +313,79 @@ export default function ViewMajor() {
       {/* Lifecycle Actions */}
       <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
         <h3 className="text-base font-semibold text-gray-900 mb-4">{t('academic.majors.lifecycleActions', 'Lifecycle Actions')}</h3>
+        {lifecycleMessage.text && (
+          <div
+            className={`mb-4 p-3 rounded-lg text-sm ${
+              lifecycleMessage.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'
+            }`}
+          >
+            {lifecycleMessage.text}
+          </div>
+        )}
         <div className={`flex gap-3 flex-wrap ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            disabled={lifecycleBusy || (major?.major_status || major?.status) === 'open_for_admission'}
+            onClick={() => updateMajorLifecycle('open_for_admission')}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''} ${
+              lifecycleBusy || (major?.major_status || major?.status) === 'open_for_admission'
+                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
             <Users className="w-4 h-4" />
             {t('academic.majors.openAdmissions', 'Open Admissions')}
           </button>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            disabled={lifecycleBusy || (major?.major_status || major?.status) !== 'open_for_admission'}
+            onClick={() => updateMajorLifecycle('active')}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''} ${
+              lifecycleBusy || (major?.major_status || major?.status) !== 'open_for_admission'
+                ? 'opacity-50 cursor-not-allowed text-gray-400'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
             <AlertTriangle className="w-4 h-4" />
             {t('academic.majors.closeAdmissions', 'Close Admissions')}
           </button>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-green-500 bg-green-50 rounded-lg text-green-700 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            onClick={() => navigate(`/academic/majors/${id}/degree-plan`)}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-green-500 bg-green-50 rounded-lg text-green-700 text-sm font-medium hover:bg-green-100 ${isRTL ? 'flex-row-reverse' : ''}`}
+          >
             <Eye className="w-4 h-4" />
             {t('academic.majors.viewDegreeProgress', 'View Degree Progress')}
           </button>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-blue-500 bg-blue-50 rounded-lg text-blue-700 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            onClick={() => navigate(`/academic/majors/${id}/degree-plan`)}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-blue-500 bg-blue-50 rounded-lg text-blue-700 text-sm font-medium hover:bg-blue-100 ${isRTL ? 'flex-row-reverse' : ''}`}
+          >
             <GraduationCap className="w-4 h-4" />
             {t('academic.majors.graduationReadiness', 'Graduation Readiness')}
           </button>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-amber-500 bg-amber-50 rounded-lg text-amber-700 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            onClick={() => navigate('/students')}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-amber-500 bg-amber-50 rounded-lg text-amber-700 text-sm font-medium hover:bg-amber-100 ${isRTL ? 'flex-row-reverse' : ''}`}
+          >
             <AlertTriangle className="w-4 h-4" />
             {t('academic.majors.atRiskStudents', 'At-Risk Students')}
           </button>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-violet-500 bg-violet-50 rounded-lg text-violet-700 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            onClick={() => navigate(`/academic/majors/${id}/edit`)}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-violet-500 bg-violet-50 rounded-lg text-violet-700 text-sm font-medium hover:bg-violet-100 ${isRTL ? 'flex-row-reverse' : ''}`}
+          >
             <UserPlus className="w-4 h-4" />
             {t('academic.majors.assignHeadOfMajor', 'Assign Head of Major')}
           </button>
-          <button className={`flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            onClick={() => navigate('/academic/majors/create')}
+            className={`flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium ${isRTL ? 'flex-row-reverse' : ''}`}
+          >
             <Copy className="w-4 h-4" />
             {t('academic.majors.cloneMajor', 'Clone Major')}
           </button>

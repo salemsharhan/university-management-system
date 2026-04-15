@@ -10,7 +10,10 @@ import {
   mergeGradeConfigWithTypes,
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
-import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
+import {
+  INSTRUCTOR_SEMESTER_SELECT,
+  effectiveGradeEntryAllowed,
+} from '../../utils/instructorSemesters'
 
 export default function InstructorGradeSubmission() {
   const { t } = useTranslation()
@@ -43,7 +46,7 @@ export default function InstructorGradeSubmission() {
   const courseName = selectedClass?.subjects
     ? getLocalizedName(selectedClass.subjects, language === 'ar')
     : ''
-  const gradeEntryAllowed = selectedClass?.semesters?.grade_entry_allowed === true
+  const gradeEntryAllowed = effectiveGradeEntryAllowed(selectedClass?.semesters)
 
   useEffect(() => {
     if (user?.email) {

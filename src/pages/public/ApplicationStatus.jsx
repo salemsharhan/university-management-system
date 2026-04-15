@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, useLocation, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
+import { canLoginWithoutSemesterPm10Milestone } from '../../utils/financePermissions'
 import PaymentModal from '../../components/payment/PaymentModal'
 import {
   CheckCircle,
@@ -25,6 +26,7 @@ import {
   BookOpen,
   Calendar,
   LogIn,
+  Printer,
 } from 'lucide-react'
 
 // Same document types as in register form; uploadable on track page if not filled at registration
@@ -92,6 +94,7 @@ export default function ApplicationStatus() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null)
   const [studentInvoices, setStudentInvoices] = useState([])
+  const [applicationInvoices, setApplicationInvoices] = useState([])
   const [student, setStudent] = useState(null)
   const [hasStudentPortalAccess, setHasStudentPortalAccess] = useState(false)
   const [applicationDocuments, setApplicationDocuments] = useState([])
@@ -160,12 +163,47 @@ export default function ApplicationStatus() {
     fetchStudentAndInvoices(email)
   }, [application?.email])
 
+  const fetchApplicationInvoices = useCallback(async (appId) => {
+    if (!appId) {
+      setApplicationInvoices([])
+      return
+    }
+    try {
+      const { data, error: invErr } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, invoice_type, status, total_amount, paid_amount, pending_amount, due_date, student_id, college_id, semester_id, application_id, invoice_date')
+        .eq('application_id', appId)
+        .order('invoice_date', { ascending: false })
+      if (invErr) throw invErr
+      setApplicationInvoices(data || [])
+    } catch (err) {
+      console.error('Application invoices fetch error:', err)
+      setApplicationInvoices([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!application?.id) {
+      setApplicationInvoices([])
+      return
+    }
+    fetchApplicationInvoices(application.id)
+  }, [application?.id, fetchApplicationInvoices])
+
+  const mergedInvoices = useMemo(() => {
+    const map = new Map()
+    ;[...(applicationInvoices || []), ...(studentInvoices || [])].forEach((inv) => {
+      if (inv?.id != null) map.set(inv.id, inv)
+    })
+    return Array.from(map.values())
+  }, [applicationInvoices, studentInvoices])
+
   const fetchStudentAndInvoices = async (email) => {
     if (!email) return
     try {
       const { data: studentData, error: studentError } = await supabase
         .from('students')
-        .select('id, student_id, email, college_id')
+        .select('id, student_id, email, college_id, financial_hold_reason_code, current_status_code')
         .eq('email', email)
         .eq('status', 'active')
         .maybeSingle()
@@ -183,14 +221,20 @@ export default function ApplicationStatus() {
         .order('invoice_date', { ascending: false })
       if (!invError) setStudentInvoices(invoicesData || [])
       else setStudentInvoices([])
-      // Check if student has login access per finance rules (PM10+ milestone)
       const { data: statusRows } = await supabase
         .from('student_semester_financial_status')
         .select('financial_milestone_code')
         .eq('student_id', studentData.id)
         .in('financial_milestone_code', ['PM10', 'PM30', 'PM60', 'PM90', 'PM100'])
         .limit(1)
-      setHasStudentPortalAccess(Array.isArray(statusRows) && statusRows.length > 0)
+      const hasPm10Plus = Array.isArray(statusRows) && statusRows.length > 0
+      const portalOk =
+        hasPm10Plus ||
+        canLoginWithoutSemesterPm10Milestone(
+          studentData.financial_hold_reason_code || null,
+          studentData.current_status_code || ''
+        )
+      setHasStudentPortalAccess(portalOk)
     } catch (err) {
       setStudent(null)
       setStudentInvoices([])
@@ -382,7 +426,7 @@ export default function ApplicationStatus() {
     }
   }
 
-  const pendingInvoices = studentInvoices.filter(inv => inv.status === 'pending' || inv.status === 'partially_paid')
+  const pendingInvoices = mergedInvoices.filter(inv => inv.status === 'pending' || inv.status === 'partially_paid')
   const hasPendingInvoices = pendingInvoices.length > 0
 
   if (loading && !application) {
@@ -420,7 +464,31 @@ export default function ApplicationStatus() {
   const handlePaymentSuccess = async () => {
     await fetchApplication()
     setShowPaymentModal(false)
+    if (id) await fetchApplicationInvoices(parseInt(id, 10))
     if (application?.email) await fetchStudentAndInvoices(application.email)
+  }
+
+  const handlePrintRegistrationReceipt = (inv) => {
+    const appNo = application?.application_number || '—'
+    const name = getApplicantDisplayName(application, isRTL)
+    const w = window.open('', '_blank')
+    if (!w) return
+    const paid = inv.status === 'paid'
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${inv.invoice_number}</title></head><body style="font-family:system-ui,sans-serif;padding:32px;max-width:480px;margin:0 auto;">
+      <h1 style="font-size:1.25rem;margin:0 0 8px;">${t('track.paymentReceiptTitle', 'Payment receipt')}</h1>
+      <p style="color:#64748b;font-size:0.875rem;margin:0 0 24px;">${t('track.paymentReceiptSubtitle', 'Registration fee — applicant')}</p>
+      <table style="width:100%;font-size:0.9rem;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;color:#64748b;">${t('public.status.applicationNumber', 'Application #')}</td><td style="padding:6px 0;text-align:right;font-weight:600;">${appNo}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">${t('track.applicantName', 'Applicant')}</td><td style="padding:6px 0;text-align:right;">${name}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">${t('payments.invoiceNumber', 'Invoice #')}</td><td style="padding:6px 0;text-align:right;font-family:monospace;">${inv.invoice_number}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">${t('payments.total', 'Total')}</td><td style="padding:6px 0;text-align:right;">${Number(inv.total_amount || 0).toFixed(2)}</td></tr>
+        <tr><td style="padding:6px 0;color:#64748b;">${t('payments.paid', 'Paid')}</td><td style="padding:6px 0;text-align:right;">${paid ? t('payments.paid', 'Paid') : '—'}</td></tr>
+      </table>
+      <p style="margin-top:32px;font-size:0.75rem;color:#94a3b8;">${t('track.receiptPrintHint', 'Use your browser Print dialog to save as PDF.')}</p>
+    </body></html>`)
+    w.document.close()
+    w.focus()
+    w.print()
   }
 
   const handlePayInvoice = (inv) => {
@@ -429,6 +497,7 @@ export default function ApplicationStatus() {
 
   const handleInvoicePaymentSuccess = () => {
     setSelectedInvoiceForPayment(null)
+    if (id) fetchApplicationInvoices(parseInt(id, 10))
     if (application?.email) fetchStudentAndInvoices(application.email)
   }
 
@@ -684,18 +753,18 @@ export default function ApplicationStatus() {
               )}
             </div>
 
-            {/* Invoices (for students with pending invoices) */}
-            {student && studentInvoices.length > 0 && (
+            {/* Invoices (registration fee + student invoices after enrollment) */}
+            {mergedInvoices.length > 0 && (
               <div className="bg-white rounded-2xl shadow-md shadow-slate-200/40 border border-slate-200/60 p-6 transition-shadow hover:shadow-lg hover:shadow-slate-200/50">
                 <div className={`flex items-center gap-2 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <span className="w-1 h-6 rounded-full bg-primary-500" />
                   <h2 className="text-base font-bold text-slate-900">{t('track.invoicesTitle', 'Invoices')}</h2>
                 </div>
                 <ul className="space-y-2">
-                  {studentInvoices.map((inv) => {
+                  {mergedInvoices.map((inv) => {
                     const isPending = inv.status === 'pending' || inv.status === 'partially_paid'
                     return (
-                      <li key={inv.id} className={`flex items-center justify-between gap-3 rounded-xl py-3 px-3 -mx-3 bg-slate-50/60 border border-transparent ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <li key={inv.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl py-3 px-3 -mx-3 bg-slate-50/60 border border-transparent ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <div className={`flex items-center gap-3 min-w-0 ${isRTL ? 'flex-row-reverse' : ''}`}>
                           {inv.status === 'paid' ? (
                             <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
@@ -713,14 +782,26 @@ export default function ApplicationStatus() {
                             </p>
                           </div>
                         </div>
-                        {isPending && (
-                          <button
-                            onClick={() => handlePayInvoice(inv)}
-                            className="flex-shrink-0 py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all"
-                          >
-                            {t('track.payNow', 'Pay')}
-                          </button>
-                        )}
+                        <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                          {inv.status === 'paid' && (
+                            <button
+                              type="button"
+                              onClick={() => handlePrintRegistrationReceipt(inv)}
+                              className="flex-shrink-0 py-2 px-3 border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-sm font-medium rounded-lg transition-all inline-flex items-center gap-1.5"
+                            >
+                              <Printer className="w-4 h-4" />
+                              {t('track.printReceipt', 'Print receipt')}
+                            </button>
+                          )}
+                          {isPending && student && (
+                            <button
+                              onClick={() => handlePayInvoice(inv)}
+                              className="flex-shrink-0 py-2 px-4 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all"
+                            >
+                              {t('track.payNow', 'Pay')}
+                            </button>
+                          )}
+                        </div>
                       </li>
                     )
                   })}

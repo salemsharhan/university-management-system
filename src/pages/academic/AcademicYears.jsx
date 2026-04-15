@@ -51,6 +51,18 @@ export default function AcademicYears() {
   }
   const normalizeStatus = (status) => legacyStatusMap[status] || status
 
+  /** True when all master switches are off (not about empty year fields). Matches status filter "pending_setup". */
+  const allMasterSwitchesOff = (year) => {
+    const normalized = normalizeStatus(year.status)
+    if (normalized === 'closed' || normalized === 'archived') return false
+    return (
+      !year.registration_open &&
+      !year.grade_entry_allowed &&
+      !year.attendance_editing_allowed &&
+      !year.financial_posting_allowed
+    )
+  }
+
   useEffect(() => {
     fetchAcademicYears()
   }, [collegeId, userRole])
@@ -211,11 +223,7 @@ export default function AcademicYears() {
 
       const normalizedStatus = normalizeStatus(year.status)
       const isReadOnly = normalizedStatus === 'closed' || normalizedStatus === 'archived'
-      const isPendingSetup = !year.registration_open &&
-        !year.grade_entry_allowed &&
-        !year.attendance_editing_allowed &&
-        !year.financial_posting_allowed &&
-        !isReadOnly
+      const isPendingSetup = allMasterSwitchesOff(year)
 
       switch (statusFilter) {
         case 'pending_setup':
@@ -688,10 +696,13 @@ export default function AcademicYears() {
                         {t('academic.academicYears.attendanceEdit')}
                       </span>
                     )}
-                    {!year.registration_open && !year.grade_entry_allowed && !year.attendance_editing_allowed && normalizedStatus !== 'closed' && normalizedStatus !== 'archived' && (
-                      <span className={`inline-flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'} bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-md text-xs font-medium`}>
-                        <Clock className="w-3 h-3" />
-                        {t('academic.academicYears.pendingSetup')}
+                    {allMasterSwitchesOff(year) && (
+                      <span
+                        title={t('academic.academicYears.operationsDisabledHint')}
+                        className={`inline-flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-1'} bg-amber-50 text-amber-900 border border-amber-200 px-2.5 py-1 rounded-md text-xs font-medium max-w-full cursor-help`}
+                      >
+                        <Clock className="w-3 h-3 shrink-0" />
+                        <span className="leading-snug">{t('academic.academicYears.pendingSetup')}</span>
                       </span>
                     )}
                     {(normalizedStatus === 'closed' || normalizedStatus === 'archived') && (

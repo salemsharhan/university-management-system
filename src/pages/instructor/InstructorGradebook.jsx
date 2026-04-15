@@ -11,7 +11,10 @@ import {
   numericGradeToGpaPoints,
 } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
-import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
+import {
+  INSTRUCTOR_SEMESTER_SELECT,
+  effectiveGradeEntryAllowed,
+} from '../../utils/instructorSemesters'
 
 export default function InstructorGradebook({ embedded = false, embedClassId = null } = {}) {
   const { t } = useTranslation()
@@ -39,7 +42,7 @@ export default function InstructorGradebook({ embedded = false, embedClassId = n
   const semesterLabel = selectedClass?.semesters
     ? getLocalizedName(selectedClass.semesters, language === 'ar')
     : ''
-  const gradeEntryAllowed = selectedClass?.semesters?.grade_entry_allowed === true
+  const gradeEntryAllowed = effectiveGradeEntryAllowed(selectedClass?.semesters)
 
   useEffect(() => {
     if (user?.email) {

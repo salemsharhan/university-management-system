@@ -7,7 +7,11 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { sumTeachingMinutes, uniqueLocationsFromSchedules } from '../../utils/instructorTimetable'
 import { formatRelativeTimePast } from '../../utils/formatRelativeTimePast'
-import { fetchSemestersForInstructor } from '../../utils/instructorSemesters'
+import {
+  fetchSemestersForInstructor,
+  effectiveGradeEntryAllowed,
+  effectiveAttendanceEditingAllowed,
+} from '../../utils/instructorSemesters'
 import InstructorMyCoursesSchedule from './InstructorMyCoursesSchedule'
 
 const COURSE_GRADIENTS = [
@@ -269,6 +273,14 @@ export default function InstructorMyCourses() {
     [semesters, selectedSemesterId]
   )
 
+  const semesterOpsFlags = useMemo(() => {
+    if (!currentSemester) return { grade: true, attendance: true }
+    return {
+      grade: effectiveGradeEntryAllowed(currentSemester),
+      attendance: effectiveAttendanceEditingAllowed(currentSemester),
+    }
+  }, [currentSemester])
+
   const semesterLabel = currentSemester ? getLocalizedName(currentSemester, language === 'ar') : ''
 
   const totalStudents = useMemo(
@@ -343,14 +355,13 @@ export default function InstructorMyCourses() {
                 : t('instructorPortal.semesterLifecycle.bannerArchived')}
             </div>
           )}
-          {(currentSemester.grade_entry_allowed !== true ||
-            currentSemester.attendance_editing_allowed !== true) && (
+          {(!semesterOpsFlags.grade || !semesterOpsFlags.attendance) && (
             <div className="alert alert-ok" role="status" style={{ marginBottom: 16 }}>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {currentSemester.grade_entry_allowed !== true && (
+                {!semesterOpsFlags.grade && (
                   <li>{t('instructorPortal.semesterLifecycle.flagGradeEntryOff')}</li>
                 )}
-                {currentSemester.attendance_editing_allowed !== true && (
+                {!semesterOpsFlags.attendance && (
                   <li>{t('instructorPortal.semesterLifecycle.flagAttendanceOff')}</li>
                 )}
               </ul>

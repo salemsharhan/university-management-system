@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
+import { getGraduationCreditTotal, getGraduationMinGpa } from '../../utils/academicRequirementsHierarchy'
 import { CheckCircle, Circle, AlertTriangle, FileText } from 'lucide-react'
 
 const TOTAL_HOURS_DEFAULT = 120
@@ -164,7 +165,7 @@ export default function StudentGraduationPath() {
       let requiredSubjects = []
 
       if (majorSheetId && ms) {
-        if (ms?.total_credits_required) setTotalHoursRequired(ms.total_credits_required)
+        setTotalHoursRequired(getGraduationCreditTotal(ms, null))
         if (ms?.version || ms?.academic_year) setMajorPlanName(ms.academic_year || ms.version || null)
 
         const { data: groups } = await supabase
@@ -239,13 +240,13 @@ export default function StudentGraduationPath() {
       setRequirementBars(bars)
 
       const msForAlerts = ms || null
-      const minGpa = msForAlerts?.min_gpa_for_graduation != null ? Number(msForAlerts.min_gpa_for_graduation) : 2.0
+      const minGpa = getGraduationMinGpa(msForAlerts, null)
       const gpaForAlerts = computedGpa != null ? computedGpa : (studentData.gpa != null ? Number(studentData.gpa) : null)
       const realAlerts = []
       if (gpaForAlerts != null && gpaForAlerts < minGpa) {
         realAlerts.push(t('studentPortal.lowGpaAlert', 'Your current GPA is below the minimum required for graduation ({min}). Focus on improving your grades.', { min: minGpa.toFixed(2) }))
       }
-      const totalRequired = msForAlerts?.total_credits_required ?? TOTAL_HOURS_DEFAULT
+      const totalRequired = getGraduationCreditTotal(msForAlerts, null)
       const remainingH = Math.max(0, totalRequired - completed)
       if (remainingH > 0 && completed > 0) {
         const avgPerSemester = 15

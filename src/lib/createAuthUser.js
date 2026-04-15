@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 /**
  * Helper function to create auth user via Edge Function
  * This properly handles CORS and authentication

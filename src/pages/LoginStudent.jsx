@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { checkFinancePermission } from '../utils/financePermissions'
+import { canLoginWithoutSemesterPm10Milestone, checkFinancePermission } from '../utils/financePermissions'
 import { BookOpen, Mail, Lock, Eye, EyeOff, ArrowLeft, GraduationCap, AlertCircle } from 'lucide-react'
 
 export default function LoginStudent() {
@@ -58,7 +58,8 @@ export default function LoginStudent() {
         return
       }
 
-      // Check if student has at least one active semester with PM10+ milestone for login (from student_semester_financial_status only)
+      // Prefer PM10+ on any semester when present; otherwise allow enrolled students with no hold
+      // (student_semester_financial_status is often empty until semester tuition invoices exist).
       const { data: semesterStatuses } = await supabase
         .from('student_semester_financial_status')
         .select('financial_milestone_code')
@@ -66,15 +67,23 @@ export default function LoginStudent() {
         .in('financial_milestone_code', ['PM10', 'PM30', 'PM60', 'PM90', 'PM100'])
         .limit(1)
 
-      const hasLoginAccess = semesterStatuses && semesterStatuses.length > 0
-      const loginMilestone = hasLoginAccess ? semesterStatuses[0].financial_milestone_code : 'PM00'
+      const hasPm10PlusRow = semesterStatuses && semesterStatuses.length > 0
+      const loginMilestone = hasPm10PlusRow ? semesterStatuses[0].financial_milestone_code : 'PM00'
 
-      // Check FA_LGN permission (requires PM10)
-      const permission = checkFinancePermission(
-        'SA_LGN',
-        loginMilestone,
-        studentData.financial_hold_reason_code || null
-      )
+      const enrolledNoMilestoneYet =
+        !hasPm10PlusRow &&
+        canLoginWithoutSemesterPm10Milestone(
+          studentData.financial_hold_reason_code || null,
+          studentData.current_status_code || ''
+        )
+
+      const permission = enrolledNoMilestoneYet
+        ? { allowed: true, reason: null }
+        : checkFinancePermission(
+            'SA_LGN',
+            loginMilestone,
+            studentData.financial_hold_reason_code || null
+          )
 
       if (!permission.allowed) {
         // Intentionally sign out so the user is not left in a half-logged-in state (auth session exists but portal access denied)

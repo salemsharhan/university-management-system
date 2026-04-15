@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
+import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload } from 'lucide-react'
 
 const steps = [
@@ -178,7 +179,7 @@ export default function RegisterApplication() {
       const { data, error } = await supabase
         .from('majors')
         .select('id, name_en, code, degree_level')
-        .eq('status', 'active')
+        .in('major_status', MAJOR_STATUS_FOR_APPLICATION_DROPDOWN)
         .or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
         .order('name_en')
 

@@ -598,6 +598,17 @@ export default function ManageMajorSheet() {
         }
       }
 
+      const { error: syncMajorErr } = await supabase
+        .from('majors')
+        .update({
+          total_credits: majorSheetData.total_credits_required,
+          min_gpa: majorSheetData.min_gpa_for_graduation,
+        })
+        .eq('id', parseInt(id, 10))
+      if (syncMajorErr) {
+        console.warn('Could not sync major catalog totals from degree plan:', syncMajorErr)
+      }
+
       setSuccess(true)
       setExistingMajorSheet({ ...sheetData })
       setTimeout(() => {
@@ -652,6 +663,12 @@ export default function ManageMajorSheet() {
           </h1>
           <p className={`text-gray-600 mt-1 ${isRTL ? 'text-right' : 'text-left'}`}>
             {t('academic.majors.degreePlanSheet.subtitle')}
+          </p>
+          <p
+            className={`mt-3 text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 ${isRTL ? 'text-right' : 'text-left'}`}
+            role="note"
+          >
+            {t('academic.majors.requirementsHierarchy.degreePlanBody')}
           </p>
         </div>
 

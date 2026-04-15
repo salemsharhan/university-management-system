@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLanguage } from '../../contexts/LanguageContext'
+import '../../styles/instructor-portal.css'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 
@@ -42,7 +43,7 @@ function createElement(type) {
 export default function InstructorBuildLesson({ embedded = false, embedClassId = null, variant = 'instructor' } = {}) {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const { language } = useLanguage()
+  const { language, isRTL } = useLanguage()
   const [searchParams, setSearchParams] = useSearchParams()
   const isAdmin = variant === 'admin'
   const elementsOnly = !isAdmin
@@ -59,6 +60,10 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
   const [selectedCloIds, setSelectedCloIds] = useState([])
   const [elements, setElements] = useState([])
   const [lessonMediaUploadKey, setLessonMediaUploadKey] = useState(null)
+  /** Instructors need `can_add_materials` on their row to use the lesson builder (same flag as “lesson content” in admin). Admins always allowed. */
+  const [canAddLessonContent, setCanAddLessonContent] = useState(isAdmin)
+
+  const lessonEditBlocked = elementsOnly && !canAddLessonContent
 
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
@@ -91,15 +96,18 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
     try {
       const { data: instructor } = await supabase
         .from('instructors')
-        .select('id')
+        .select('id, can_add_materials')
         .eq('email', user.email)
         .eq('status', 'active')
         .single()
 
       if (!instructor) {
+        setCanAddLessonContent(false)
         setLoading(false)
         return
       }
+
+      setCanAddLessonContent(!!instructor.can_add_materials)
 
       const { data: cls } = await supabase
         .from('classes')
@@ -240,6 +248,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
   }
 
   const moveElement = (idx, direction) => {
+    if (lessonEditBlocked) return
     const to = idx + direction
     if (to < 0 || to >= elements.length) return
     const copy = [...elements]
@@ -284,6 +293,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
   }
 
   const saveLessonElementsOnly = async () => {
+    if (lessonEditBlocked) return
     if (!selectedClass || !selectedLessonId) return
 
     setSaving(true)
@@ -390,16 +400,35 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
     }
   }
 
+  const portalClass = `instructor-portal lesson-builder-root${embedded ? ' lesson-builder-embedded' : ''}`
+
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-        <div style={{ width: 40, height: 40, border: '3px solid var(--bdr)', borderTopColor: 'var(--p)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div className={portalClass} dir={isRTL ? 'rtl' : 'ltr'}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              border: '3px solid var(--bdr)',
+              borderTopColor: 'var(--p)',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+        </div>
       </div>
     )
   }
 
   return (
-    <>
+    <div className={portalClass} dir={isRTL ? 'rtl' : 'ltr'}>
+      {lessonEditBlocked && (
+        <div className="alert alert-warn" style={{ marginBottom: 16 }}>
+          {t('instructorPortal.lessonContentPermissionDenied')}
+        </div>
+      )}
+
       {!embedded && (
         <>
           <nav className="bc" aria-label={t('instructorPortal.curriculumMap')}>
@@ -407,7 +436,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
             <span className="bc-sep">&rsaquo;</span>
             {isAdmin ? (
               <>
-                <Link to="/admin/colleges">{t('navigation.colleges')}</Link>
+                <Link to="/academic/classes">{t('navigation.sessions')}</Link>
                 <span className="bc-sep">&rsaquo;</span>
               </>
             ) : (
@@ -473,7 +502,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                     type="button"
                     className="btn btn-ok"
                     onClick={() => saveLessonElementsOnly()}
-                    disabled={saving || !selectedLessonId}
+                    disabled={saving || !selectedLessonId || lessonEditBlocked}
                   >
                     {t('instructorPortal.saveLessonContent')}
                   </button>
@@ -514,7 +543,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
               type="button"
               className="btn btn-ok"
               onClick={() => saveLessonElementsOnly()}
-              disabled={saving || !selectedLessonId}
+              disabled={saving || !selectedLessonId || lessonEditBlocked}
             >
               {t('instructorPortal.saveLessonContent')}
             </button>
@@ -528,6 +557,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
             <label className="fl">{t('instructorPortal.courseName')}</label>
             <select
               className="fc"
+              disabled={lessonEditBlocked}
               value={selectedClassId || ''}
               onChange={(e) => {
                 const id = Number(e.target.value)
@@ -553,6 +583,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
             <label className="fl">{t('instructorPortal.lesson', 'Lesson')}</label>
             <select
               className="fc"
+              disabled={lessonEditBlocked}
               value={selectedLessonId || ''}
               onChange={(e) => {
                 const v = e.target.value ? Number(e.target.value) : null
@@ -677,14 +708,14 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
 
           <div className="card">
             <div className="card-hd"><div className="card-title">{t('instructorPortal.addLessonElement')}</div></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="lb-element-picker">
               {ELEMENT_TYPES.map((el) => (
                 <button
                   key={el.key}
                   type="button"
-                  className="btn btn-gh btn-bl"
+                  className="btn btn-gh btn-bl lb-element-btn"
                   style={{ padding: 14, flexDirection: 'column', gap: 4, height: 'auto' }}
-                  disabled={elementsOnly && !selectedLessonId}
+                  disabled={lessonEditBlocked || (elementsOnly && !selectedLessonId)}
                   onClick={() => handleAddElement(el.key)}
                 >
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{el.icon}</span>
@@ -707,9 +738,9 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                 <div className="lb-block-hd">
                   <span className="lb-block-type">{ELEMENT_TYPES.find((x) => x.key === element.element_type)?.icon} {element.element_type}</span>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button type="button" className="btn btn-gh btn-sm" onClick={() => moveElement(idx, -1)}>Up</button>
-                    <button type="button" className="btn btn-gh btn-sm" onClick={() => moveElement(idx, 1)}>Down</button>
-                    <button type="button" className="btn btn-err btn-sm" onClick={() => setElements((prev) => prev.filter((_, i) => i !== idx))}>{t('instructorPortal.delete')}</button>
+                    <button type="button" className="btn btn-gh btn-sm" disabled={lessonEditBlocked} onClick={() => moveElement(idx, -1)}>Up</button>
+                    <button type="button" className="btn btn-gh btn-sm" disabled={lessonEditBlocked} onClick={() => moveElement(idx, 1)}>Down</button>
+                    <button type="button" className="btn btn-err btn-sm" disabled={lessonEditBlocked} onClick={() => setElements((prev) => prev.filter((_, i) => i !== idx))}>{t('instructorPortal.delete')}</button>
                   </div>
                 </div>
 
@@ -722,6 +753,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                   <textarea
                     className="fc"
                     rows={3}
+                    disabled={lessonEditBlocked}
                     value={element.content?.text || ''}
                     onChange={(e) => updateElement(idx, { content: { ...element.content, text: e.target.value } })}
                   />
@@ -734,7 +766,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                       type="file"
                       className="fc"
                       accept="video/*"
-                      disabled={lessonMediaUploadKey === `video-${idx}`}
+                      disabled={lessonEditBlocked || lessonMediaUploadKey === `video-${idx}`}
                       onChange={(e) => {
                         const f = e.target.files?.[0]
                         e.target.value = ''
@@ -751,6 +783,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                       type="url"
                       className="fc"
                       placeholder="https://"
+                      disabled={lessonEditBlocked}
                       value={element.content?.url || ''}
                       onChange={(e) => updateElement(idx, { content: { ...element.content, url: e.target.value } })}
                     />
@@ -780,6 +813,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                       type="url"
                       className="fc"
                       placeholder="https://"
+                      disabled={lessonEditBlocked}
                       value={element.content?.file_url || ''}
                       onChange={(e) =>
                         updateElement(idx, { content: { ...element.content, file_url: e.target.value, file_name: '' } })
@@ -793,6 +827,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                     <input
                       className="fc"
                       placeholder={t('instructorPortal.questionLabel')}
+                      disabled={lessonEditBlocked}
                       value={element.content?.question || ''}
                       onChange={(e) => updateElement(idx, { content: { ...element.content, question: e.target.value } })}
                     />
@@ -801,6 +836,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                       rows={3}
                       style={{ marginTop: 8 }}
                       placeholder="Option 1\nOption 2\nOption 3"
+                      disabled={lessonEditBlocked}
                       value={(element.content?.options || []).join('\n')}
                       onChange={(e) => updateElement(idx, { content: { ...element.content, options: e.target.value.split('\n').filter(Boolean) } })}
                     />
@@ -830,7 +866,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                     type="button"
                     className="btn btn-ok"
                     onClick={() => saveLessonElementsOnly()}
-                    disabled={saving || !selectedLessonId}
+                    disabled={saving || !selectedLessonId || lessonEditBlocked}
                   >
                     {t('instructorPortal.saveLessonContent')}
                   </button>
@@ -847,6 +883,6 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
           </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }

@@ -48,7 +48,7 @@ export default function InstructorTemplates() {
             <div className="card-title">{t(`${p}.cardAdminTitle`)}</div>
           </div>
           <p style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 16 }}>{t(`${p}.cardAdminBody`)}</p>
-          <Link to="/admin/build-lessons" className="btn btn-ok">
+          <Link to="/academic/classes/build-lessons" className="btn btn-ok">
             {t(`${p}.openAdminBuildLessons`)}
           </Link>
         </div>

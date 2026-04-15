@@ -186,7 +186,6 @@ export default function CreateCollege() {
           instructor_id_starting_number: data.instructor_id_starting_number || 1,
           default_language: data.default_language || 'en',
           timezone: data.timezone || 'UTC',
-          currency: data.currency || 'USD',
           use_university_settings: data.use_university_settings || false,
         }))
 
@@ -426,8 +425,13 @@ export default function CreateCollege() {
           if (system.localization) {
             setFormData(prev => ({
               ...prev,
+              default_language: system.localization.defaultLanguage || prev.default_language,
+              timezone: system.localization.timezone || prev.timezone,
               auto_detect_language: system.localization.autoDetectLanguage ?? prev.auto_detect_language,
-              enable_rtl: system.localization.enableRtlSupport ?? prev.enable_rtl,
+              enable_rtl:
+                system.localization.enableRTL ??
+                system.localization.enableRtlSupport ??
+                prev.enable_rtl,
             }))
           }
         }
@@ -837,7 +841,6 @@ export default function CreateCollege() {
     instructor_id_starting_number: 1,
     default_language: 'en',
     timezone: 'UTC',
-    currency: 'USD',
     
     // Academic
     min_credit_hours: 12,
@@ -1187,6 +1190,7 @@ export default function CreateCollege() {
         },
         localization: {
           defaultLanguage: formData.default_language,
+          timezone: formData.timezone,
           autoDetectLanguage: formData.auto_detect_language,
           enableRTL: formData.enable_rtl,
         },

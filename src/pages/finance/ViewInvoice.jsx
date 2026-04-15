@@ -448,9 +448,9 @@ export default function ViewInvoice() {
 
       if (paymentError) throw paymentError
 
-      // Update student_semester_financial_status so login and permissions use correct milestone (trigger has already updated invoice.paid_amount)
+      // Update student_semester_financial_status (tuition % excludes admission_fee invoices inside the helper)
       let milestoneError = null
-      if (invoice.semester_id && invoice.invoice_type !== 'admission_fee') {
+      if (invoice.semester_id) {
         try {
           await updateStudentFinancialMilestone(invoice.student_id, invoice.semester_id)
         } catch (err) {

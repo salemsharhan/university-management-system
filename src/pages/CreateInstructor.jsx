@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { createAuthUser } from '../lib/createAuthUser'
+import { generateInstructorEmployeeId } from '../utils/collegeIdFormat'
 import { ArrowLeft, ArrowRight, Save, User, GraduationCap, Briefcase, Award, Globe, Plus, X, Lock } from 'lucide-react'
 
 const ISO_COUNTRY_CODES = [
@@ -21,6 +22,28 @@ const ISO_COUNTRY_CODES = [
   'TV', 'UG', 'UA', 'AE', 'GB', 'US', 'UY', 'UZ', 'VU', 'VA', 'VE', 'VN', 'YE', 'ZM', 'ZW', 'TW'
 ]
 
+function splitFullName(full) {
+  if (!full || !String(full).trim()) return { first: '', middle: '', last: '' }
+  const parts = String(full).trim().split(/\s+/)
+  if (parts.length === 1) return { first: parts[0], middle: '', last: '' }
+  if (parts.length === 2) return { first: parts[0], middle: '', last: parts[1] }
+  return { first: parts[0], middle: parts.slice(1, -1).join(' '), last: parts[parts.length - 1] }
+}
+
+function parseJsonArray(val) {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  if (typeof val === 'string') {
+    try {
+      const p = JSON.parse(val)
+      return Array.isArray(p) ? p : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export default function CreateInstructor() {
   const { t, i18n } = useTranslation()
   const { isRTL } = useLanguage()
@@ -29,7 +52,10 @@ export default function CreateInstructor() {
     (typeof document !== 'undefined' && document?.documentElement?.dir === 'rtl')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { id: editInstructorId } = useParams()
+  const isEditMode = Boolean(editInstructorId)
   const { userRole, collegeId: authCollegeId } = useAuth()
+  const [loadingEdit, setLoadingEdit] = useState(false)
 
   const steps = [
     { id: 1, name: t('createInstructor.personalInfo'), icon: User },
@@ -138,24 +164,100 @@ export default function CreateInstructor() {
   })
 
   useEffect(() => {
-    // Check if college ID is passed via URL parameter
+    fetchColleges()
+    fetchAcademicYears()
+    if (isEditMode) return
+
     const urlCollegeId = searchParams.get('collegeId')
     if (urlCollegeId && userRole === 'admin') {
       const collegeIdInt = parseInt(urlCollegeId)
       setCollegeId(collegeIdInt)
       setFormData(prev => ({ ...prev, college_id: collegeIdInt }))
     } else if (userRole === 'user' && authCollegeId) {
-      // For college admins, use their college ID
       setCollegeId(authCollegeId)
       setFormData(prev => ({ ...prev, college_id: authCollegeId }))
     } else {
       fetchUserCollege()
     }
-    
+
     fetchDepartments()
-    fetchColleges() // Always fetch colleges - needed for display even for college admins
-    fetchAcademicYears()
-  }, [userRole, authCollegeId, searchParams])
+  }, [userRole, authCollegeId, searchParams, isEditMode])
+
+  useEffect(() => {
+    if (!editInstructorId) return
+    let cancelled = false
+    ;(async () => {
+      setLoadingEdit(true)
+      setError('')
+      try {
+        const { data, error } = await supabase
+          .from('instructors')
+          .select('*')
+          .eq('id', editInstructorId)
+          .single()
+        if (error) throw error
+        if (cancelled || !data) return
+
+        const en = splitFullName(data.name_en)
+        const ar = splitFullName(data.name_ar || '')
+        setCollegeId(data.college_id)
+        setFormData((prev) => ({
+          ...prev,
+          employee_id: data.employee_id || '',
+          first_name: en.first,
+          middle_name: en.middle,
+          last_name: en.last,
+          first_name_ar: ar.first,
+          middle_name_ar: ar.middle,
+          last_name_ar: ar.last,
+          date_of_birth: data.date_of_birth ? String(data.date_of_birth).slice(0, 10) : '',
+          gender: data.gender || '',
+          nationality: data.nationality || '',
+          national_id: data.national_id || '',
+          passport_number: data.passport_number || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          city: data.city || '',
+          country: data.country || '',
+          postal_code: data.postal_code || '',
+          emergency_contact_name: data.emergency_contact_name || '',
+          emergency_contact_relation: data.emergency_contact_relation || '',
+          emergency_contact_phone: data.emergency_contact_phone || '',
+          emergency_contact_email: data.emergency_contact_email || '',
+          college_id: data.college_id,
+          department_id: data.department_id != null ? String(data.department_id) : '',
+          academic_year_id: data.academic_year_id != null ? String(data.academic_year_id) : '',
+          title: data.title || 'lecturer',
+          specialization: data.specialization || '',
+          office_location: data.office_location || '',
+          office_hours: data.office_hours || '',
+          hire_date: data.hire_date ? String(data.hire_date).slice(0, 10) : '',
+          status: data.status || 'active',
+          can_add_materials: !!data.can_add_materials,
+          education: parseJsonArray(data.education),
+          work_experience: parseJsonArray(data.work_experience),
+          publications: parseJsonArray(data.publications),
+          certifications: parseJsonArray(data.certifications),
+          languages: parseJsonArray(data.languages),
+          research_interests: data.research_interests || '',
+          bio: data.bio || '',
+          bio_ar: data.bio_ar || '',
+          photo: data.photo || '',
+          create_login_account: false,
+          login_password: '',
+        }))
+      } catch (err) {
+        console.error(err)
+        setError(err.message || 'Failed to load instructor')
+      } finally {
+        if (!cancelled) setLoadingEdit(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [editInstructorId])
 
   useEffect(() => {
     // Refetch departments when college changes
@@ -353,8 +455,19 @@ export default function CreateInstructor() {
       const name_en = `${formData.first_name} ${formData.middle_name} ${formData.last_name}`.trim()
       const name_ar = `${formData.first_name_ar} ${formData.middle_name_ar} ${formData.last_name_ar}`.trim()
 
+      const resolvedCollegeId = formData.college_id || collegeId
+      let employeeId = formData.employee_id?.trim()
+      if (!isEditMode && !employeeId && resolvedCollegeId) {
+        employeeId = await generateInstructorEmployeeId(supabase, resolvedCollegeId)
+      }
+      if (!employeeId) {
+        setLoading(false)
+        setError(t('createInstructor.employeeIdRequired'))
+        return
+      }
+
       const submitData = {
-        employee_id: formData.employee_id,
+        employee_id: employeeId,
         name_en,
         name_ar: name_ar || name_en,
         email: formData.email,
@@ -391,6 +504,19 @@ export default function CreateInstructor() {
         bio: formData.bio || null,
         bio_ar: formData.bio_ar || null,
         photo: formData.photo || null,
+      }
+
+      if (isEditMode) {
+        const { error: updateError } = await supabase
+          .from('instructors')
+          .update(submitData)
+          .eq('id', editInstructorId)
+        if (updateError) throw updateError
+        setSuccess(true)
+        setTimeout(() => {
+          navigate('/instructors')
+        }, 2000)
+        return
       }
 
       const { data, error: insertError } = await supabase
@@ -485,15 +611,16 @@ export default function CreateInstructor() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.employeeId')} *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.employeeId')}</label>
                 <input
                   type="text"
                   value={formData.employee_id}
                   onChange={(e) => handleChange('employee_id', e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  readOnly={isEditMode}
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${isEditMode ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                   placeholder={t('createInstructor.employeeIdPlaceholder')}
                 />
+                <p className="text-xs text-gray-500 mt-1">{t('createInstructor.employeeIdGenerateHint')}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{t('createInstructor.dateOfBirth')}</label>
@@ -1192,7 +1319,8 @@ export default function CreateInstructor() {
               </div>
             </div>
 
-            {/* Authentication Section */}
+            {/* Authentication Section (create only) */}
+            {!isEditMode && (
             <div className="mt-8 pt-8 border-t border-gray-200">
               <h3 className={`text-lg font-semibold text-gray-900 mb-4 flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
                 <Lock className="w-5 h-5" />
@@ -1230,6 +1358,7 @@ export default function CreateInstructor() {
                 )}
               </div>
             </div>
+            )}
           </div>
         )
 
@@ -1243,7 +1372,9 @@ export default function CreateInstructor() {
                 <p className="text-sm text-gray-600">
                   {formData.first_name} {formData.middle_name} {formData.last_name}
                 </p>
-                <p className="text-sm text-gray-600">{t('createInstructor.employeeId')}: {formData.employee_id}</p>
+                <p className="text-sm text-gray-600">
+                  {t('createInstructor.employeeId')}: {formData.employee_id?.trim() || t('createInstructor.employeeIdReviewPending')}
+                </p>
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-2">{t('createInstructor.contact')}</h3>
@@ -1281,6 +1412,14 @@ export default function CreateInstructor() {
   const PreviousIcon = isArabicLayout ? ArrowRight : ArrowLeft
   const NextIcon = isArabicLayout ? ArrowLeft : ArrowRight
 
+  if (isEditMode && loadingEdit) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
       <div className="max-w-5xl mx-auto">
@@ -1292,8 +1431,12 @@ export default function CreateInstructor() {
             <ArrowLeft className="w-5 h-5" />
             <span>{t('createInstructor.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">{t('createInstructor.title')}</h1>
-          <p className="text-gray-600 mt-1">{t('createInstructor.subtitle')}</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isEditMode ? t('createInstructor.editModeTitle') : t('createInstructor.title')}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {isEditMode ? t('createInstructor.editModeSubtitle') : t('createInstructor.subtitle')}
+          </p>
         </div>
 
         {/* Progress Steps */}
@@ -1340,7 +1483,7 @@ export default function CreateInstructor() {
             )}
             {success && (
               <div className={`mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'}`}>
-                <span>{t('createInstructor.createdSuccess')}</span>
+                <span>{isEditMode ? t('createInstructor.updatedSuccess') : t('createInstructor.createdSuccess')}</span>
               </div>
             )}
 
@@ -1374,7 +1517,15 @@ export default function CreateInstructor() {
                 className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Save className="w-5 h-5" />
-                <span>{loading ? t('createInstructor.creating') : t('createInstructor.createButton')}</span>
+                <span>
+                  {loading
+                    ? isEditMode
+                      ? t('createInstructor.updating')
+                      : t('createInstructor.creating')
+                    : isEditMode
+                      ? t('createInstructor.updateButton')
+                      : t('createInstructor.createButton')}
+                </span>
               </button>
             )}
           </div>

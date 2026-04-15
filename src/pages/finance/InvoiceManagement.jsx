@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { normalizeCurrencyCode, getCollegeCurrencyCode } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
+import { buildStudentSearchOrFilter } from '../../utils/studentSearchQuery'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import {
@@ -106,6 +107,7 @@ export default function InvoiceManagement() {
 
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [studentSearchMatches, setStudentSearchMatches] = useState([])
   const [studentData, setStudentData] = useState(null)
   const [invoices, setInvoices] = useState([])
   const [groupedInvoices, setGroupedInvoices] = useState({})
@@ -159,13 +161,14 @@ export default function InvoiceManagement() {
   }, [userRole, collegeId, selectedCollegeId, statusFilter, selectedSemesterId, viewMode])
 
   useEffect(() => {
-    if (viewMode === 'student' && searchQuery && searchQuery.length >= 3) {
+    if (viewMode === 'student' && searchQuery && searchQuery.length >= 2) {
       const timeoutId = setTimeout(() => {
         searchStudent()
       }, 500)
       return () => clearTimeout(timeoutId)
     } else if (viewMode === 'student') {
       setStudentData(null)
+      setStudentSearchMatches([])
       setInvoices([])
       setGroupedInvoices({})
       setStudentViewCurrency('USD')
@@ -231,6 +234,7 @@ export default function InvoiceManagement() {
           currency,
           semester_id,
           student_id,
+          application_id,
           college_id,
           students (
             id,
@@ -241,6 +245,13 @@ export default function InvoiceManagement() {
             last_name,
             first_name_ar,
             last_name_ar,
+            email
+          ),
+          applications (
+            id,
+            application_number,
+            first_name,
+            last_name,
             email
           ),
           semesters (
@@ -354,8 +365,110 @@ export default function InvoiceManagement() {
     }
   }
 
+  const loadStudentInvoicesAndWallet = async (student) => {
+    setStudentSearchMatches([])
+    setStudentData(student)
+
+    const { data: walletData } = await supabase
+      .from('wallets')
+      .select('balance')
+      .eq('student_id', student.id)
+      .single()
+
+    setWalletBalance(walletData?.balance || 0)
+
+    let invoiceQuery = supabase
+      .from('invoices')
+      .select(`
+          id,
+          invoice_number,
+          invoice_date,
+          due_date,
+          invoice_type,
+          status,
+          subtotal,
+          discount_amount,
+          scholarship_amount,
+          total_amount,
+          paid_amount,
+          pending_amount,
+          currency,
+          semester_id,
+          semesters (
+            id,
+            name_en,
+            name_ar,
+            code,
+            start_date,
+            end_date
+          )
+        `)
+      .eq('student_id', student.id)
+      .order('invoice_date', { ascending: false })
+
+    if (userRole === 'user' && collegeId) {
+      invoiceQuery = invoiceQuery.eq('college_id', collegeId)
+    } else if (userRole === 'instructor' && collegeId) {
+      invoiceQuery = invoiceQuery.eq('college_id', collegeId)
+    }
+
+    const { data: invoicesData, error: invoicesError } = await invoiceQuery
+
+    if (invoicesError) {
+      console.error('Error fetching invoices:', invoicesError)
+      return
+    }
+
+    setInvoices(invoicesData || [])
+
+    const grouped = {}
+    let totalPending = 0
+
+    ;(invoicesData || []).forEach((invoice) => {
+      const semesterKey = invoice.semester_id ? `semester_${invoice.semester_id}` : 'no_semester'
+
+      if (!grouped[semesterKey]) {
+        grouped[semesterKey] = {
+          semester: invoice.semesters,
+          invoices: [],
+          totalAmount: 0,
+          paidAmount: 0,
+          pendingAmount: 0,
+        }
+      }
+
+      grouped[semesterKey].invoices.push(invoice)
+      grouped[semesterKey].totalAmount += parseFloat(invoice.total_amount || 0)
+      grouped[semesterKey].paidAmount += parseFloat(invoice.paid_amount || 0)
+      grouped[semesterKey].pendingAmount += parseFloat(invoice.pending_amount || 0)
+
+      if (
+        invoice.status === 'pending' ||
+        invoice.status === 'overdue' ||
+        invoice.status === 'partially_paid'
+      ) {
+        totalPending += parseFloat(invoice.pending_amount || 0)
+      }
+    })
+
+    setGroupedInvoices(grouped)
+    setPendingFees(totalPending)
+
+    const code = await getCollegeCurrencyCode(student.college_id)
+    setStudentViewCurrency(code)
+  }
+
   const searchStudent = async () => {
     if (!collegeId && userRole !== 'admin') return
+
+    const orFilter = buildStudentSearchOrFilter(searchQuery)
+    if (!orFilter) {
+      setStudentData(null)
+      setStudentSearchMatches([])
+      setInvoices([])
+      setGroupedInvoices({})
+      return
+    }
 
     setLoading(true)
     try {
@@ -372,6 +485,7 @@ export default function InvoiceManagement() {
           last_name_ar,
           email,
           phone,
+          mobile_phone,
           status,
           gpa,
           enrollment_date,
@@ -397,8 +511,8 @@ export default function InvoiceManagement() {
             )
           )
         `)
-        .ilike('student_id', `%${searchQuery}%`)
-        .limit(1)
+        .or(orFilter)
+        .limit(10)
 
       if (userRole === 'user' && collegeId) {
         studentQuery = studentQuery.eq('college_id', collegeId)
@@ -411,108 +525,41 @@ export default function InvoiceManagement() {
       if (studentError) {
         console.error('Error searching student:', studentError)
         setStudentData(null)
+        setStudentSearchMatches([])
         return
       }
 
       if (!studentRows || studentRows.length === 0) {
         setStudentData(null)
+        setStudentSearchMatches([])
         setInvoices([])
         setGroupedInvoices({})
         return
       }
 
-      const student = studentRows[0]
-      setStudentData(student)
-
-      const { data: walletData } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('student_id', student.id)
-        .single()
-
-      setWalletBalance(walletData?.balance || 0)
-
-      let invoiceQuery = supabase
-        .from('invoices')
-        .select(`
-          id,
-          invoice_number,
-          invoice_date,
-          due_date,
-          invoice_type,
-          status,
-          subtotal,
-          discount_amount,
-          scholarship_amount,
-          total_amount,
-          paid_amount,
-          pending_amount,
-          currency,
-          semester_id,
-          semesters (
-            id,
-            name_en,
-            name_ar,
-            code,
-            start_date,
-            end_date
-          )
-        `)
-        .eq('student_id', student.id)
-        .order('invoice_date', { ascending: false })
-
-      if (userRole === 'user' && collegeId) {
-        invoiceQuery = invoiceQuery.eq('college_id', collegeId)
-      } else if (userRole === 'instructor' && collegeId) {
-        invoiceQuery = invoiceQuery.eq('college_id', collegeId)
+      if (studentRows.length === 1) {
+        await loadStudentInvoicesAndWallet(studentRows[0])
+      } else {
+        setStudentSearchMatches(studentRows)
+        setStudentData(null)
+        setInvoices([])
+        setGroupedInvoices({})
+        setPendingFees(0)
+        setWalletBalance(0)
       }
-
-      const { data: invoicesData, error: invoicesError } = await invoiceQuery
-
-      if (invoicesError) {
-        console.error('Error fetching invoices:', invoicesError)
-        return
-      }
-
-      setInvoices(invoicesData || [])
-
-      const grouped = {}
-      let totalPending = 0
-
-      ;(invoicesData || []).forEach((invoice) => {
-        const semesterKey = invoice.semester_id ? `semester_${invoice.semester_id}` : 'no_semester'
-
-        if (!grouped[semesterKey]) {
-          grouped[semesterKey] = {
-            semester: invoice.semesters,
-            invoices: [],
-            totalAmount: 0,
-            paidAmount: 0,
-            pendingAmount: 0,
-          }
-        }
-
-        grouped[semesterKey].invoices.push(invoice)
-        grouped[semesterKey].totalAmount += parseFloat(invoice.total_amount || 0)
-        grouped[semesterKey].paidAmount += parseFloat(invoice.paid_amount || 0)
-        grouped[semesterKey].pendingAmount += parseFloat(invoice.pending_amount || 0)
-
-        if (
-          invoice.status === 'pending' ||
-          invoice.status === 'overdue' ||
-          invoice.status === 'partially_paid'
-        ) {
-          totalPending += parseFloat(invoice.pending_amount || 0)
-        }
-      })
-
-      setGroupedInvoices(grouped)
-      setPendingFees(totalPending)
-
-      const code = await getCollegeCurrencyCode(student.college_id)
-      setStudentViewCurrency(code)
     } catch (err) {
       console.error('Error in search:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const selectStudentFromSearch = async (student) => {
+    setLoading(true)
+    try {
+      await loadStudentInvoicesAndWallet(student)
+    } catch (err) {
+      console.error('Error loading student:', err)
     } finally {
       setLoading(false)
     }
@@ -753,6 +800,35 @@ export default function InvoiceManagement() {
               }`}
             />
           </div>
+          {studentSearchMatches.length > 1 && (
+            <div className="mt-3 space-y-2">
+              <p className={`text-sm text-amber-800 ${isArabicLayout ? 'text-right' : 'text-left'}`}>
+                {t('finance.invoiceManagement.searchMultipleMatchesHint')}
+              </p>
+              <div className="border border-gray-200 rounded-xl bg-white shadow-lg max-h-60 overflow-y-auto">
+                {studentSearchMatches.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => selectStudentFromSearch(s)}
+                    className={`w-full px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 ${
+                      isArabicLayout ? 'text-right' : 'text-left'
+                    }`}
+                  >
+                    <div className="font-semibold" dir="ltr">
+                      {s.student_id}
+                    </div>
+                    <div className="text-sm text-gray-600">{displayPersonName(s, isArabicLayout)}</div>
+                    {(s.phone || s.mobile_phone) && (
+                      <div className="text-xs text-gray-500 mt-0.5" dir="ltr">
+                        {[s.phone, s.mobile_phone].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -986,6 +1062,14 @@ export default function InvoiceManagement() {
                               {t('finance.invoiceManagement.studentLine', {
                                 id: invoice.students.student_id,
                                 name: displayPersonName(invoice.students, isArabicLayout) || '—',
+                              })}
+                            </span>
+                          )}
+                          {viewMode === 'all' && !invoice.students && invoice.applications && (
+                            <span className="text-sm text-gray-700 font-medium">
+                              {t('finance.invoiceManagement.applicantLine', {
+                                number: invoice.applications.application_number || invoice.applications.id,
+                                name: [invoice.applications.first_name, invoice.applications.last_name].filter(Boolean).join(' ') || invoice.applications.email || '—',
                               })}
                             </span>
                           )}

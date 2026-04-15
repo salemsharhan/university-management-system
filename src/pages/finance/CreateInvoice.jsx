@@ -8,6 +8,9 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { calculateFinancialMilestone } from '../../utils/financePermissions'
 import { getCollegeCurrencyCode } from '../../utils/getCollegeSettings'
+import { FEE_TYPES_USING_MAJOR_REGISTRATION, getMajorRegistrationFeeAmount } from '../../utils/feeHierarchy'
+import { buildStudentSearchOrFilter } from '../../utils/studentSearchQuery'
+import { normalizeFeeTypeCode, normalizeInvoiceTypeEnum } from '../../utils/invoiceTypeEnum'
 import { ArrowLeft, ArrowRight, Save, Search, Plus, Trash2, Loader2 } from 'lucide-react'
 
 const FEE_CODE_TO_I18N = {
@@ -140,7 +143,7 @@ export default function CreateInvoice() {
   }, [user])
 
   useEffect(() => {
-    if (studentSearch && studentSearch.length >= 3) {
+    if (studentSearch && studentSearch.length >= 2) {
       searchStudents()
     } else {
       setStudents([])
@@ -168,10 +171,14 @@ export default function CreateInvoice() {
 
   useEffect(() => {
     if (selectedStudent) {
+      setFormData((prev) => ({ ...prev, semester_id: '' }))
       fetchStudentData()
       fetchSemesters()
+    } else {
+      setSemesters([])
+      setStudentData(null)
     }
-  }, [selectedStudent, collegeId])
+  }, [selectedStudent])
 
   useEffect(() => {
     // Fetch fee structures when student data is loaded
@@ -222,24 +229,20 @@ export default function CreateInvoice() {
   }
 
   const fetchSemesters = async () => {
-    if (!collegeId && userRole !== 'admin') return
+    const cid = selectedStudent?.college_id
+    if (!cid) {
+      setSemesters([])
+      return
+    }
 
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('semesters')
         .select('id, name_en, name_ar, code, start_date')
+        .or(`college_id.eq.${cid},is_university_wide.eq.true`)
         .order('start_date', { ascending: false })
-        .limit(10)
+        .limit(50)
 
-      if (userRole === 'user' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      } else if (userRole === 'instructor' && collegeId) {
-        query = query.eq('college_id', collegeId)
-      } else if (userRole === 'admin' && collegeId) {
-        query = query.eq('college_id', collegeId)
-      }
-
-      const { data, error } = await query
       if (error) throw error
       setSemesters(data || [])
     } catch (err) {
@@ -266,7 +269,10 @@ export default function CreateInvoice() {
             id,
             name_en,
             name_ar,
-            degree_level
+            degree_level,
+            registration_fee,
+            tuition_fee,
+            lab_fee
           )
         `)
         .eq('id', selectedStudent.id)
@@ -280,7 +286,8 @@ export default function CreateInvoice() {
   }
 
   const fetchFeeStructures = async () => {
-    if (!collegeId && userRole !== 'admin') {
+    const scopedCollegeId = selectedStudent?.college_id ?? collegeId
+    if (!scopedCollegeId && userRole !== 'admin') {
       setFeeStructures([])
       return
     }
@@ -295,12 +302,12 @@ export default function CreateInvoice() {
         .select('*')
         .eq('is_active', true)
 
-      if (userRole === 'user' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
-      } else if (userRole === 'instructor' && collegeId) {
-        query = query.eq('college_id', collegeId)
-      } else if (userRole === 'admin' && collegeId) {
-        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      if (userRole === 'user' && scopedCollegeId) {
+        query = query.or(`college_id.eq.${scopedCollegeId},is_university_wide.eq.true`)
+      } else if (userRole === 'instructor' && scopedCollegeId) {
+        query = query.or(`college_id.eq.${scopedCollegeId},is_university_wide.eq.true`)
+      } else if (userRole === 'admin' && scopedCollegeId) {
+        query = query.or(`college_id.eq.${scopedCollegeId},is_university_wide.eq.true`)
       } else if (userRole === 'admin') {
         // University admin - show all university-wide structures
         query = query.or('is_university_wide.eq.true,college_id.is.null')
@@ -375,7 +382,7 @@ export default function CreateInvoice() {
     if (!feeStructureIds || feeStructureIds.length === 0) {
       setFormData(prev => ({
         ...prev,
-        items: prev.items.filter(item => !item.from_fee_structure) // Keep only manual items
+        items: prev.items.filter(item => !item.from_fee_structure && !item.from_major_catalog),
       }))
       return
     }
@@ -398,8 +405,9 @@ export default function CreateInvoice() {
       total_amount: parseFloat(feeStructure.amount || 0)
     }))
 
-    // Get existing manual items (not from fee structures)
-    const manualItems = formData.items.filter(item => !item.from_fee_structure)
+    const manualItems = formData.items.filter(
+      (item) => !item.from_fee_structure && !item.from_major_catalog
+    )
 
     const firstStructure = selectedStructures[0]
 
@@ -416,13 +424,20 @@ export default function CreateInvoice() {
   }
 
   const searchStudents = async () => {
+    const orFilter = buildStudentSearchOrFilter(studentSearch)
+    if (!orFilter) {
+      setStudents([])
+      return
+    }
     if (!collegeId && userRole !== 'admin') return
 
     try {
       let query = supabase
         .from('students')
-        .select('id, student_id, name_en, name_ar, first_name, last_name, first_name_ar, last_name_ar, email, college_id')
-        .ilike('student_id', `%${studentSearch}%`)
+        .select(
+          'id, student_id, name_en, name_ar, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile_phone, college_id'
+        )
+        .or(orFilter)
         .limit(10)
 
       if (userRole === 'user' && collegeId) {
@@ -475,6 +490,31 @@ export default function CreateInvoice() {
       const newItems = formData.items.filter((_, i) => i !== index)
       setFormData({ ...formData, items: newItems })
     }
+  }
+
+  const applyMajorRegistrationFee = () => {
+    const maj = studentData?.majors
+    const amt = getMajorRegistrationFeeAmount(maj)
+    if (amt == null) return
+    const invType = formData.invoice_type || 'admission_fee'
+    setSelectedFeeStructures([])
+    setFormData((prev) => ({
+      ...prev,
+      invoice_type: prev.invoice_type || invType,
+      items: [
+        {
+          from_major_catalog: true,
+          from_fee_structure: false,
+          item_type: invType,
+          item_name_en: t('finance.createInvoicePage.lineFromMajorRegistration'),
+          item_name_ar: '',
+          description: t('finance.createInvoicePage.lineFromMajorRegistrationDesc'),
+          quantity: 1,
+          unit_price: amt,
+          total_amount: amt,
+        },
+      ],
+    }))
   }
 
   const calculateTotal = () => {
@@ -699,8 +739,12 @@ export default function CreateInvoice() {
 
       if (invoiceNumber.error) throw invoiceNumber.error
 
-      let invoiceTypeEnum = formData.items[0]?.item_type || formData.invoice_type || 'other'
-      if (!invoiceTypeEnum) invoiceTypeEnum = 'other'
+      const rawFeeCode = formData.invoice_type || formData.items[0]?.item_type || 'other'
+      const invoiceTypeEnum = normalizeInvoiceTypeEnum(rawFeeCode)
+      const selectedFeeTypeObj =
+        feeTypes.find((ft) => ft.code === formData.invoice_type) ||
+        feeTypes.find((ft) => ft.code === rawFeeCode) ||
+        feeTypes.find((ft) => ft.code === normalizeFeeTypeCode(rawFeeCode))
       const subtotal = formData.items.reduce((sum, item) => sum + (parseFloat(item.total_amount) || 0), 0)
       const discount = parseFloat(formData.discount_amount) || 0
       const total = subtotal - discount
@@ -719,7 +763,6 @@ export default function CreateInvoice() {
       )
 
       // Add semester_id based on fee type requirements
-      const selectedFeeTypeObj = feeTypes.find(ft => ft.code === invoiceTypeEnum)
       const semesterId = formData.semester_id && selectedFeeTypeObj?.requires_semester !== false 
         ? parseInt(formData.semester_id) 
         : null
@@ -819,7 +862,7 @@ export default function CreateInvoice() {
             .filter(item => item.from_fee_structure && item.fee_structure_id === portion.fee_structure_id)
             .map(item => ({
               invoice_id: childInvoice.id,
-              item_type: item.item_type || invoiceTypeEnum,
+              item_type: normalizeFeeTypeCode(item.item_type || rawFeeCode),
               item_name_en: `${item.item_name_en} - Portion ${portion.portion_number}`,
               item_name_ar: item.item_name_ar || null,
               description: `Portion ${portion.portion_number} (${portion.percentage}%) - ${item.description || ''}`.trim() || null,
@@ -831,7 +874,9 @@ export default function CreateInvoice() {
             }))
 
           // Also add manual items proportionally
-          const manualItems = formData.items.filter(item => !item.from_fee_structure)
+          const manualItems = formData.items.filter(
+            (item) => !item.from_fee_structure && !item.from_major_catalog
+          )
           if (manualItems.length > 0) {
             const manualTotal = manualItems.reduce((sum, item) => sum + (parseFloat(item.total_amount) || 0), 0)
             const manualPortionAmount = (manualTotal * portion.percentage) / 100
@@ -839,7 +884,7 @@ export default function CreateInvoice() {
               const itemPortionAmount = (parseFloat(item.total_amount) || 0) * (portion.percentage / 100)
               portionItems.push({
                 invoice_id: childInvoice.id,
-                item_type: item.item_type || invoiceTypeEnum,
+                item_type: normalizeFeeTypeCode(item.item_type || rawFeeCode),
                 item_name_en: `${item.item_name_en} - Portion ${portion.portion_number}`,
                 item_name_ar: item.item_name_ar || null,
                 description: `Portion ${portion.portion_number} (${portion.percentage}%) - ${item.description || ''}`.trim() || null,
@@ -918,7 +963,7 @@ export default function CreateInvoice() {
         // Create invoice items
         const invoiceItems = formData.items.map(item => ({
           invoice_id: invoice.id,
-          item_type: item.item_type || invoiceTypeEnum,
+          item_type: normalizeFeeTypeCode(item.item_type || rawFeeCode),
           item_name_en: item.item_name_en,
           item_name_ar: item.item_name_ar || null,
           description: item.description || null,
@@ -998,10 +1043,11 @@ export default function CreateInvoice() {
           if (paymentError) throw paymentError
         }
 
-        // Update student financial milestone after payment (per semester)
-        // Use the first invoice's semester_id
+        // Update student financial milestone after payment (per semester).
+        // Run for admission_fee too: milestone math still excludes admission from tuition totals;
+        // if only admission exists for the semester, totals are 0/0 → PM100 and the row is created.
         const invoiceSemesterId = createdInvoices[0]?.semester_id || semesterId
-        if (invoiceSemesterId && invoiceTypeEnum !== 'admission_fee') {
+        if (invoiceSemesterId) {
           await updateStudentFinancialMilestone(selectedStudent.id, invoiceSemesterId)
         }
       }
@@ -1128,6 +1174,11 @@ export default function CreateInvoice() {
                     {student.student_id}
                   </div>
                   <div className="text-sm text-gray-600">{displayPersonName(student, isArabicLayout)}</div>
+                  {(student.phone || student.mobile_phone) && (
+                    <div className="text-xs text-gray-500 mt-0.5" dir="ltr">
+                      {[student.phone, student.mobile_phone].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -1145,7 +1196,20 @@ export default function CreateInvoice() {
         </div>
 
         {selectedStudent && studentData && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+              <h3 className={`text-sm font-semibold text-slate-900 ${alignStart}`}>
+                {t('finance.createInvoicePage.feeHierarchyTitle')}
+              </h3>
+              <p className={`text-xs text-slate-600 ${alignStart}`}>{t('finance.createInvoicePage.feeHierarchyIntro')}</p>
+              <ul className={`list-disc text-xs text-slate-700 space-y-1.5 ms-5 ${alignStart}`}>
+                <li>{t('finance.createInvoicePage.feeHierarchyBullet1')}</li>
+                <li>{t('finance.createInvoicePage.feeHierarchyBullet2')}</li>
+                <li>{t('finance.createInvoicePage.feeHierarchyBullet3')}</li>
+                <li>{t('finance.createInvoicePage.feeHierarchyBullet4')}</li>
+              </ul>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <label className={`block text-sm font-semibold text-gray-900 mb-1 ${alignStart}`}>
               {t('finance.createInvoicePage.feeStructuresTitle')}
             </label>
@@ -1265,6 +1329,7 @@ export default function CreateInvoice() {
               </div>
             )}
           </div>
+          </>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1314,6 +1379,7 @@ export default function CreateInvoice() {
             </select>
           </div>
           {formData.invoice_type &&
+            selectedStudent &&
             (() => {
               const st = feeTypes.find((ft) => ft.code === formData.invoice_type)
               const requiresSemester = st?.requires_semester !== false
@@ -1372,6 +1438,33 @@ export default function CreateInvoice() {
           </div>
         </div>
 
+        {selectedStudent &&
+          studentData &&
+          formData.invoice_type &&
+          FEE_TYPES_USING_MAJOR_REGISTRATION.includes(formData.invoice_type) && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4">
+              <div className={`flex flex-wrap items-center justify-between gap-3 ${iconRow}`}>
+                <p className={`text-sm text-emerald-950 flex-1 min-w-0 ${alignStart}`}>
+                  {getMajorRegistrationFeeAmount(studentData.majors) != null
+                    ? t('finance.createInvoicePage.majorCatalogHint', {
+                        amount: getMajorRegistrationFeeAmount(studentData.majors).toFixed(2),
+                        currency: collegeCurrencyCode,
+                      })
+                    : t('finance.createInvoicePage.majorCatalogNone')}
+                </p>
+                {getMajorRegistrationFeeAmount(studentData.majors) != null && (
+                  <button
+                    type="button"
+                    onClick={applyMajorRegistrationFee}
+                    className="shrink-0 px-4 py-2 bg-emerald-700 text-white text-sm font-medium rounded-lg hover:bg-emerald-800 transition-colors"
+                  >
+                    {t('finance.createInvoicePage.applyMajorRegistrationFee')}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
         <div>
           <div className={`flex flex-wrap items-center justify-between gap-3 mb-4 ${iconRow}`}>
             <label className={`block text-sm font-semibold text-gray-900 ${alignStart}`}>
@@ -1398,6 +1491,11 @@ export default function CreateInvoice() {
                           {t('finance.createInvoicePage.itemNameEnHint')}
                         </span>
                       )}
+                      {item.from_major_catalog && !item.from_fee_structure && (
+                        <span className="ms-2 text-xs text-emerald-700 font-normal">
+                          {t('finance.createInvoicePage.itemNameEnHintMajor')}
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
@@ -1405,7 +1503,11 @@ export default function CreateInvoice() {
                       onChange={(e) => handleItemChange(index, 'item_name_en', e.target.value)}
                       dir="ltr"
                       className={`${fieldInputClassSm} ${
-                        item.from_fee_structure ? 'bg-blue-50 border-blue-200' : ''
+                        item.from_fee_structure
+                          ? 'bg-blue-50 border-blue-200'
+                          : item.from_major_catalog
+                            ? 'bg-emerald-50 border-emerald-200'
+                            : ''
                       }`}
                       required
                     />
@@ -1421,7 +1523,11 @@ export default function CreateInvoice() {
                       onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                       dir="ltr"
                       className={`${fieldInputClassSm} ${
-                        item.from_fee_structure ? 'bg-blue-50 border-blue-200' : ''
+                        item.from_fee_structure
+                          ? 'bg-blue-50 border-blue-200'
+                          : item.from_major_catalog
+                            ? 'bg-emerald-50 border-emerald-200'
+                            : ''
                       }`}
                       required
                     />
@@ -1438,7 +1544,11 @@ export default function CreateInvoice() {
                       onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
                       dir="ltr"
                       className={`${fieldInputClassSm} ${
-                        item.from_fee_structure ? 'bg-blue-50 border-blue-200' : ''
+                        item.from_fee_structure
+                          ? 'bg-blue-50 border-blue-200'
+                          : item.from_major_catalog
+                            ? 'bg-emerald-50 border-emerald-200'
+                            : ''
                       }`}
                       required
                     />

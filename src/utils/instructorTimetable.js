@@ -120,3 +120,49 @@ export function buildLegendItems(schedules) {
   }
   return Array.from(map.values())
 }
+
+/** i18n keys under instructorPortal for workload day labels (Sun–Sat). */
+export const WORKLOAD_DAY_I18N_KEYS = {
+  sunday: 'workloadDaySun',
+  monday: 'workloadDayMon',
+  tuesday: 'workloadDayTue',
+  wednesday: 'workloadDayWed',
+  thursday: 'workloadDayThu',
+  friday: 'workloadDayFri',
+  saturday: 'workloadDaySat',
+}
+
+/**
+ * @param {Array} scheduleRows - class_schedules joined with classes.subjects
+ * @param {string|number} classId
+ */
+export function schedulesForClass(scheduleRows, classId) {
+  if (classId == null) return []
+  const id = String(classId)
+  return (scheduleRows || []).filter((r) => String(r.class_id) === id)
+}
+
+/**
+ * One-line summary: "Sunday 10:00–11:30 · Tuesday 10:00–11:30" with localized day names.
+ * @param {(key: string) => string} t - i18n `t` from useTranslation
+ */
+export function formatClassScheduleSummary(scheduleRows, classId, t) {
+  const rows = schedulesForClass(scheduleRows, classId)
+  if (!rows.length) return ''
+  const byDay = {}
+  for (const r of rows) {
+    const d = String(r.day_of_week || '').toLowerCase()
+    if (!TIMETABLE_DAY_KEYS.includes(d)) continue
+    if (!byDay[d]) byDay[d] = []
+    byDay[d].push(formatTimeRangeLabel(r.start_time, r.end_time))
+  }
+  const parts = []
+  for (const day of TIMETABLE_DAY_KEYS) {
+    if (!byDay[day]?.length) continue
+    const key = WORKLOAD_DAY_I18N_KEYS[day]
+    const label = key ? t(`instructorPortal.${key}`) : day
+    const times = [...new Set(byDay[day])].join(', ')
+    parts.push(`${label} ${times}`)
+  }
+  return parts.join(' · ')
+}

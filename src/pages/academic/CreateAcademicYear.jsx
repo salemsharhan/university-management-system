@@ -5,7 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { ArrowLeft, Save, Check, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Save, Check, AlertCircle, Info } from 'lucide-react'
 
 export default function CreateAcademicYear() {
   const { t } = useTranslation()
@@ -340,6 +340,10 @@ export default function CreateAcademicYear() {
                   <option value="scheduled">{t('academic.academicYears.statusScheduled')}</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">{t('academic.academicYears.initialStatusHint')}</p>
+                <p className="flex gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 mt-2">
+                  <Info className="w-4 h-4 shrink-0 text-gray-500 mt-0.5" aria-hidden />
+                  <span>{t('academic.academicYears.currentYearExplainer')}</span>
+                </p>
               </div>
 
               {/* Description (English) */}

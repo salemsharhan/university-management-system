@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { createAuthUser } from '../lib/createAuthUser'
+import { generateStudentId as generateStudentIdForCollege } from '../utils/collegeIdFormat'
 import { ArrowLeft, ArrowRight, Check, User, Phone, FileText, GraduationCap, Heart, Upload, Eye } from 'lucide-react'
 
 export default function CreateStudent() {
@@ -276,87 +277,7 @@ export default function CreateStudent() {
   const generateStudentId = async (targetCollegeId = null) => {
     const collegeIdToUse = targetCollegeId || collegeId
     if (!collegeIdToUse) return null
-    
-    try {
-      const { data: college } = await supabase
-        .from('colleges')
-        .select('student_id_prefix, student_id_format, student_id_starting_number')
-        .eq('id', collegeIdToUse)
-        .single()
-      
-      if (!college) return null
-      
-      const prefix = college.student_id_prefix || 'STU'
-      const year = new Date().getFullYear()
-      const format = college.student_id_format || '{prefix}{year}{sequence:D4}'
-      
-      // Get existing student IDs for this college and year (more efficient than fetching all)
-      const yearPrefix = `${prefix}${year}`
-      const { data: existingStudents, error: studentError } = await supabase
-        .from('students')
-        .select('student_id')
-        .eq('college_id', collegeIdToUse)
-        .like('student_id', `${yearPrefix}%`) // Filter by year prefix to reduce query size
-        .limit(10000) // Safety limit
-      
-      // Handle case where no students exist yet (not an error)
-      if (studentError && studentError.code !== 'PGRST116') {
-        console.error('Error fetching existing students:', studentError)
-      }
-      
-      const existingIds = new Set(existingStudents?.map(s => s.student_id).filter(Boolean) || [])
-      
-      // Start from the configured starting number or 1
-      let sequence = college.student_id_starting_number || 1
-      
-      // Find the highest sequence number used for this year (already filtered by yearPrefix in query)
-      const yearStudents = Array.from(existingIds)
-      
-      if (yearStudents.length > 0) {
-        // Extract sequence numbers from existing IDs
-        const sequences = yearStudents
-          .map(id => {
-            // Try to extract sequence from end (last 4 or 5 digits)
-            const match = id.match(/\d{4,5}$/)
-            return match ? parseInt(match[0]) : 0
-          })
-          .filter(num => num > 0)
-        
-        if (sequences.length > 0) {
-          const maxSequence = Math.max(...sequences)
-          sequence = maxSequence + 1
-        }
-      }
-      
-      // Generate the ID and check for uniqueness (use local cache only - database unique constraint will catch race conditions)
-      let attempts = 0
-      const maxAttempts = 100 // Safety limit to prevent infinite loops
-      
-      while (attempts < maxAttempts) {
-        const generatedId = format
-          .replace('{prefix}', prefix)
-          .replace('{year}', year)
-          .replace('{sequence:D4}', sequence.toString().padStart(4, '0'))
-          .replace('{sequence:D5}', sequence.toString().padStart(5, '0'))
-        
-        // Check against local cache only (no database query in loop to prevent timeout)
-        // If there's a race condition, the database unique constraint will catch it
-        // and the calling code will retry with a new ID
-        if (!existingIds.has(generatedId)) {
-          return generatedId
-        }
-        
-        // If it exists in cache, increment and try again
-        sequence++
-        attempts++
-      }
-      
-      // If we've exhausted attempts, throw an error
-      throw new Error('Unable to generate unique student ID after multiple attempts')
-    } catch (err) {
-      console.error('Error generating student ID:', err)
-      return null
-    }
+    return generateStudentIdForCollege(supabase, collegeIdToUse)
   }
 
   const handleSubmit = async (e) => {

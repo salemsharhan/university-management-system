@@ -1,8 +1,32 @@
 /**
- * Semester fields needed for instructor portal (lifecycle + admin master flags).
+ * Academic-year flags embedded on semester (same names as on semesters — combined with AND for instructor UI).
+ */
+export const INSTRUCTOR_ACADEMIC_YEAR_FLAG_SELECT =
+  'grade_entry_allowed, attendance_editing_allowed, registration_open, financial_posting_allowed'
+
+/**
+ * Semester fields needed for instructor portal (lifecycle + admin master flags + parent year flags).
  */
 export const INSTRUCTOR_SEMESTER_SELECT =
-  'id, name_en, name_ar, code, start_date, status, course_registration_allowed, add_drop_allowed, withdrawal_allowed, grade_entry_allowed, attendance_editing_allowed, late_registration_allowed'
+  `id, name_en, name_ar, code, start_date, status, course_registration_allowed, add_drop_allowed, withdrawal_allowed, grade_entry_allowed, attendance_editing_allowed, late_registration_allowed, academic_years(${INSTRUCTOR_ACADEMIC_YEAR_FLAG_SELECT})`
+
+/**
+ * Effective permission: semester AND academic year must allow (when year is loaded).
+ * If year is missing from the payload (legacy queries), semester-only is used.
+ */
+export function effectiveGradeEntryAllowed(semester) {
+  if (!semester || semester.grade_entry_allowed !== true) return false
+  const y = semester.academic_years
+  if (y == null || typeof y !== 'object') return true
+  return y.grade_entry_allowed === true
+}
+
+export function effectiveAttendanceEditingAllowed(semester) {
+  if (!semester || semester.attendance_editing_allowed !== true) return false
+  const y = semester.academic_years
+  if (y == null || typeof y !== 'object') return true
+  return y.attendance_editing_allowed === true
+}
 
 /**
  * Lists distinct semesters where the instructor has at least one active class

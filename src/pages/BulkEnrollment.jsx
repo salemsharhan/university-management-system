@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useCollege } from '../contexts/CollegeContext'
 import { getLocalizedName } from '../utils/localizedName'
+import { buildStudentSearchOrFilter } from '../utils/studentSearchQuery'
 import { ArrowLeft, ArrowRight, ShoppingCart, Calendar, Search, Plus, X, Eye, Trash2, Check, Save, Loader, Building2 } from 'lucide-react'
 
 export default function BulkEnrollment() {
@@ -132,7 +133,12 @@ export default function BulkEnrollment() {
       }
 
       if (studentSearch) {
-        query = query.or(`first_name.ilike.%${studentSearch}%,last_name.ilike.%${studentSearch}%,student_id.ilike.%${studentSearch}%`)
+        const orFilter = buildStudentSearchOrFilter(studentSearch)
+        if (orFilter) {
+          query = query.or(orFilter)
+        } else {
+          query = query.ilike('student_id', `%${studentSearch}%`)
+        }
       }
 
       const { data, error } = await query

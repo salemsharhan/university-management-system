@@ -1411,3 +1411,31 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Lesson builder (AdminBuildLesson / instructor build-lessons): styles are scoped under .instructor-portal */
+.instructor-portal.lesson-builder-root {
+  min-height: auto;
+  box-sizing: border-box;
+}
+.instructor-portal.lesson-builder-embedded {
+  background: transparent;
+  min-height: 0;
+  padding: 0;
+}
+.instructor-portal .lb-element-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .instructor-portal .lb-element-picker {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.instructor-portal .lb-element-btn {
+  min-height: 88px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}

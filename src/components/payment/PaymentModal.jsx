@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../lib/supabase'
 import { X, CreditCard, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { calculateFinancialMilestone } from '../../utils/financePermissions'
+import { resolveRegistrationFeeAmount } from '../../utils/resolveRegistrationFeeAmount'
+import { createApplicationRegistrationInvoice } from '../../utils/createApplicationRegistrationInvoice'
 
 export default function PaymentModal({ isOpen, onClose, application, invoice, student, onPaymentSuccess }) {
   const { t } = useTranslation()
@@ -32,27 +34,11 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
 
   const fetchRegistrationFee = async () => {
     try {
-      // Fetch registration fee from finance_configuration based on major/college
-      const { data: feeConfig, error: feeError } = await supabase
-        .from('finance_configuration')
-        .select('amount, currency, fee_name_en')
-        .eq('fee_type', 'admission_fee')
-        .eq('is_active', true)
-        .or(`college_id.eq.${application.college_id},is_university_wide.eq.true`)
-        .limit(1)
-        .single()
-
-      if (feeError && feeError.code !== 'PGRST116') {
-        console.error('Error fetching fee:', feeError)
-        setAmount(100) // Default fee
-      } else if (feeConfig) {
-        setAmount(parseFloat(feeConfig.amount || 100))
-      } else {
-        setAmount(100) // Default fee
-      }
+      const resolved = await resolveRegistrationFeeAmount(application)
+      setAmount(resolved)
     } catch (err) {
       console.error('Error fetching registration fee:', err)
-      setAmount(100) // Default fee
+      setAmount(100)
     }
   }
 
@@ -140,9 +126,9 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
         // We just need to ensure the payment is inserted correctly
         // The trigger will handle updating invoice.paid_amount, pending_amount, and status
 
-        // Update student financial milestone if student exists (per semester)
-        // Get semester_id from invoice
-        if (studentId && invoice.semester_id && invoice.invoice_type !== 'admission_fee') {
+        // Update student financial milestone if student exists (per semester).
+        // Include admission_fee: updateStudentFinancialMilestone excludes admission from tuition %.
+        if (studentId && invoice.semester_id) {
           await updateStudentFinancialMilestone(studentId, invoice.semester_id)
         }
         
@@ -157,28 +143,26 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
       }
       
       if (application) {
-        // Payment for application registration fee
-        // Store payment information in the application record
-        // The invoice will be created retroactively when the student is enrolled
-        
+        // Payment for application registration fee — amount from major.registration_fee, then finance config
+        const paidAmount = await resolveRegistrationFeeAmount(application)
         const newMilestone = 'PM10'
         const paymentDate = new Date().toISOString()
-        
+        const methodEnum = paymentMethod === 'online' ? 'online_payment' : 'bank_transfer'
+
         const { error: updateError } = await supabase
           .from('applications')
           .update({
             financial_milestone_code: newMilestone,
             status_code: application.status_code === 'APPN' ? 'APPC' : application.status_code,
             status_changed_at: paymentDate,
-            registration_fee_amount: amount,
+            registration_fee_amount: paidAmount,
             registration_fee_paid_at: paymentDate,
-            registration_fee_payment_method: paymentMethod === 'online' ? 'online_payment' : 'bank_transfer'
+            registration_fee_payment_method: methodEnum,
           })
           .eq('id', application.id)
 
         if (updateError) throw updateError
 
-        // Log the payment in status_change_audit_log
         const { error: logError } = await supabase
           .from('status_change_audit_log')
           .insert({
@@ -188,12 +172,39 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
             to_status_code: application.status_code === 'APPN' ? 'APPC' : application.status_code,
             transition_reason_code: null,
             trigger_code: 'TRWH',
-            notes: `Registration fee payment received: $${amount.toFixed(2)} via ${paymentMethod === 'online' ? 'online payment' : 'bank transfer'}`
+            notes: `Registration fee payment received: $${paidAmount.toFixed(2)} via ${paymentMethod === 'online' ? 'online payment' : 'bank transfer'}`
           })
 
         if (logError) console.error('Error logging status change:', logError)
+
+        let invoiceCreateFailed = false
+        try {
+          await createApplicationRegistrationInvoice(
+            { ...application, registration_fee_amount: paidAmount },
+            paidAmount,
+            methodEnum
+          )
+        } catch (invoiceErr) {
+          console.error('Application registration invoice error:', invoiceErr)
+          invoiceCreateFailed = true
+          setError(
+            t(
+              'payments.invoiceCreateFailed',
+              'Payment was recorded, but the invoice could not be generated. Please contact the finance office with your application number.'
+            )
+          )
+        }
+
+        if (invoiceCreateFailed) {
+          return
+        }
         
-        paymentRecord = { id: Date.now(), amount, status: 'verified', payment_number: `APP-PAY-${Date.now()}` } // Mock payment record for callback
+        paymentRecord = {
+          id: Date.now(),
+          amount: paidAmount,
+          status: 'verified',
+          payment_number: `APP-PAY-${Date.now()}`,
+        }
 
         setSuccess(true)
         setTimeout(() => {

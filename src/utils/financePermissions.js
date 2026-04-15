@@ -7,6 +7,17 @@
 import { supabase } from '../lib/supabase'
 
 /**
+ * When student_semester_financial_status has no PM10+ row yet (no tuition invoices / milestone
+ * not computed), enrolled students should still access the portal. Feature-level checks use
+ * milestones elsewhere.
+ */
+export function canLoginWithoutSemesterPm10Milestone(financialHoldReasonCode, currentStatusCode) {
+  if (financialHoldReasonCode) return false
+  const allowed = ['ENAC', 'ACAC', 'ACPR', 'ENCF', 'ENPN']
+  return allowed.includes(currentStatusCode || '')
+}
+
+/**
  * Get financial milestone for a student for a specific semester
  * @param {number} studentId - Student ID
  * @param {number} semesterId - Semester ID

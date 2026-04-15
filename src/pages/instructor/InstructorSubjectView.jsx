@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getGradeTypesFromUniversitySettings, mergeGradeConfigWithTypes } from '../../utils/getCollegeSettings'
 import { supabase } from '../../lib/supabase'
-import { INSTRUCTOR_SEMESTER_SELECT } from '../../utils/instructorSemesters'
+import {
+  INSTRUCTOR_SEMESTER_SELECT,
+  effectiveAttendanceEditingAllowed,
+} from '../../utils/instructorSemesters'
 import { getLocalizedName } from '../../utils/localizedName'
 import { useAuth } from '../../contexts/AuthContext'
 import { 
@@ -390,7 +393,7 @@ export default function InstructorSubjectView() {
   const canEditAttendanceForClass = (classId) => {
     if (classId == null || classId === '') return false
     const cls = classes.find((c) => String(c.id) === String(classId))
-    return cls?.semesters?.attendance_editing_allowed === true
+    return effectiveAttendanceEditingAllowed(cls?.semesters)
   }
 
   const openAttendanceEdit = (record) => {

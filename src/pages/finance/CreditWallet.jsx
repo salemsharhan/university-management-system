@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { getLocalizedName } from '../../utils/localizedName'
+import { buildStudentSearchOrFilter } from '../../utils/studentSearchQuery'
 import { getCollegeCurrencyCode } from '../../utils/getCollegeSettings'
 import { ArrowLeft, ArrowRight, Save, Search, Wallet, Loader2 } from 'lucide-react'
 
@@ -81,7 +82,7 @@ export default function CreditWallet() {
   }, [selectedStudent?.college_id, collegeId])
 
   useEffect(() => {
-    if (studentSearch && studentSearch.length >= 3) {
+    if (studentSearch && studentSearch.length >= 2) {
       searchStudents()
     } else {
       setStudents([])
@@ -104,13 +105,20 @@ export default function CreditWallet() {
   }
 
   const searchStudents = async () => {
+    const orFilter = buildStudentSearchOrFilter(studentSearch)
+    if (!orFilter) {
+      setStudents([])
+      return
+    }
     if (!collegeId && userRole !== 'admin') return
 
     try {
       let query = supabase
         .from('students')
-        .select('id, student_id, name_en, first_name, last_name, email, college_id')
-        .ilike('student_id', `%${studentSearch}%`)
+        .select(
+          'id, student_id, name_en, name_ar, first_name, last_name, first_name_ar, last_name_ar, email, phone, mobile_phone, college_id'
+        )
+        .or(orFilter)
         .limit(10)
 
       if (userRole === 'user' && collegeId) {
@@ -358,6 +366,11 @@ export default function CreditWallet() {
                     {student.student_id}
                   </div>
                   <div className="text-sm text-gray-600">{displayPersonName(student, isArabicLayout)}</div>
+                  {(student.phone || student.mobile_phone) && (
+                    <div className="text-xs text-gray-500 mt-0.5" dir="ltr">
+                      {[student.phone, student.mobile_phone].filter(Boolean).join(' · ')}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>

@@ -153,9 +153,9 @@ export default function FinanceConfiguration() {
       if (userRole === 'user' && collegeId) {
         query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       } else if (userRole === 'instructor' && collegeId) {
-        query = query.eq('college_id', collegeId)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       } else if (userRole === 'admin' && collegeId) {
-        query = query.eq('college_id', collegeId)
+        query = query.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
       }
 
       const { data, error: qErr } = await query

@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { getLocalizedName } from '../../utils/localizedName'
+import { formatSubjectOptionLabel, SUBJECT_OPTION_SELECT } from '../../utils/subjectOptionLabel'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, Save, Check } from 'lucide-react'
+import SearchableMultiSelect from '../../components/SearchableMultiSelect'
 
 export default function EditSubject() {
   const { t } = useTranslation()
@@ -73,13 +75,10 @@ export default function EditSubject() {
   }, [id, userRole])
 
   useEffect(() => {
-    if (collegeId || authCollegeId) {
-      fetchSubjects()
-      fetchMajors()
-    } else {
-      setAllSubjects([])
-    }
-  }, [collegeId, authCollegeId])
+    if (fetching) return
+    fetchSubjects()
+    fetchMajors()
+  }, [collegeId, authCollegeId, formData.major_scope, userRole, fetching, id])
 
   const fetchColleges = async () => {
     try {
@@ -120,6 +119,21 @@ export default function EditSubject() {
   const fetchSubjects = async () => {
     try {
       const targetCollegeId = collegeId || authCollegeId
+      const subjectIdNum = id ? parseInt(id, 10) : null
+
+      if (formData.major_scope === 'university_wide' && userRole === 'admin') {
+        let q = supabase
+          .from('subjects')
+          .select(SUBJECT_OPTION_SELECT)
+          .eq('status', 'active')
+          .order('code')
+        if (subjectIdNum) q = q.neq('id', subjectIdNum)
+        const { data, error } = await q
+        if (error) throw error
+        setAllSubjects(data || [])
+        return
+      }
+
       if (!targetCollegeId) {
         setAllSubjects([])
         return
@@ -127,14 +141,15 @@ export default function EditSubject() {
 
       let query = supabase
         .from('subjects')
-        .select('id, name_en, name_ar, code')
+        .select(SUBJECT_OPTION_SELECT)
         .eq('status', 'active')
         .or(`college_id.eq.${targetCollegeId},is_university_wide.eq.true`)
         .order('code')
 
       const { data, error } = await query
       if (error) throw error
-      setAllSubjects(data || [])
+      const list = (data || []).filter((s) => s.id !== subjectIdNum)
+      setAllSubjects(list)
     } catch (err) {
       console.error('Error fetching subjects:', err)
       setAllSubjects([])
@@ -342,6 +357,16 @@ export default function EditSubject() {
       }))
     }
   }
+
+  const subjectSelectOptions = useMemo(() => {
+    const sid = id ? parseInt(id, 10) : null
+    return allSubjects
+      .filter((s) => s.id !== sid)
+      .map((s) => ({
+        value: s.id,
+        label: formatSubjectOptionLabel(s, isRTL, t),
+      }))
+  }, [allSubjects, isRTL, id, t])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -665,46 +690,39 @@ export default function EditSubject() {
               {/* Prerequisites & Corequisites - Reuse from CreateSubject */}
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('subjectsForm.prerequisitesCorequisites')}</h3>
-                {(collegeId || authCollegeId) ? (
+                {(collegeId || authCollegeId || (formData.major_scope === 'university_wide' && userRole === 'admin')) ? (
                   allSubjects.length > 0 ? (
                   <div className="space-y-4">
+                    {formData.major_scope === 'university_wide' && userRole === 'admin' && (
+                      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        {t('subjectsForm.prerequisitesUniversityWideAdminHint')}
+                      </p>
+                    )}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.prerequisites')}</label>
-                      <select
-                        multiple
-                        size={5}
-                        value={formData.prerequisites.map(String)}
-                        onChange={(e) => {
-                          const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                          setFormData(prev => ({ ...prev, prerequisites: selected }))
-                        }}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        {allSubjects.filter(s => s.id !== parseInt(id)).map(subject => (
-                            <option key={subject.id} value={subject.id}>
-                              {subject.code} - {getLocalizedName(subject, isRTL)}
-                            </option>
-                          ))}
-                      </select>
+                      <SearchableMultiSelect
+                        inputId="edit-subject-prerequisites"
+                        value={formData.prerequisites}
+                        onChange={(ids) => setFormData((prev) => ({ ...prev, prerequisites: ids }))}
+                        options={subjectSelectOptions}
+                        placeholder={t('subjectsForm.searchSubjectsPlaceholder')}
+                        noOptionsMessage={t('subjectsForm.noSubjectsInCollege')}
+                        isRTL={isRTL}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">{t('subjectsForm.prerequisitesHint')}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">{t('subjectsForm.corequisites')}</label>
-                      <select
-                        multiple
-                        size={5}
-                        value={formData.corequisites.map(String)}
-                        onChange={(e) => {
-                          const selected = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                          setFormData(prev => ({ ...prev, corequisites: selected }))
-                        }}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        {allSubjects.filter(s => s.id !== parseInt(id)).map(subject => (
-                            <option key={subject.id} value={subject.id}>
-                              {subject.code} - {getLocalizedName(subject, isRTL)}
-                            </option>
-                          ))}
-                      </select>
+                      <SearchableMultiSelect
+                        inputId="edit-subject-corequisites"
+                        value={formData.corequisites}
+                        onChange={(ids) => setFormData((prev) => ({ ...prev, corequisites: ids }))}
+                        options={subjectSelectOptions}
+                        placeholder={t('subjectsForm.searchSubjectsPlaceholder')}
+                        noOptionsMessage={t('subjectsForm.noSubjectsInCollege')}
+                        isRTL={isRTL}
+                      />
+                      <p className="text-xs text-gray-500 mt-2">{t('subjectsForm.corequisitesHint')}</p>
                     </div>
                   </div>
                   ) : (

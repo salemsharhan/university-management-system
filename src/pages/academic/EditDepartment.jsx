@@ -363,7 +363,13 @@ export default function EditDepartment() {
 
         {/* Academic Configuration */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-5">{t('departmentsForm.academicConfig')}</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-2">{t('departmentsForm.academicConfig')}</h3>
+          <p
+            className={`text-sm text-gray-600 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-5 ${isRTL ? 'text-right' : 'text-left'}`}
+            role="note"
+          >
+            {t('departmentsForm.academicConfigHint')}
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-5">
             <div>
               <label className={labelClass}>{t('departmentsForm.minCreditHours')}</label>

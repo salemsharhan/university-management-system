@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -8,116 +8,331 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
+function isDuplicateAuthUserError(err: { message?: string } | null): boolean {
+  if (!err?.message) return false
+  const m = err.message.toLowerCase()
+  return (
+    m.includes('already') ||
+    m.includes('registered') ||
+    m.includes('exists') ||
+    m.includes('duplicate')
+  )
+}
+
+/** Find auth user id by email (pagination; small deployments). */
+async function getAuthUserIdByEmail(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  searchEmail: string
+): Promise<string | null> {
+  const normalized = searchEmail.trim().toLowerCase()
+  let page = 1
+  const perPage = 200
+  for (let i = 0; i < 50; i++) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage })
+    if (error) return null
+    const found = data.users.find((u) => u.email?.toLowerCase() === normalized)
+    if (found) return found.id
+    if (data.users.length < perPage) break
+    page++
+  }
+  return null
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
+    return new Response(null, {
       status: 204,
-      headers: corsHeaders 
+      headers: corsHeaders,
     })
   }
 
   try {
-    // Parse request body
-    let requestData
+    let requestData: {
+      email?: string
+      password?: string
+      role?: string
+      college_id?: number | null
+      name?: string
+    }
     try {
       requestData = await req.json()
-    } catch (parseError) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid JSON in request body' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     const { email, password, role, college_id, name } = requestData
 
     if (!email || !password || !role) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: email, password, role' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return new Response(JSON.stringify({ error: 'Missing required fields: email, password, role' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'Server configuration error: Missing environment variables' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
+    const emailTrim = email.trim()
+
+    // 1) Existing row in public.users (same email) → update password + sync profile fields
+    let existingByEmail: Record<string, unknown> | null = null
+    const byExact = await supabaseAdmin.from('users').select('*').eq('email', emailTrim).maybeSingle()
+    if (byExact.data) existingByEmail = byExact.data as Record<string, unknown>
+    else {
+      const byIlike = await supabaseAdmin.from('users').select('*').ilike('email', emailTrim).maybeSingle()
+      if (byIlike.data) existingByEmail = byIlike.data as Record<string, unknown>
+    }
+
+    const openId = existingByEmail?.openId as string | undefined
+    const userPk = existingByEmail?.id as number | undefined
+
+    if (existingByEmail && openId && userPk != null) {
+      const { error: updAuthErr } = await supabaseAdmin.auth.admin.updateUserById(openId, {
+        password,
+        user_metadata: {
+          name: name || emailTrim,
+          role,
+        },
+      })
+      if (updAuthErr) {
+        return new Response(JSON.stringify({ error: updAuthErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const { data: updatedRow, error: updRowErr } = await supabaseAdmin
+        .from('users')
+        .update({
+          name: name || emailTrim,
+          role,
+          college_id: college_id ?? null,
+        })
+        .eq('id', userPk)
+        .select()
+        .single()
+
+      if (updRowErr) {
+        return new Response(JSON.stringify({ error: updRowErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Server configuration error: Missing environment variables' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          user: updatedRow,
+          auth_user_id: openId,
+          reused: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Create Supabase admin client with service role key
-    const supabaseAdmin = createClient(
-      supabaseUrl,
-      serviceRoleKey,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
+    // 1b) users row exists but openId missing — link to existing Auth user and set password
+    if (existingByEmail && userPk != null && !openId) {
+      const authId = await getAuthUserIdByEmail(supabaseAdmin, emailTrim)
+      if (authId) {
+        const { error: updAuthErr } = await supabaseAdmin.auth.admin.updateUserById(authId, {
+          password,
+          user_metadata: {
+            name: name || emailTrim,
+            role,
+          },
+        })
+        if (updAuthErr) {
+          return new Response(JSON.stringify({ error: updAuthErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
         }
-      }
-    )
+        const { data: updatedRow, error: updRowErr } = await supabaseAdmin
+          .from('users')
+          .update({
+            openId: authId,
+            name: name || emailTrim,
+            role,
+            college_id: college_id ?? null,
+            email: emailTrim,
+          })
+          .eq('id', userPk)
+          .select()
+          .single()
 
-    // Create auth user
+        if (updRowErr) {
+          return new Response(JSON.stringify({ error: updRowErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            user: updatedRow,
+            auth_user_id: authId,
+            reused: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
+    // 2) Try to create new auth user + users row
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: emailTrim,
       password,
       email_confirm: true,
       user_metadata: {
-        name: name || email,
+        name: name || emailTrim,
         role,
       },
     })
 
     if (authError) {
+      // 3) Email already registered in Auth but no (matching) public.users row, or race
+      if (!isDuplicateAuthUserError(authError)) {
+        return new Response(JSON.stringify({ error: authError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const authUserId = await getAuthUserIdByEmail(supabaseAdmin, emailTrim)
+      if (!authUserId) {
+        return new Response(
+          JSON.stringify({ error: authError.message || 'Could not resolve existing auth user' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { error: pwdErr } = await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+        password,
+        user_metadata: {
+          name: name || emailTrim,
+          role,
+        },
+      })
+      if (pwdErr) {
+        return new Response(JSON.stringify({ error: pwdErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const { data: byOpenId } = await supabaseAdmin.from('users').select('*').eq('openId', authUserId).maybeSingle()
+
+      if (byOpenId) {
+        const { data: updatedRow, error: updRowErr } = await supabaseAdmin
+          .from('users')
+          .update({
+            name: name || emailTrim,
+            role,
+            college_id: college_id ?? null,
+            email: emailTrim,
+          })
+          .eq('id', byOpenId.id)
+          .select()
+          .single()
+
+        if (updRowErr) {
+          return new Response(JSON.stringify({ error: updRowErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            user: updatedRow,
+            auth_user_id: authUserId,
+            reused: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      const { data: insertedUser, error: insErr } = await supabaseAdmin
+        .from('users')
+        .insert({
+          openId: authUserId,
+          email: emailTrim,
+          name: name || emailTrim,
+          role,
+          college_id: college_id ?? null,
+          loginMethod: 'email',
+        })
+        .select()
+        .single()
+
+      if (insErr) {
+        return new Response(JSON.stringify({ error: insErr.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       return new Response(
-        JSON.stringify({ error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          success: true,
+          user: insertedUser,
+          auth_user_id: authUserId,
+          reused: true,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Create user record in users table
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .insert({
         openId: authData.user.id,
-        email,
-        name: name || email,
+        email: emailTrim,
+        name: name || emailTrim,
         role,
-        college_id: college_id || null,
+        college_id: college_id ?? null,
         loginMethod: 'email',
       })
       .select()
       .single()
 
     if (userError) {
-      // If user record creation fails, delete the auth user
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
-      return new Response(
-        JSON.stringify({ error: userError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return new Response(JSON.stringify({ error: userError.message }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         user: userData,
-        auth_user_id: authData.user.id 
+        auth_user_id: authData.user.id,
+        reused: false,
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 })
-

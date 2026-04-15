@@ -100,7 +100,6 @@ const navigation = [
     submenu: [
       { name: 'All Colleges', translationKey: 'navigation.allColleges', href: '/admin/colleges' },
       { name: 'University Settings', translationKey: 'navigation.universitySettings', href: '/admin/university-settings' },
-      { name: 'Build lessons', translationKey: 'navigation.buildLessonsAdmin', href: '/admin/build-lessons' },
       { name: 'Rubric builder', translationKey: 'navigation.rubricBuilderAdmin', href: '/admin/rubric-builder' },
     ]
   },
@@ -109,7 +108,17 @@ const navigation = [
   { name: 'Departments', translationKey: 'navigation.departments', href: '/academic/departments', icon: Building2, roles: ['admin', 'user'] },
   { name: 'Majors', translationKey: 'navigation.majors', href: '/academic/majors', icon: BookMarked, roles: ['admin', 'user'] },
   { name: 'Subjects', translationKey: 'navigation.subjects', href: '/academic/subjects', icon: BookOpen, roles: ['admin', 'user'] },
-  { name: 'Sessions', translationKey: 'navigation.sessions', href: '/academic/classes', icon: Library, roles: ['admin', 'user'] },
+  {
+    name: 'Sessions',
+    translationKey: 'navigation.sessions',
+    href: '/academic/classes',
+    icon: Library,
+    roles: ['admin', 'user'],
+    submenu: [
+      { name: 'All sessions', translationKey: 'navigation.allSessions', href: '/academic/classes' },
+      { name: 'Build lessons', translationKey: 'navigation.buildLessonsAdmin', href: '/academic/classes/build-lessons' },
+    ],
+  },
   { 
     name: 'Enrollments', 
     translationKey: 'navigation.enrollments',
