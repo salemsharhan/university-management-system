@@ -27,6 +27,7 @@ import {
   Users
 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { sendSmtpTestEmail } from '../../utils/sendSmtpTestEmail'
 
 const defaultGradingScale = [
   { letter: 'A+', minPercent: 95, maxPercent: 100, points: 4.0, passing: true },
@@ -49,6 +50,8 @@ export default function UniversitySettings() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loadingSettings, setLoadingSettings] = useState(true)
+  const [testEmailSending, setTestEmailSending] = useState(false)
+  const [testEmailFeedback, setTestEmailFeedback] = useState(null)
 
   const [collegeTypes, setCollegeTypes] = useState([])
   const [gradeTypes, setGradeTypes] = useState([])
@@ -275,6 +278,46 @@ export default function UniversitySettings() {
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     if (error) setError('')
+  }
+
+  const handleSendTestEmail = async () => {
+    setTestEmailFeedback(null)
+    const to = (formData.test_email_address || '').trim()
+    if (!to) {
+      setTestEmailFeedback({
+        kind: 'error',
+        text: t('colleges.emailSettings.testEmailRequired'),
+      })
+      return
+    }
+    setTestEmailSending(true)
+    try {
+      await sendSmtpTestEmail({
+        scope: 'university',
+        to,
+        useSaved: false,
+        smtp: {
+          host: formData.smtp_host,
+          port: Number(formData.smtp_port) || 587,
+          enableSsl: Boolean(formData.enable_ssl),
+          username: formData.smtp_username,
+          password: formData.smtp_password,
+          fromEmail: formData.from_email,
+          fromName: formData.from_name,
+        },
+      })
+      setTestEmailFeedback({
+        kind: 'success',
+        text: t('colleges.emailSettings.testEmailSent'),
+      })
+    } catch (err) {
+      setTestEmailFeedback({
+        kind: 'error',
+        text: err.message || t('colleges.emailSettings.testEmailFailed'),
+      })
+    } finally {
+      setTestEmailSending(false)
+    }
   }
 
   const handleGradingScaleChange = (index, field, value) => {
@@ -635,7 +678,13 @@ export default function UniversitySettings() {
             <FinancialSettings formData={formData} handleChange={handleChange} />
           )}
           {activeTab === 'email' && (
-            <EmailSettings formData={formData} handleChange={handleChange} />
+            <EmailSettings
+              formData={formData}
+              handleChange={handleChange}
+              onSendTestEmail={handleSendTestEmail}
+              testEmailSending={testEmailSending}
+              testEmailFeedback={testEmailFeedback}
+            />
           )}
           {activeTab === 'onboarding' && (
             <OnboardingSettings formData={formData} handleChange={handleChange} />

@@ -1,10 +1,19 @@
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
+import { Send } from 'lucide-react'
 
-export default function EmailSettings({ formData, handleChange }) {
+export default function EmailSettings({
+  formData,
+  handleChange,
+  onSendTestEmail,
+  testEmailSending = false,
+  testEmailFeedback = null,
+}) {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
-  
+
+  const testAddress = formData.test_email_address ?? ''
+
   return (
     <div className="space-y-8">
       <div>
@@ -101,15 +110,36 @@ export default function EmailSettings({ formData, handleChange }) {
 
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.emailSettings.testEmailConfiguration')}</h3>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.emailSettings.testEmailAddress')}</label>
-          <input
-            type="email"
-            value={formData.test_email}
-            onChange={(e) => handleChange('test_email', e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            placeholder={t('colleges.emailSettings.testEmailAddressPlaceholder')}
-          />
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('colleges.emailSettings.testEmailAddress')}</label>
+            <input
+              type="email"
+              value={testAddress}
+              onChange={(e) => handleChange('test_email_address', e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder={t('colleges.emailSettings.testEmailAddressPlaceholder')}
+            />
+          </div>
+          {onSendTestEmail && (
+            <div className={`flex flex-wrap items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+              <button
+                type="button"
+                onClick={onSendTestEmail}
+                disabled={testEmailSending}
+                className={`inline-flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-2 rounded-lg font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <Send className="w-4 h-4" />
+                <span>{t('colleges.emailSettings.sendTestEmail')}</span>
+              </button>
+              {testEmailFeedback?.kind === 'success' && (
+                <p className="text-sm text-green-700">{testEmailFeedback.text}</p>
+              )}
+              {testEmailFeedback?.kind === 'error' && (
+                <p className="text-sm text-red-700">{testEmailFeedback.text}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

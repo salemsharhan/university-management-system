@@ -2253,7 +2253,11 @@
       "enableEmailNotificationsDesc": "Send email notifications for system events",
       "testEmailConfiguration": "Test Email Configuration",
       "testEmailAddress": "Test Email Address",
-      "testEmailAddressPlaceholder": "test@example.com"
+      "testEmailAddressPlaceholder": "test@example.com",
+      "sendTestEmail": "Send test email",
+      "testEmailRequired": "Enter a recipient address for the test email.",
+      "testEmailSent": "Test email sent. Check the inbox (and spam folder).",
+      "testEmailFailed": "Could not send the test email."
     },
     "onboardingSettings": {
       "applicationSettings": "Application Settings",

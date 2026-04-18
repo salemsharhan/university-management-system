@@ -3072,7 +3072,11 @@
       "enableEmailNotificationsDesc": "إرسال إشعارات البريد الإلكتروني لأحداث النظام",
       "testEmailConfiguration": "إعدادات البريد الإلكتروني للاختبار",
       "testEmailAddress": "عنوان البريد الإلكتروني للاختبار",
-      "testEmailAddressPlaceholder": "test@example.com"
+      "testEmailAddressPlaceholder": "test@example.com",
+      "sendTestEmail": "إرسال بريد تجريبي",
+      "testEmailRequired": "أدخل عنوان المستلم للبريد التجريبي.",
+      "testEmailSent": "تم إرسال البريد التجريبي. تحقق من صندوق الوارد (والبريد غير المرغوب فيه).",
+      "testEmailFailed": "تعذر إرسال البريد التجريبي."
     },
     "onboardingSettings": {
       "applicationSettings": "إعدادات الطلب",

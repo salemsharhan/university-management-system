@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   Check
 } from 'lucide-react'
+import { sendSmtpTestEmail } from '../../utils/sendSmtpTestEmail'
 
 const defaultGradingScale = [
   { letter: 'A+', minPercent: 95, maxPercent: 100, points: 4.0, passing: true },
@@ -106,6 +107,8 @@ export default function CreateCollege() {
   const [universitySettings, setUniversitySettings] = useState(null)
   const [loadingUniversitySettings, setLoadingUniversitySettings] = useState(false)
   const [collegeTypes, setCollegeTypes] = useState([])
+  const [testEmailSending, setTestEmailSending] = useState(false)
+  const [testEmailFeedback, setTestEmailFeedback] = useState(null)
 
   // Fetch college data if in edit mode
   useEffect(() => {
@@ -339,8 +342,12 @@ export default function CreateCollege() {
           }
           setFormData(prev => ({
             ...prev,
-            enable_email_notifications: email.notifications?.enableEmailNotifications ?? prev.enable_email_notifications,
-            test_email: email.testEmail || prev.test_email,
+            enable_email_notifications:
+              email.notifications?.enableEmailNotifications ??
+              email.enable_email_notifications ??
+              prev.enable_email_notifications,
+            test_email_address:
+              email.testEmail || email.test_email_address || prev.test_email_address,
           }))
         }
 
@@ -686,9 +693,21 @@ export default function CreateCollege() {
           newData.smtp_password = email.smtp.password || newData.smtp_password
           newData.from_email = email.smtp.fromEmail || newData.from_email
           newData.from_name = email.smtp.fromName || newData.from_name
+        } else if (email.smtp_host) {
+          newData.smtp_host = email.smtp_host || newData.smtp_host
+          newData.smtp_port = email.smtp_port || newData.smtp_port
+          newData.enable_ssl = email.enable_ssl ?? newData.enable_ssl
+          newData.smtp_username = email.smtp_username || newData.smtp_username
+          newData.smtp_password = email.smtp_password || newData.smtp_password
+          newData.from_email = email.from_email || newData.from_email
+          newData.from_name = email.from_name || newData.from_name
         }
-        newData.enable_email_notifications = email.notifications?.enableEmailNotifications ?? newData.enable_email_notifications
-        newData.test_email = email.testEmail || newData.test_email
+        newData.enable_email_notifications =
+          email.notifications?.enableEmailNotifications ??
+          email.enable_email_notifications ??
+          newData.enable_email_notifications
+        newData.test_email_address =
+          email.testEmail || email.test_email_address || newData.test_email_address
       }
 
       // Auto-fill Onboarding settings
@@ -923,7 +942,7 @@ export default function CreateCollege() {
     from_email: '',
     from_name: '',
     enable_email_notifications: true,
-    test_email: 'test@example.com',
+    test_email_address: '',
 
     // Onboarding
     enable_online_applications: true,
@@ -1018,6 +1037,47 @@ export default function CreateCollege() {
     const newScale = [...formData.grading_scale]
     newScale[index] = { ...newScale[index], [field]: value }
     setFormData(prev => ({ ...prev, grading_scale: newScale }))
+  }
+
+  const handleSendTestEmail = async () => {
+    setTestEmailFeedback(null)
+    const to = (formData.test_email_address || '').trim()
+    if (!to) {
+      setTestEmailFeedback({
+        kind: 'error',
+        text: t('colleges.emailSettings.testEmailRequired'),
+      })
+      return
+    }
+    setTestEmailSending(true)
+    try {
+      await sendSmtpTestEmail({
+        scope: 'college',
+        collegeId: isEditMode && id ? Number(id) : undefined,
+        to,
+        useSaved: false,
+        smtp: {
+          host: formData.smtp_host,
+          port: Number(formData.smtp_port) || 587,
+          enableSsl: Boolean(formData.enable_ssl),
+          username: formData.smtp_username,
+          password: formData.smtp_password,
+          fromEmail: formData.from_email,
+          fromName: formData.from_name,
+        },
+      })
+      setTestEmailFeedback({
+        kind: 'success',
+        text: t('colleges.emailSettings.testEmailSent'),
+      })
+    } catch (err) {
+      setTestEmailFeedback({
+        kind: 'error',
+        text: err.message || t('colleges.emailSettings.testEmailFailed'),
+      })
+    } finally {
+      setTestEmailSending(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -1133,7 +1193,7 @@ export default function CreateCollege() {
         notifications: {
           enableEmailNotifications: formData.enable_email_notifications,
         },
-        testEmail: formData.test_email,
+        testEmail: formData.test_email_address,
       }
 
       const onboardingSettings = {
@@ -1506,7 +1566,13 @@ export default function CreateCollege() {
                       </p>
                     </div>
                   )}
-                  <EmailSettings formData={formData} handleChange={handleChange} />
+                  <EmailSettings
+                    formData={formData}
+                    handleChange={handleChange}
+                    onSendTestEmail={handleSendTestEmail}
+                    testEmailSending={testEmailSending}
+                    testEmailFeedback={testEmailFeedback}
+                  />
                 </div>
               )}
               {activeTab === 'onboarding' && (
