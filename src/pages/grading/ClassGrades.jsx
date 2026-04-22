@@ -287,12 +287,16 @@ export default function ClassGrades() {
         gradeData.updated_at = new Date().toISOString()
         // RLS requires class_id, student_id, semester_id, college_id — ensure they are set
         const enrollment = enrollments.find((e) => e.id === enrollment_id)
+        const classCollegeId = classData?.college_id ?? classData?.colleges?.id ?? null
+        const classSemesterId = classData?.semester_id ?? classData?.semesters?.id ?? null
         if (classData) {
           if (gradeData.class_id == null) gradeData.class_id = classData.id
-          if (gradeData.semester_id == null) gradeData.semester_id = classData.semester_id
-          if (gradeData.college_id == null) gradeData.college_id = classData.college_id
+          if (gradeData.semester_id == null) gradeData.semester_id = classSemesterId
+          if (gradeData.college_id == null) gradeData.college_id = classCollegeId
         }
         if (enrollment && gradeData.student_id == null) gradeData.student_id = enrollment.student_id
+        if (gradeData.college_id == null) gradeData.college_id = classCollegeId ?? enrollment?.college_id ?? authCollegeId ?? null
+        if (gradeData.semester_id == null) gradeData.semester_id = classSemesterId ?? enrollment?.semester_id ?? null
 
         const { error: upsertError } = await supabase
           .from('grade_components')

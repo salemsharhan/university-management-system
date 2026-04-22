@@ -56,6 +56,10 @@
     "summerSemester": "Summer Semester",
     "academicYear": "Academic Year"
   },
+  "payments": {
+    "receiptEmailSubject": "Payment received",
+    "receiptEmailMessage": "We received your payment of {{amount}} for invoice {{invoiceNumber}}. You can view your receipt in Student Portal → Payments."
+  },
   "admin": {
     "curriculumMap": {
       "title": "Curriculum map — learning outcomes",
@@ -556,8 +560,28 @@
       "previousEducation": "Previous Education",
       "identity": "Identity Documents",
       "documents": "Documents",
+      "payments": "Payments",
       "emergency": "Emergency Contact",
       "other": "Scholarship & health status"
+    },
+    "payments": {
+      "title": "Payments",
+      "subtitle": "Generate invoices for semester/major fees and review payments.",
+      "selectSemester": "Select semester",
+      "generateInvoice": "Generate semester invoice",
+      "generating": "Generating...",
+      "pickSemester": "Please select a semester.",
+      "invoiceAlreadyExists": "Invoice already exists for this semester.",
+      "noFeeConfig": "Could not compute semester fees. Add semester-scoped finance configuration for this semester (recommended).",
+      "invoiceGenerated": "Invoice generated successfully.",
+      "invoices": "Invoices",
+      "noInvoices": "No invoices found for this semester.",
+      "invoiceNumber": "Invoice",
+      "total": "Total",
+      "pending": "Pending",
+      "paymentHistory": "Payment history",
+      "noPayments": "No payments yet.",
+      "note": "Note: Semester invoices are calculated from semester-scoped finance configuration. These invoices form the base for PM10/PM30 milestones (admission_fee invoices are excluded). Once generated, the student can pay from Student Portal → Invoices & fees."
     },
     "documents": {
       "idPhoto": "ID photo",
@@ -3385,6 +3409,26 @@
     }
   },
   "finance": {
+    "bulkInvoice": {
+      "singleMode": "Single invoice",
+      "bulkMode": "Bulk generate invoices",
+      "modeHint": "Bulk mode generates portion-based semester invoices for all students enrolled in the selected semester and emails them.",
+      "required": "Select academic year, major, and semester.",
+      "noConfig": "No semester fee configuration found for this selection.",
+      "academicYear": "Academic year",
+      "major": "Major",
+      "semester": "Semester",
+      "generate": "Generate invoices",
+      "generating": "Generating...",
+      "sendEmail": "Send email notification",
+      "progress": "Progress",
+      "skipped": "Skipped",
+      "failed": "Failed",
+      "studentId": "Student ID",
+      "details": "Details",
+      "emailSubject": "Payment invoice available",
+      "emailMessage": "A new invoice ({{invoiceNumber}}) is available in your student portal for {{semester}}. Amount due: {{amount}}. Please log in to Student Portal → Invoices & fees to pay."
+    },
     "title": "Finance Management",
     "subtitle": "Manage financial affairs",
     "financeConfiguration": "Finance Configuration",
@@ -3447,6 +3491,11 @@
       "pending": "Pending",
       "viewDetails": "View Details",
       "exportInvoice": "Download",
+      "cancel": "Cancel",
+      "cancelling": "Cancelling…",
+      "cancelConfirm": "Cancel this invoice?",
+      "cannotCancelPaid": "Cannot cancel an invoice that has payments.",
+      "cannotCancelPaidChildren": "Cannot cancel: one or more installment invoices has payments.",
       "fetchFailed": "Could not load invoices: {{message}}",
       "loadFailed": "Could not load list: {{message}}",
       "searchStudentPlaceholder": "Search by student ID, name, phone, or email…",
@@ -3534,6 +3583,11 @@
       "subtitle": "Invoice #{{number}}",
       "addPayment": "Add payment",
       "cancel": "Cancel",
+      "cancelInvoice": "Cancel invoice",
+      "cancelling": "Cancelling…",
+      "cancelConfirm": "Cancel this invoice?",
+      "cannotCancelPaid": "Cannot cancel an invoice that has payments.",
+      "cannotCancelPaidChildren": "Cannot cancel: one or more installment invoices has payments.",
       "addPaymentTitle": "Add payment",
       "paymentDate": "Payment date",
       "paymentMethod": "Payment method",

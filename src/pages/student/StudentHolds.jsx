@@ -160,10 +160,11 @@ export default function StudentHolds() {
   }, [docs, todayISO])
 
   const hardHoldActive = useMemo(() => {
-    // Treat any registration finance gate block as "hard hold" (matches what student sees in registration UI)
+    // Hard hold should reflect an actual block (finance gate or explicit hold code),
+    // not simply "there is an outstanding balance". Outstanding balance is shown in Payments.
     if (registrationGate?.allowed === false) return true
-    return balanceDue > 0 || !!student?.financial_hold_reason_code || !!semesterFinance?.financial_hold_reason_code
-  }, [registrationGate?.allowed, balanceDue, student?.financial_hold_reason_code, semesterFinance?.financial_hold_reason_code])
+    return !!student?.financial_hold_reason_code || !!semesterFinance?.financial_hold_reason_code
+  }, [registrationGate?.allowed, student?.financial_hold_reason_code, semesterFinance?.financial_hold_reason_code])
 
   const softHoldActive = expiredDocs.length > 0
 
@@ -185,17 +186,10 @@ export default function StudentHolds() {
         })
       )
     }
-    if (balanceDue > 0) {
-      return t('studentPortal.holds.financialHoldDesc', {
-        defaultValue: 'There is an outstanding balance of {{amount}} for {{semester}}. Full payment is required to clear this hold.',
-        amount: `${balanceDue.toFixed(0)} ${sar}`,
-        semester: semesterLabel,
-      })
-    }
     return t('studentPortal.holds.financialHoldDescNoAmount', {
       defaultValue: 'There is an active financial hold on your account. Please contact finance office to clear it.',
     })
-  }, [registrationGate?.allowed, registrationGate?.reason, balanceDue, isArabic, semesterLabel, t])
+  }, [registrationGate?.allowed, registrationGate?.reason, isArabic, t])
 
   const displayName = useMemo(() => {
     const fromStudent = student ? getLocalizedName(student, isArabic) : ''

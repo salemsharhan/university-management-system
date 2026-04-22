@@ -124,6 +124,55 @@ export default function InvoiceManagement() {
   /** Admin + all colleges: map college_id -> ISO code from each college's financial settings. */
   const [collegeCurrencyMap, setCollegeCurrencyMap] = useState({})
   const fetchInvoicesSeq = useRef(0)
+  const [cancelLoadingId, setCancelLoadingId] = useState(null)
+
+  const cancelInvoice = async (invoice) => {
+    if (!invoice?.id) return
+    const paid = parseFloat(invoice.paid_amount || 0)
+    if (paid > 0) {
+      alert(t('finance.invoiceManagement.cannotCancelPaid', 'Cannot cancel an invoice that has payments.'))
+      return
+    }
+    if (!confirm(t('finance.invoiceManagement.cancelConfirm', 'Cancel this invoice?'))) return
+
+    try {
+      setCancelLoadingId(invoice.id)
+
+      // If this is a parent invoice (has children), cancel children too.
+      const { data: children } = await supabase
+        .from('invoices')
+        .select('id, paid_amount')
+        .eq('parent_invoice_id', invoice.id)
+
+      const childIds = (children || []).map((c) => c.id)
+      const anyChildPaid = (children || []).some((c) => parseFloat(c?.paid_amount || 0) > 0)
+      if (anyChildPaid) {
+        alert(t('finance.invoiceManagement.cannotCancelPaidChildren', 'Cannot cancel: one or more installment invoices has payments.'))
+        return
+      }
+
+      if (childIds.length > 0) {
+        const { error: cErr } = await supabase
+          .from('invoices')
+          .update({ status: 'cancelled', pending_amount: 0 })
+          .in('id', childIds)
+        if (cErr) throw cErr
+      }
+
+      const { error: pErr } = await supabase
+        .from('invoices')
+        .update({ status: 'cancelled', pending_amount: 0 })
+        .eq('id', invoice.id)
+      if (pErr) throw pErr
+
+      await fetchAllInvoices()
+    } catch (e) {
+      console.error('cancelInvoice error:', e)
+      alert(e?.message || String(e))
+    } finally {
+      setCancelLoadingId(null)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -1134,6 +1183,23 @@ export default function InvoiceManagement() {
                         >
                           {t('finance.invoiceManagement.viewDetails')}
                         </button>
+                        {(invoice.status === 'pending' || invoice.status === 'overdue') &&
+                          parseFloat(invoice.paid_amount || 0) === 0 && (
+                            <button
+                              type="button"
+                              disabled={cancelLoadingId === invoice.id}
+                              onClick={() => cancelInvoice(invoice)}
+                              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                                cancelLoadingId === invoice.id
+                                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                                  : 'bg-red-50 text-red-700 hover:bg-red-100'
+                              }`}
+                            >
+                              {cancelLoadingId === invoice.id
+                                ? t('finance.invoiceManagement.cancelling', 'Cancelling...')
+                                : t('finance.invoiceManagement.cancel', 'Cancel')}
+                            </button>
+                          )}
                         <button
                           type="button"
                           onClick={() => console.log('Export invoice', invoice.id)}

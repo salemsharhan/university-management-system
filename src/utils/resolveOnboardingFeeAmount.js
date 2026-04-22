@@ -7,12 +7,15 @@ function matchesArrayScope(arr, value) {
 }
 
 function matchesSemesterScope(row, semesterId) {
+  // When semesterId is provided, only count fees explicitly scoped to that semester.
+  // (Unscoped rows are treated as non-semester fees and should not affect semester totals.)
   if (!semesterId) return true
   if (row?.semester_id != null) return Number(row.semester_id) === Number(semesterId)
   if (Array.isArray(row?.applies_to_semester) && row.applies_to_semester.length > 0) {
-    return row.applies_to_semester.includes(Number(semesterId))
+    const semList = row.applies_to_semester.map((v) => Number(v)).filter((n) => Number.isFinite(n))
+    return semList.includes(Number(semesterId))
   }
-  return true
+  return false
 }
 
 /**
@@ -72,12 +75,26 @@ export async function resolveOnboardingFeeAmount(application) {
 
   const degree = major?.degree_level || null
   const applicable = (configRows || []).filter((row) => {
-    if (!matchesSemesterScope(row, semesterId)) return false
     if (!matchesArrayScope(row?.applies_to_major, Number(majorId))) return false
     if (!matchesArrayScope(row?.applies_to_degree_level, degree)) return false
     const type = String(row?.fee_type || '').toLowerCase()
-    // Exclude admission fee (handled earlier in application flow) and wallet credits
-    if (type === 'admission_fee' || type === 'wallet_credit') return false
+    // Exclude non-semester onboarding/admission fees and wallet credits
+    if (type === 'admission_fee' || type === 'registration_fee' || type === 'application_fee' || type === 'wallet_credit') return false
+
+    const hasSemesterScope =
+      row?.semester_id != null || (Array.isArray(row?.applies_to_semester) && row.applies_to_semester.length > 0)
+    const semScopedMatch = matchesSemesterScope(row, semesterId)
+    const looksLikeTuition = type.includes('tuition') || type.includes('tution') || type === 'course_fee' || type === 'course_fees'
+
+    if (semesterId) {
+      // Prefer semester-scoped configs; if none exist, allow major-scoped tuition rows as semester totals.
+      if (hasSemesterScope) {
+        if (!semScopedMatch) return false
+      } else {
+        if (!looksLikeTuition) return false
+      }
+    }
+
     return true
   })
 
@@ -86,8 +103,9 @@ export async function resolveOnboardingFeeAmount(application) {
     return acc + (Number.isFinite(n) ? n : 0)
   }, 0)
 
-  // Prefer catalogTotal if set; otherwise rely on finance_configuration.
-  const total = catalogTotal > 0 ? catalogTotal : configTotal
+  // IMPORTANT: offer onboarding is SEMESTER-based.
+  // Prefer semester-scoped finance_configuration totals. Major catalog is LAST fallback only.
+  const total = configTotal > 0 ? configTotal : catalogTotal
   const onboarding = total > 0 ? total * 0.1 : 0
 
   return {

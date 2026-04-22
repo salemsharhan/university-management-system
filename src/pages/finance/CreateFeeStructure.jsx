@@ -333,7 +333,16 @@ export default function CreateFeeStructure() {
         fee_name_ar: formData.fee_name_ar.trim() || null,
         amount: parseFloat(formData.amount),
         currency: formData.currency,
-        applies_to_semester: formData.applies_to_semester.length > 0 ? formData.applies_to_semester.map(id => parseInt(id)) : null,
+        // New schema (semester-based): use `semester_id`.
+        // Keep `applies_to_semester` for backward compatibility with older rows/UI.
+        semester_id:
+          formData.applies_to_semester.length === 1
+            ? parseInt(formData.applies_to_semester[0], 10)
+            : null,
+        applies_to_semester:
+          formData.applies_to_semester.length > 0
+            ? formData.applies_to_semester.map((sid) => parseInt(sid, 10))
+            : null,
         applies_to_degree_level: formData.applies_to_degree_level.length > 0 ? formData.applies_to_degree_level : null,
         applies_to_major: formData.applies_to_major.length > 0 ? formData.applies_to_major.map(id => parseInt(id)) : null,
         is_university_wide: formData.is_university_wide,

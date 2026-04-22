@@ -9,6 +9,30 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 }
 
+function toNum(v: unknown): number {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? '0'))
+  return Number.isFinite(n) ? n : 0
+}
+
+function computeMilestone(totalPaid: number, totalDue: number): string {
+  const due = Number(totalDue || 0)
+  const paid = Number(totalPaid || 0)
+  if (!Number.isFinite(due) || due <= 0) return 'PM00'
+  const pct = (Math.max(0, paid) / due) * 100
+  if (pct >= 100) return 'PM100'
+  if (pct >= 90) return 'PM90'
+  if (pct >= 60) return 'PM60'
+  if (pct >= 30) return 'PM30'
+  if (pct >= 10) return 'PM10'
+  return 'PM00'
+}
+
+function addDays(dateIso: string, days: number) {
+  const d = new Date(`${dateIso}T00:00:00.000Z`)
+  d.setUTCDate(d.getUTCDate() + Number(days || 0))
+  return d.toISOString().split('T')[0]
+}
+
 type SmtpShape = {
   host: string
   port: number
@@ -219,6 +243,12 @@ serve(async (req) => {
       })
     }
 
+    // Ensure required student display names are never NULL (students.name_ar is NOT NULL in DB).
+    const computedNameEn = [app.first_name, app.middle_name, app.last_name].filter(Boolean).join(' ').trim()
+    const computedNameAr = [app.first_name_ar, app.middle_name_ar, app.last_name_ar].filter(Boolean).join(' ').trim()
+    const safeNameEn = (computedNameEn || `${app.first_name || ''} ${app.last_name || ''}`.trim() || app.email || '').trim()
+    const safeNameAr = (computedNameAr || safeNameEn).trim()
+
     if (!app.registration_fee_paid_at) {
       return new Response(JSON.stringify({ error: 'Registration fee must be paid before accepting the offer.' }), {
         status: 400,
@@ -251,8 +281,6 @@ serve(async (req) => {
     let createdStudent: any = existingStudent
     if (!existingStudent) {
       const studentId = await generateStudentId(supabaseAdmin, Number(app.college_id))
-      const name_en = [app.first_name, app.middle_name, app.last_name].filter(Boolean).join(' ')
-      const name_ar = [app.first_name_ar, app.middle_name_ar, app.last_name_ar].filter(Boolean).join(' ')
       const enrollmentDate = new Date().toISOString().split('T')[0]
 
       const { data: inserted, error: insErr } = await supabaseAdmin
@@ -260,8 +288,8 @@ serve(async (req) => {
         .insert({
           user_id: userId,
           student_id: studentId,
-          name_en: name_en || `${app.first_name} ${app.last_name}`,
-          name_ar: name_ar || null,
+          name_en: safeNameEn,
+          name_ar: safeNameAr,
           first_name: app.first_name || null,
           middle_name: app.middle_name || null,
           last_name: app.last_name || null,
@@ -296,8 +324,8 @@ serve(async (req) => {
         await supabaseAdmin
           .from('students')
           .update({
-            name_en: [app.first_name, app.middle_name, app.last_name].filter(Boolean).join(' ') || null,
-            name_ar: [app.first_name_ar, app.middle_name_ar, app.last_name_ar].filter(Boolean).join(' ') || null,
+            name_en: safeNameEn,
+            name_ar: safeNameAr,
             first_name: app.first_name || null,
             middle_name: app.middle_name || null,
             last_name: app.last_name || null,
@@ -322,6 +350,26 @@ serve(async (req) => {
       }
     } catch {
       // ignore
+    }
+
+    // Link application-stage invoices/payments to this student (so they appear in admin + student portal).
+    // This includes the registration-fee invoice created during application registration.
+    try {
+      if (createdStudent?.id) {
+        const { data: appInvoices } = await supabaseAdmin
+          .from('invoices')
+          .select('id')
+          .eq('application_id', applicationId)
+
+        const invIds = (appInvoices || []).map((r: any) => r.id).filter((v: any) => Number.isFinite(Number(v)))
+        if (invIds.length > 0) {
+          await supabaseAdmin.from('invoices').update({ student_id: createdStudent.id }).in('id', invIds)
+          // payments.student_id may be null for application-stage payments; backfill it.
+          await supabaseAdmin.from('payments').update({ student_id: createdStudent.id }).in('invoice_id', invIds)
+        }
+      }
+    } catch (e) {
+      console.error('accept-offer link application invoices/payments error:', e)
     }
 
     // Copy application documents → student_documents (so they appear in student portal & admin student view)
@@ -359,6 +407,355 @@ serve(async (req) => {
       await supabaseAdmin.from('users').update({ role: 'student', college_id: app.college_id }).eq('id', userId)
     }
 
+    // Create semester tuition invoice + apply the 10% onboarding payment (so PM10/PM30 gates have a real base)
+    // Best-effort: do not fail offer acceptance if finance sync fails.
+    try {
+      if (createdStudent?.id) {
+        let semesterId: number | null = Number(app.semester_id || 0) || null
+        if (!semesterId) {
+          const { data: sem } = await supabaseAdmin
+            .from('semesters')
+            .select('id')
+            .or(`college_id.eq.${app.college_id},is_university_wide.eq.true`)
+            .in('status', ['active', 'registration_open'])
+            .order('start_date', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          semesterId = sem?.id ?? null
+        }
+
+        if (semesterId) {
+          const { data: existingTuition } = await supabaseAdmin
+            .from('invoices')
+            .select('id')
+            .eq('student_id', createdStudent.id)
+            .eq('semester_id', semesterId)
+            .neq('invoice_type', 'admission_fee')
+            .order('invoice_date', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+          if (!existingTuition?.id) {
+            const majorId = Number(app.major_id || 0) || null
+            const collegeId = Number(app.college_id || 0) || null
+            let degreeLevel: string | null = null
+            if (majorId) {
+              const { data: majorRow } = await supabaseAdmin
+                .from('majors')
+                .select('id, degree_level, tuition_fee, lab_fee')
+                .eq('id', majorId)
+                .maybeSingle()
+              degreeLevel = (majorRow?.degree_level as string) || null
+            }
+
+            // IMPORTANT: Offer 10% should be based on SEMESTER fees, not whole-major/program totals.
+            // Therefore we prefer semester-scoped finance_configuration totals. Major catalog is LAST fallback only.
+            let configTotal = 0
+            let paymentPortions: any[] = []
+            if (collegeId) {
+              const { data: cfg } = await supabaseAdmin
+                .from('finance_configuration')
+                .select(
+                  'id, fee_type, amount, payment_portions, is_university_wide, college_id, semester_id, applies_to_semester, applies_to_major, applies_to_degree_level, is_active',
+                )
+                .eq('is_active', true)
+                .or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+
+              const applicable = (cfg || []).filter((row: any) => {
+                const feeType = String(row?.fee_type || '').toLowerCase()
+                if (feeType === 'admission_fee' || feeType === 'registration_fee' || feeType === 'application_fee' || feeType === 'wallet_credit') return false
+                const hasSemesterScope =
+                  row?.semester_id != null ||
+                  (Array.isArray(row?.applies_to_semester) && row.applies_to_semester.length > 0)
+                const semList = Array.isArray(row?.applies_to_semester)
+                  ? row.applies_to_semester.map((v: any) => Number(v)).filter((n: number) => Number.isFinite(n))
+                  : []
+                const semScopedMatch =
+                  (row?.semester_id != null && Number(row.semester_id) === Number(semesterId)) ||
+                  (semList.length > 0 && semList.includes(Number(semesterId)))
+                const majors = row?.applies_to_major as number[] | null
+                if (Array.isArray(majors) && majors.length > 0 && majorId && !majors.includes(Number(majorId))) return false
+                const degrees = row?.applies_to_degree_level as string[] | null
+                if (Array.isArray(degrees) && degrees.length > 0 && degreeLevel && !degrees.includes(String(degreeLevel))) return false
+
+                // If nothing is semester-scoped, allow major-scoped tuition rows to represent semester totals.
+                // This supports setups where finance_configuration is configured per-major with payment_portions
+                // but semester scoping was not selected in the UI.
+                const looksLikeTuition =
+                  feeType.includes('tuition') || feeType.includes('tution') || feeType === 'course_fee' || feeType === 'course_fees'
+
+                if (hasSemesterScope) {
+                  if (!semScopedMatch) return false
+                } else {
+                  if (!looksLikeTuition) return false
+                }
+
+                return true
+              })
+
+              configTotal = applicable.reduce((acc: number, row: any) => acc + toNum(row?.amount), 0)
+
+              const portionSource = (applicable || []).find(
+                (r: any) => Array.isArray(r?.payment_portions) && r.payment_portions.length > 0,
+              )
+              paymentPortions = Array.isArray(portionSource?.payment_portions) ? portionSource.payment_portions : []
+            }
+
+            let totalDue = configTotal || 0
+            if (totalDue <= 0 && majorId) {
+              const { data: majorRow } = await supabaseAdmin
+                .from('majors')
+                .select('id, tuition_fee, lab_fee')
+                .eq('id', majorId)
+                .maybeSingle()
+              const catalogTotal = toNum(majorRow?.tuition_fee) + toNum(majorRow?.lab_fee)
+              totalDue = catalogTotal || 0
+            }
+            const onboardingPaid = toNum(app.tuition_fee_amount) || (totalDue > 0 ? totalDue * 0.1 : 0)
+            const payMethod = (String(app.tuition_fee_payment_method || 'online_payment') as any) || 'online_payment'
+
+            if (totalDue > 0) {
+              const invoiceDate = new Date().toISOString().split('T')[0]
+
+              const normalizedPortions = (paymentPortions || [])
+                .map((p: any) => ({
+                  portion_number: Number(p?.portion_number ?? 0),
+                  percentage: toNum(p?.percentage),
+                  days: Number(p?.days ?? 0),
+                  custom_date: p?.custom_date ? String(p.custom_date) : null,
+                  deadline_type: String(p?.deadline_type || 'days_from_invoice'),
+                }))
+                .filter((p: any) => Number.isFinite(p.portion_number) && p.portion_number > 0 && p.percentage > 0)
+                .sort((a: any, b: any) => a.portion_number - b.portion_number)
+
+              const portionsPct = normalizedPortions.reduce((acc: number, p: any) => acc + toNum(p.percentage), 0)
+              const usePortions = normalizedPortions.length >= 2 && Math.abs(portionsPct - 100) <= 0.5
+
+              let payableInvoiceId: number | null = null
+
+              if (usePortions) {
+                // Parent summary invoice (non-payable, children are payable)
+                const { data: parentNum } = await supabaseAdmin.rpc('generate_invoice_number', { college_id_param: collegeId })
+                const { data: parentInv, error: parentErr } = await supabaseAdmin
+                  .from('invoices')
+                  .insert({
+                    invoice_number: parentNum,
+                    student_id: createdStudent.id,
+                    application_id: null,
+                    college_id: collegeId,
+                    semester_id: semesterId,
+                    invoice_date: invoiceDate,
+                    due_date: invoiceDate,
+                    invoice_type: 'course_fee',
+                    status: 'pending',
+                    subtotal: totalDue,
+                    discount_amount: 0,
+                    scholarship_amount: 0,
+                    tax_amount: 0,
+                    total_amount: totalDue,
+                    paid_amount: 0,
+                    pending_amount: totalDue,
+                    payment_method: payMethod,
+                    notes: `Semester fees (summary) — offer onboarding for application ${app.application_number || applicationId}`,
+                  })
+                  .select('id')
+                  .single()
+                if (parentErr) throw parentErr
+
+                await supabaseAdmin.from('invoice_items').insert({
+                  invoice_id: parentInv.id,
+                  item_type: 'tuition_fee',
+                  item_name_en: 'Semester tuition fees (summary)',
+                  item_name_ar: 'رسوم الفصل الدراسي (ملخص)',
+                  description: 'Created on offer acceptance (summary)',
+                  quantity: 1,
+                  unit_price: totalDue,
+                  discount_amount: 0,
+                  scholarship_amount: 0,
+                  total_amount: totalDue,
+                  reference_id: majorId,
+                  reference_type: 'major',
+                })
+
+                const childIds: { id: number; portion_number: number }[] = []
+                for (const p of normalizedPortions) {
+                  const amount = Math.round((totalDue * (toNum(p.percentage) / 100)) * 100) / 100
+                  const due =
+                    p.deadline_type === 'custom_date' && p.custom_date
+                      ? String(p.custom_date).split('T')[0]
+                      : addDays(invoiceDate, Number(p.days || 0))
+
+                  const { data: childNum } = await supabaseAdmin.rpc('generate_invoice_number', { college_id_param: collegeId })
+                  const { data: childInv, error: childErr } = await supabaseAdmin
+                    .from('invoices')
+                    .insert({
+                      invoice_number: childNum,
+                      parent_invoice_id: parentInv.id,
+                      student_id: createdStudent.id,
+                      application_id: null,
+                      college_id: collegeId,
+                      semester_id: semesterId,
+                      invoice_date: invoiceDate,
+                      due_date: due,
+                      invoice_type: 'course_fee',
+                      status: 'pending',
+                      subtotal: amount,
+                      discount_amount: 0,
+                      scholarship_amount: 0,
+                      tax_amount: 0,
+                      total_amount: amount,
+                      paid_amount: 0,
+                      pending_amount: amount,
+                      payment_method: payMethod,
+                      notes: `Portion ${p.portion_number} (${toNum(p.percentage)}%) — offer onboarding`,
+                    })
+                    .select('id')
+                    .single()
+                  if (childErr) throw childErr
+
+                  await supabaseAdmin.from('invoice_items').insert({
+                    invoice_id: childInv.id,
+                    item_type: 'tuition_fee',
+                    item_name_en: `Semester fees — Portion ${p.portion_number} (${toNum(p.percentage)}%)`,
+                    item_name_ar: `رسوم الفصل الدراسي — القسط ${p.portion_number} (${toNum(p.percentage)}٪)`,
+                    description: 'Created on offer acceptance (portion)',
+                    quantity: 1,
+                    unit_price: amount,
+                    discount_amount: 0,
+                    scholarship_amount: 0,
+                    total_amount: amount,
+                    reference_id: majorId,
+                    reference_type: 'major',
+                  })
+
+                  childIds.push({ id: childInv.id, portion_number: p.portion_number })
+                }
+
+                const first = childIds.sort((a, b) => a.portion_number - b.portion_number)[0]
+                payableInvoiceId = first?.id ?? null
+              } else {
+                // Single payable invoice
+                const { data: invNum } = await supabaseAdmin.rpc('generate_invoice_number', { college_id_param: collegeId })
+                const { data: inv, error: invErr } = await supabaseAdmin
+                  .from('invoices')
+                  .insert({
+                    invoice_number: invNum,
+                    student_id: createdStudent.id,
+                    application_id: null,
+                    college_id: collegeId,
+                    semester_id: semesterId,
+                    invoice_date: invoiceDate,
+                    due_date: invoiceDate,
+                    invoice_type: 'course_fee',
+                    status: 'pending',
+                    subtotal: totalDue,
+                    discount_amount: 0,
+                    scholarship_amount: 0,
+                    tax_amount: 0,
+                    total_amount: totalDue,
+                    paid_amount: 0,
+                    pending_amount: totalDue,
+                    payment_method: payMethod,
+                    notes: `Tuition/semester fees — offer onboarding for application ${app.application_number || applicationId}`,
+                  })
+                  .select('id')
+                  .single()
+                if (invErr) throw invErr
+                payableInvoiceId = inv.id
+
+                await supabaseAdmin.from('invoice_items').insert({
+                  invoice_id: inv.id,
+                  item_type: 'tuition_fee',
+                  item_name_en: 'Semester tuition fees',
+                  item_name_ar: 'رسوم الفصل الدراسي',
+                  description: 'Created on offer acceptance (onboarding)',
+                  quantity: 1,
+                  unit_price: totalDue,
+                  discount_amount: 0,
+                  scholarship_amount: 0,
+                  total_amount: totalDue,
+                  reference_id: majorId,
+                  reference_type: 'major',
+                })
+              }
+
+              if (onboardingPaid > 0 && payableInvoiceId) {
+                const { data: payNum } = await supabaseAdmin.rpc('generate_payment_number', { college_id_param: collegeId })
+                const paymentTs = new Date().toISOString()
+                await supabaseAdmin.from('payments').insert({
+                  payment_number: payNum,
+                  invoice_id: payableInvoiceId,
+                  student_id: createdStudent.id,
+                  college_id: collegeId,
+                  payment_date: invoiceDate,
+                  payment_method: payMethod,
+                  amount: onboardingPaid,
+                  status: 'verified',
+                  verified_at: paymentTs,
+                  notes: `Onboarding paid on offer letter for application ${app.application_number || applicationId}`,
+                })
+
+                const { data: invRow } = await supabaseAdmin
+                  .from('invoices')
+                  .select('total_amount')
+                  .eq('id', payableInvoiceId)
+                  .maybeSingle()
+                const invTotal = toNum(invRow?.total_amount)
+                const newPaid = Math.min(invTotal, onboardingPaid)
+                const newPending = Math.max(0, invTotal - newPaid)
+                await supabaseAdmin
+                  .from('invoices')
+                  .update({
+                    paid_amount: newPaid,
+                    pending_amount: newPending,
+                    status: newPending <= 0 ? 'paid' : 'partially_paid',
+                  })
+                  .eq('id', payableInvoiceId)
+              }
+
+              const { data: semInvoices } = await supabaseAdmin
+                .from('invoices')
+                .select('id, total_amount, paid_amount, status, invoice_type, parent_invoice_id')
+                .eq('student_id', createdStudent.id)
+                .eq('semester_id', semesterId)
+                .neq('invoice_type', 'admission_fee')
+
+              let tDue = 0
+              let tPaid = 0
+              const parentIds = new Set<number>()
+              ;(semInvoices || []).forEach((inv: any) => {
+                if (!inv?.parent_invoice_id) {
+                  const hasChildren = (semInvoices || []).some((c: any) => c?.parent_invoice_id === inv?.id)
+                  if (hasChildren) parentIds.add(Number(inv.id))
+                }
+              })
+              ;(semInvoices || []).forEach((r: any) => {
+                if (parentIds.has(Number(r?.id))) return
+                tDue += toNum(r?.total_amount)
+                if (r?.status === 'paid' || r?.status === 'partially_paid') tPaid += toNum(r?.paid_amount)
+              })
+
+              await supabaseAdmin
+                .from('student_semester_financial_status')
+                .upsert(
+                  {
+                    student_id: createdStudent.id,
+                    semester_id: semesterId,
+                    financial_milestone_code: computeMilestone(tPaid, tDue),
+                    total_due: tDue,
+                    total_paid: tPaid,
+                    updated_at: new Date().toISOString(),
+                  },
+                  { onConflict: 'student_id,semester_id' },
+                )
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('accept-offer finance sync error:', e)
+    }
+
     // Update application status to DCFA (accepted final)
     if (status !== 'DCFA') {
       await supabaseAdmin
@@ -391,6 +788,13 @@ serve(async (req) => {
         const html = buildEmailHtml(subject, message, String(app.application_number || app.id))
         const text = `${subject}\n\n${message}\n\nApplication: ${app.application_number || app.id}`
         await sendSmtpMessage(smtp, String(app.email), subject, text, html)
+
+        const subject2 = 'Welcome — student onboarding'
+        const message2 =
+          'Welcome to the Student Portal.\n\nNext steps:\n- Log in using the same email and password you used during application registration.\n- Open Student Portal → Invoices & fees to complete the remaining semester payments (30% unlocks registration).\n- Upload/verify any missing documents from Student Portal → Documents.\n\nIf you have any questions, contact the admissions/finance office.'
+        const html2 = buildEmailHtml(subject2, message2, String(app.application_number || app.id))
+        const text2 = `${subject2}\n\n${message2}\n\nApplication: ${app.application_number || app.id}`
+        await sendSmtpMessage(smtp, String(app.email), subject2, text2, html2)
       }
     } catch {
       // ignore

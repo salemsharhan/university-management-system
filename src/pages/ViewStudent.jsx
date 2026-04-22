@@ -44,6 +44,7 @@ const TABS = [
   { id: 'previous', labelKey: 'viewStudent.tabs.previousEducation', icon: Award },
   { id: 'identity', labelKey: 'viewStudent.tabs.identity', icon: FileText },
   { id: 'documents', labelKey: 'viewStudent.tabs.documents', icon: Paperclip },
+  { id: 'payments', labelKey: 'viewStudent.tabs.payments', icon: CreditCard },
   { id: 'emergency', labelKey: 'viewStudent.tabs.emergency', icon: Heart },
   { id: 'other', labelKey: 'viewStudent.tabs.other', icon: Stethoscope },
 ]
@@ -79,6 +80,14 @@ export default function ViewStudent() {
   const [enrollmentEligibility, setEnrollmentEligibility] = useState(null)
   const [activeSemester, setActiveSemester] = useState(null)
   const [studentDocuments, setStudentDocuments] = useState([])
+  const [adminInvoices, setAdminInvoices] = useState([])
+  const [adminPayments, setAdminPayments] = useState([])
+  const [semesterOptions, setSemesterOptions] = useState([])
+  const [selectedSemesterId, setSelectedSemesterId] = useState('')
+  const [financeLoading, setFinanceLoading] = useState(false)
+  const [genLoading, setGenLoading] = useState(false)
+  const [genError, setGenError] = useState('')
+  const [genToast, setGenToast] = useState('')
   const { userRole, collegeId } = useAuth()
   const [adminMenuOpen, setAdminMenuOpen] = useState(false)
   const [pwdModalOpen, setPwdModalOpen] = useState(false)
@@ -93,6 +102,19 @@ export default function ViewStudent() {
     fetchStudent()
     fetchActiveSemester()
   }, [id])
+
+  useEffect(() => {
+    if (student?.college_id) fetchSemesterOptions()
+  }, [student?.college_id])
+
+  useEffect(() => {
+    if (activeSemester?.id && !selectedSemesterId) setSelectedSemesterId(String(activeSemester.id))
+  }, [activeSemester?.id, selectedSemesterId])
+
+  useEffect(() => {
+    if (activeTab === 'payments' && student?.id) fetchFinanceTabData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, student?.id, selectedSemesterId])
 
   useEffect(() => {
     if (!id) return
@@ -140,6 +162,281 @@ export default function ViewStudent() {
       setError(err.message || 'Failed to load student')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchSemesterOptions = async () => {
+    try {
+      const { data } = await supabase
+        .from('semesters')
+        .select('id, name_en, name_ar, code, start_date, status, college_id, is_university_wide')
+        .or(`college_id.eq.${student.college_id},is_university_wide.eq.true`)
+        .order('start_date', { ascending: false })
+        .limit(20)
+      setSemesterOptions(data || [])
+    } catch (e) {
+      console.error('Error fetching semester options:', e)
+      setSemesterOptions([])
+    }
+  }
+
+  const fetchFinanceTabData = async () => {
+    if (!student?.id) return
+    try {
+      setFinanceLoading(true)
+      const semId = selectedSemesterId ? parseInt(selectedSemesterId) : null
+
+      let invQuery = supabase
+        .from('invoices')
+        .select('id, invoice_number, invoice_date, due_date, invoice_type, status, total_amount, paid_amount, pending_amount, semester_id, notes, semesters(id, name_en, name_ar, code)')
+        .eq('student_id', student.id)
+        .order('invoice_date', { ascending: false })
+      if (semId) invQuery = invQuery.eq('semester_id', semId)
+      const { data: invData } = await invQuery
+      setAdminInvoices(invData || [])
+
+      const { data: payData } = await supabase
+        .from('payments')
+        .select('id, payment_number, payment_date, payment_method, amount, status, transaction_reference, invoice_id, invoices(invoice_number)')
+        .eq('student_id', student.id)
+        .order('payment_date', { ascending: false })
+        .limit(30)
+      setAdminPayments(payData || [])
+    } catch (e) {
+      console.error('Error fetching finance tab data:', e)
+      setAdminInvoices([])
+      setAdminPayments([])
+    } finally {
+      setFinanceLoading(false)
+    }
+  }
+
+  const computeSemesterTotalDue = async ({ collegeId, majorId, semesterId }) => {
+    const num = (v) => {
+      const n = typeof v === 'number' ? v : parseFloat(String(v ?? '0'))
+      return Number.isFinite(n) ? n : 0
+    }
+
+    // IMPORTANT:
+    // Semester payments MUST be based on semester-scoped configuration.
+    // Major.tuition_fee/lab_fee often represents a whole-program total (not semester),
+    // so we only use major catalog as a LAST fallback when no semester configuration exists.
+
+    // 1) finance_configuration totals (semester scoped + major/degree scoped)
+    let degreeLevel = null
+    if (majorId) {
+      const { data: majorRow } = await supabase.from('majors').select('id, degree_level, tuition_fee, lab_fee').eq('id', majorId).maybeSingle()
+      degreeLevel = majorRow?.degree_level || null
+    }
+    const { data: cfg } = await supabase
+      .from('finance_configuration')
+      .select('id, fee_type, fee_name_en, fee_name_ar, amount, is_university_wide, college_id, semester_id, applies_to_semester, applies_to_major, applies_to_degree_level, is_active, payment_portions')
+      .eq('is_active', true)
+      .or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+
+    const matchesArray = (arr, value) => {
+      if (!Array.isArray(arr) || arr.length === 0) return true
+      if (value == null) return false
+      return arr.includes(value)
+    }
+
+    const applicable = (cfg || []).filter((row) => {
+      const feeType = String(row?.fee_type || '').toLowerCase()
+      if (feeType === 'admission_fee' || feeType === 'registration_fee' || feeType === 'application_fee' || feeType === 'wallet_credit') return false
+      // only include semester fees for THIS semester (supports single semester_id OR applies_to_semester array)
+      const semOk =
+        (row?.semester_id != null && Number(row.semester_id) === Number(semesterId)) ||
+        (Array.isArray(row?.applies_to_semester) && row.applies_to_semester.includes(Number(semesterId)))
+      if (!semOk) return false
+      if (!matchesArray(row?.applies_to_major, Number(majorId))) return false
+      if (!matchesArray(row?.applies_to_degree_level, degreeLevel)) return false
+      return true
+    })
+
+    const total = applicable.reduce((acc, row) => acc + num(row?.amount), 0)
+
+    if (total > 0) {
+      const withPortions = applicable.find((r) => Array.isArray(r?.payment_portions) && r.payment_portions.length > 0) || null
+      return { total, source: 'finance_configuration', items: applicable, portionsSource: withPortions }
+    }
+
+    // 2) Last fallback: major catalog (legacy). This may be whole-program total; use only if there is no semester config.
+    let catalogTotal = 0
+    if (majorId) {
+      const { data: majorRow } = await supabase.from('majors').select('id, tuition_fee, lab_fee').eq('id', majorId).maybeSingle()
+      catalogTotal = num(majorRow?.tuition_fee) + num(majorRow?.lab_fee)
+    }
+    return { total: catalogTotal, source: 'major_catalog_fallback' }
+  }
+
+  const generateSemesterInvoice = async () => {
+    if (!student?.id) return
+    setGenError('')
+    setGenToast('')
+    try {
+      setGenLoading(true)
+      const semesterId = selectedSemesterId ? parseInt(selectedSemesterId) : null
+      if (!semesterId) {
+        setGenError(t('viewStudent.payments.pickSemester', 'Please select a semester.'))
+        return
+      }
+
+      // Avoid duplicates: if any non-admission invoice exists for this semester, do nothing
+      const { data: existing } = await supabase
+        .from('invoices')
+        .select('id, invoice_number')
+        .eq('student_id', student.id)
+        .eq('semester_id', semesterId)
+        .neq('invoice_type', 'admission_fee')
+        .order('invoice_date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (existing?.id) {
+        setGenToast(t('viewStudent.payments.invoiceAlreadyExists', { defaultValue: 'Invoice already exists for this semester.' }))
+        return
+      }
+
+      const { total, source, items, portionsSource } = await computeSemesterTotalDue({
+        collegeId: student.college_id,
+        majorId: student.major_id,
+        semesterId,
+      })
+
+      if (!total || total <= 0) {
+        setGenError(
+          t('viewStudent.payments.noFeeConfig', {
+            defaultValue: 'Could not compute semester fees. Set major tuition/lab fee or finance configuration for this semester.',
+          }),
+        )
+        return
+      }
+
+      const invoiceDate = new Date().toISOString().split('T')[0]
+      const calcDue = (portion, invDate, prevDate = null) => {
+        if (portion?.deadline_type === 'custom_date') return portion.custom_date
+        const days = parseInt(portion?.days || 0)
+        if (portion?.deadline_type === 'days_from_previous' && prevDate) {
+          const d = new Date(prevDate)
+          d.setDate(d.getDate() + days)
+          return d.toISOString().split('T')[0]
+        }
+        const d = new Date(invDate)
+        d.setDate(d.getDate() + days)
+        return d.toISOString().split('T')[0]
+      }
+
+      const portions = Array.isArray(portionsSource?.payment_portions) ? portionsSource.payment_portions.slice() : []
+      const hasPortions = portions.length > 0
+
+      // Parent invoice number
+      const { data: parentNum, error: parentNumErr } = await supabase.rpc('generate_invoice_number', { college_id_param: student.college_id })
+      if (parentNumErr) throw parentNumErr
+
+      // Create parent invoice (summary)
+      const { data: parent, error: parentErr } = await supabase
+        .from('invoices')
+        .insert({
+          invoice_number: parentNum,
+          student_id: student.id,
+          college_id: student.college_id,
+          invoice_date: invoiceDate,
+          due_date: invoiceDate,
+          invoice_type: 'course_fee',
+          status: 'pending',
+          subtotal: total,
+          discount_amount: 0,
+          scholarship_amount: 0,
+          tax_amount: 0,
+          total_amount: total,
+          paid_amount: 0,
+          pending_amount: total,
+          payment_method: 'online_payment',
+          notes: `Auto-generated semester fees (${source})`,
+          semester_id: semesterId,
+          fee_structure_id: portionsSource?.id || null,
+        })
+        .select()
+        .single()
+      if (parentErr) throw parentErr
+
+      // If portions exist, create child invoices per portion; otherwise create a single payable child = 100%
+      const portionsToCreate = hasPortions
+        ? portions.sort((a, b) => (a.portion_number || 0) - (b.portion_number || 0))
+        : [{ portion_number: 1, percentage: 100, deadline_type: 'days_from_invoice', days: 0 }]
+
+      let previousDue = invoiceDate
+      for (const portion of portionsToCreate) {
+        const pct = parseFloat(portion?.percentage || 0)
+        const portionAmount = (total * pct) / 100
+        const dueDate = calcDue(portion, invoiceDate, previousDue)
+
+        const { data: childNum, error: childNumErr } = await supabase.rpc('generate_invoice_number', { college_id_param: student.college_id })
+        if (childNumErr) throw childNumErr
+
+        const { data: child, error: childErr } = await supabase
+          .from('invoices')
+          .insert({
+            invoice_number: childNum,
+            student_id: student.id,
+            college_id: student.college_id,
+            invoice_date: invoiceDate,
+            due_date: dueDate,
+            invoice_type: 'course_fee',
+            status: 'pending',
+            subtotal: portionAmount,
+            discount_amount: 0,
+            scholarship_amount: 0,
+            tax_amount: 0,
+            total_amount: portionAmount,
+            paid_amount: 0,
+            pending_amount: portionAmount,
+            payment_method: 'online_payment',
+            notes: `Portion ${portion?.portion_number || 1} (${pct}%) - Auto-generated semester fees`,
+            semester_id: semesterId,
+            parent_invoice_id: parent.id,
+            fee_structure_id: portionsSource?.id || null,
+            portion_number: portion?.portion_number || 1,
+            portion_percentage: pct,
+          })
+          .select('id')
+          .single()
+        if (childErr) throw childErr
+
+        // Create invoice items proportionally for this portion
+        const lines = (items || []).map((row) => {
+          const amt = parseFloat(row?.amount || 0) || 0
+          const lineTotal = (amt * pct) / 100
+          return {
+            invoice_id: child.id,
+            item_type: String(row?.fee_type || 'other'),
+            item_name_en: row?.fee_name_en || 'Fee',
+            item_name_ar: row?.fee_name_ar || null,
+            description: `Portion ${portion?.portion_number || 1} (${pct}%)`,
+            quantity: 1,
+            unit_price: lineTotal,
+            discount_amount: 0,
+            scholarship_amount: 0,
+            total_amount: lineTotal,
+            reference_id: row?.id || null,
+            reference_type: 'finance_configuration',
+          }
+        })
+        if (lines.length > 0) {
+          const { error: itemsErr } = await supabase.from('invoice_items').insert(lines)
+          if (itemsErr) throw itemsErr
+        }
+
+        previousDue = dueDate
+      }
+
+      setGenToast(t('viewStudent.payments.invoiceGenerated', { defaultValue: 'Invoice generated successfully.' }))
+      await fetchFinanceTabData()
+      setTimeout(() => setGenToast(''), 4000)
+    } catch (e) {
+      console.error('generateSemesterInvoice error:', e)
+      setGenError(e?.message || String(e))
+    } finally {
+      setGenLoading(false)
     }
   }
 
@@ -755,6 +1052,144 @@ export default function ViewStudent() {
                   })}
                 </ul>
               )}
+            </div>
+          )}
+
+          {activeTab === 'payments' && (
+            <div className="space-y-6">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-primary-600" />
+                    {t('viewStudent.payments.title', 'Payments')}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {t('viewStudent.payments.subtitle', 'Generate invoices for semester/major fees and review payments.')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={selectedSemesterId}
+                    onChange={(e) => setSelectedSemesterId(e.target.value)}
+                  >
+                    <option value="">{t('viewStudent.payments.selectSemester', 'Select semester')}</option>
+                    {semesterOptions.map((s) => (
+                      <option key={s.id} value={String(s.id)}>
+                        {(isRTL ? s.name_ar : s.name_en) || s.code || `#${s.id}`}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={generateSemesterInvoice}
+                    disabled={genLoading || !selectedSemesterId}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold ${
+                      genLoading || !selectedSemesterId
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-primary-600 text-white hover:bg-primary-700'
+                    }`}
+                  >
+                    {genLoading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+                        {t('viewStudent.payments.generating', 'Generating...')}
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-4 h-4" />
+                        {t('viewStudent.payments.generateInvoice', 'Generate semester invoice')}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {genError && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">{genError}</div>}
+              {genToast && <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-800">{genToast}</div>}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Invoices */}
+                <div className="rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900">{t('viewStudent.payments.invoices', 'Invoices')}</h3>
+                    {financeLoading && <span className="text-xs text-gray-500">{t('common.loading', 'Loading...')}</span>}
+                  </div>
+                  {adminInvoices.length === 0 ? (
+                    <p className="text-sm text-gray-500">{t('viewStudent.payments.noInvoices', 'No invoices found for this semester.')}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 text-gray-600">
+                            <th className="text-left py-2 pr-2">{t('viewStudent.payments.invoiceNumber', 'Invoice')}</th>
+                            <th className="text-left py-2 pr-2">{t('common.status', 'Status')}</th>
+                            <th className="text-left py-2 pr-2">{t('viewStudent.payments.total', 'Total')}</th>
+                            <th className="text-left py-2 pr-2">{t('viewStudent.payments.pending', 'Pending')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adminInvoices.map((inv) => (
+                            <tr key={inv.id} className="border-b border-gray-100">
+                              <td className="py-2 pr-2 font-mono text-xs">{inv.invoice_number}</td>
+                              <td className="py-2 pr-2">
+                                <span className="text-xs px-2 py-1 rounded border bg-gray-50 text-gray-700 border-gray-200">
+                                  {String(inv.status || '').replace('_', ' ').toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-2 font-semibold">{Number(inv.total_amount || 0).toFixed(2)}</td>
+                              <td className="py-2 pr-2 text-amber-700 font-semibold">{Number(inv.pending_amount || 0).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payments */}
+                <div className="rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900">{t('viewStudent.payments.paymentHistory', 'Payment history')}</h3>
+                    {financeLoading && <span className="text-xs text-gray-500">{t('common.loading', 'Loading...')}</span>}
+                  </div>
+                  {adminPayments.length === 0 ? (
+                    <p className="text-sm text-gray-500">{t('viewStudent.payments.noPayments', 'No payments yet.')}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {adminPayments.map((p) => (
+                        <div key={p.id} className="border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                <span className="font-mono text-xs font-semibold text-gray-900">{p.payment_number}</span>
+                                <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">
+                                  {String(p.status || '').toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {p.payment_date} • {String(p.payment_method || '').replace('_', ' ')} • {p.invoices?.invoice_number || '—'}
+                              </div>
+                              {p.transaction_reference && <div className="text-xs text-gray-500 mt-1">Ref: {p.transaction_reference}</div>}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-bold text-green-700">{Number(p.amount || 0).toFixed(2)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900">
+                {t(
+                  'viewStudent.payments.note',
+                  'Note: These invoices form the base for PM10/PM30 milestones (admission_fee invoices are excluded). Once generated, the student can pay from Student Portal → Invoices & fees.'
+                )}
+              </div>
             </div>
           )}
 

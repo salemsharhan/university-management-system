@@ -56,6 +56,7 @@ export default function StudentPayments() {
           total_amount,
           paid_amount,
           pending_amount,
+          parent_invoice_id,
           student_id,
           college_id,
           semester_id,
@@ -175,8 +176,24 @@ export default function StudentPayments() {
     return colors[status] || colors.pending
   }
 
+  // Collapse parent/child portion invoices:
+  // If a parent invoice has children, ignore the parent in totals/lists.
+  const parentInvoiceIds = new Set(
+    (invoices || [])
+      .filter((inv) => inv.parent_invoice_id != null)
+      .map((inv) => inv.parent_invoice_id)
+      .filter(Boolean)
+  )
+  const effectiveSemesterInvoices = (invoices || []).filter((inv) => {
+    if (!inv?.semester_id) return false
+    if (inv.invoice_type === 'admission_fee') return false
+    // If this invoice is a parent with children, ignore it (children are payable invoices)
+    if (parentInvoiceIds.has(inv.id)) return false
+    return true
+  })
+
   // Calculate totals across all semesters (excluding admission fees)
-  const allSemesterInvoices = invoices.filter(inv => inv.invoice_type !== 'admission_fee' && inv.semester_id)
+  const allSemesterInvoices = effectiveSemesterInvoices
   const totalDue = allSemesterInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0)
   const totalPaid = allSemesterInvoices
     .filter(inv => inv.status === 'paid' || inv.status === 'partially_paid')
@@ -258,7 +275,7 @@ export default function StudentPayments() {
                       <p className="text-xs text-gray-500">{status.semesters?.code || ''}</p>
                     </div>
                     <span className={`text-xs font-semibold px-2 py-1 rounded ${milestoneInfo.color}`}>
-                      {milestoneInfo.label}
+                      {Number(percentage) >= 100 ? '100% Paid' : `${percentage}% Paid`}
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -309,11 +326,11 @@ export default function StudentPayments() {
       {/* Outstanding Invoices */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-4">{t('payments.outstandingInvoices')}</h2>
-        {invoices.filter(inv => inv.status !== 'paid').length > 0 ? (
+        {effectiveSemesterInvoices.filter(inv => inv.status !== 'paid').length > 0 ? (
           <div className="space-y-4">
               {(() => {
                 // Group outstanding invoices by semester
-                const outstandingInvoices = invoices.filter(inv => inv.status !== 'paid')
+                const outstandingInvoices = effectiveSemesterInvoices.filter(inv => inv.status !== 'paid')
                 const groupedBySemester = outstandingInvoices.reduce((acc, invoice) => {
                   const key = invoice.semester_id ? `semester_${invoice.semester_id}` : 'no_semester'
                   if (!acc[key]) {
@@ -334,11 +351,7 @@ export default function StudentPayments() {
                         <p className="text-xs text-gray-500">{group.semester.code}</p>
                       </div>
                     )}
-                    {key === 'no_semester' && (
-                      <div className="mb-3 pb-2 border-b border-gray-200">
-                        <h3 className="font-semibold text-gray-900">Registration/Admission Fees</h3>
-                      </div>
-                    )}
+                    {/* no_semester is intentionally omitted here; we only show semester payables */}
                     <div className="space-y-3">
                       {group.invoices.map(invoice => (
                         <div
@@ -400,7 +413,7 @@ export default function StudentPayments() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map(invoice => (
+              {[...invoices.filter((inv) => inv.invoice_type === 'admission_fee'), ...effectiveSemesterInvoices].map(invoice => (
                 <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4 text-sm font-mono">{invoice.invoice_number}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">

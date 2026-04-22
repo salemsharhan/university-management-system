@@ -34,6 +34,7 @@ export default function StudentCourseCatalog() {
   const [currentSemester, setCurrentSemester] = useState(null)
   const [classes, setClasses] = useState([])
   const [prereqMap, setPrereqMap] = useState({})
+  const [registeredClassIds, setRegisteredClassIds] = useState(new Set())
   const [financialHold, setFinancialHold] = useState(false)
   const [registrationAllowed, setRegistrationAllowed] = useState(false)
 
@@ -53,12 +54,31 @@ export default function StudentCourseCatalog() {
     if (student?.id && selectedSemesterId) {
       fetchClassesAndPrereqs()
       checkFinancialStatus()
+      fetchRegistered()
     } else {
       setClasses([])
       setCurrentSemester(null)
+      setRegisteredClassIds(new Set())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [student?.id, selectedSemesterId])
+
+  const fetchRegistered = async () => {
+    try {
+      if (!student?.id || !selectedSemesterId) return
+      const { data, error } = await supabase
+        .from('enrollments')
+        .select('class_id')
+        .eq('student_id', student.id)
+        .eq('semester_id', parseInt(selectedSemesterId))
+        .eq('status', 'enrolled')
+      if (error) throw error
+      setRegisteredClassIds(new Set((data || []).map((r) => Number(r.class_id)).filter((n) => Number.isFinite(n))))
+    } catch (e) {
+      console.error('fetchRegistered error:', e)
+      setRegisteredClassIds(new Set())
+    }
+  }
 
   const isRegistrationOpenForSemester = (sem) => {
     if (!sem) return false
@@ -377,7 +397,8 @@ export default function StudentCourseCatalog() {
                   const capacity = cls.capacity ?? 0
                   const enrolled = cls.enrolled ?? 0
                   const seatsAvailable = Math.max(0, capacity - enrolled)
-                  const canRegister = registrationAllowed && status === 'open'
+                  const alreadyRegistered = registeredClassIds.has(Number(cls.id))
+                  const canRegister = !alreadyRegistered && registrationAllowed && status === 'open'
 
                   return (
                     <tr key={cls.id} className="border-b hover:bg-slate-50" style={{ borderColor: UI.bdr }}>
@@ -427,7 +448,9 @@ export default function StudentCourseCatalog() {
                             }}
                             onClick={() => navigate(selectedSemesterId ? `/student/enroll?semester=${selectedSemesterId}` : '/student/enroll')}
                           >
-                            {t('studentPortal.registration', { defaultValue: 'Register' })}
+                            {alreadyRegistered
+                              ? t('studentPortal.registered', { defaultValue: 'Registered' })
+                              : t('studentPortal.registration', { defaultValue: 'Register' })}
                           </button>
                         )}
                       </td>

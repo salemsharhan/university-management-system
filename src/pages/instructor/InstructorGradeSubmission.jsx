@@ -34,6 +34,8 @@ export default function InstructorGradeSubmission() {
   const [gradingScale, setGradingScale] = useState([])
   const [notes, setNotes] = useState('')
   const [declarationChecked, setDeclarationChecked] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [submitSuccess, setSubmitSuccess] = useState('')
 
   const selectedClass = useMemo(
     () => classes.find((c) => c.id === selectedClassId) || null,
@@ -227,17 +229,99 @@ export default function InstructorGradeSubmission() {
   const handleSubmit = async () => {
     if (!declarationChecked || !selectedClassId || !gradeEntryAllowed) return
     setSubmitting(true)
+    setSubmitError('')
+    setSubmitSuccess('')
     try {
-      // Mark enrollments as grades_submitted or call a dedicated API when available
-      await new Promise((r) => setTimeout(r, 800))
-      alert(t('instructorPortal.gradesSubmittedSuccess'))
+      if (!selectedClass) throw new Error('Class not found')
+      if (enrollments.length === 0) throw new Error(t('instructorPortal.noStudentsToSubmit', 'No enrolled students to submit.'))
+
+      // Must have grades for all students before final submission
+      const missing = enrollments
+        .map((e) => {
+          const g = gradesMap[e.id]
+          const pct = getTotalPercent(g)
+          return { enrollment: e, grade: g, pct }
+        })
+        .filter((r) => r.grade == null || r.pct == null)
+
+      if (missing.length > 0) {
+        throw new Error(
+          t('instructorPortal.submitBlockedMissingGrades', 'Some students are missing grades. Please complete grading before submitting final grades.')
+        )
+      }
+
+      if (!checklist.weightsEqual100) {
+        throw new Error(
+          t('instructorPortal.submitBlockedWeights', 'Grade weights must total 100% before final submission.')
+        )
+      }
+
+      const nowIso = new Date().toISOString()
+      const payloads = enrollments.map((e) => {
+        const g = gradesMap[e.id]
+        const classCollegeId = selectedClass?.college_id ?? instructor?.college_id ?? null
+        const classSemesterId = selectedClass?.semester_id ?? null
+        return {
+          enrollment_id: e.id,
+          class_id: selectedClass.id,
+          student_id: e.student_id,
+          semester_id: classSemesterId,
+          college_id: classCollegeId,
+          // Ensure these are included so DB triggers can sync enrollments
+          numeric_grade: g?.numeric_grade ?? null,
+          letter_grade: g?.letter_grade ?? null,
+          gpa_points: g?.gpa_points ?? null,
+          midterm: g?.midterm ?? null,
+          final: g?.final ?? null,
+          assignments: g?.assignments ?? null,
+          quizzes: g?.quizzes ?? null,
+          class_participation: g?.class_participation ?? null,
+          project: g?.project ?? null,
+          lab: g?.lab ?? null,
+          other: g?.other ?? null,
+          status: 'final',
+          graded_by: instructor?.id ?? null,
+          graded_at: nowIso,
+          notes: notes?.trim() ? notes.trim() : null,
+          updated_at: nowIso,
+        }
+      })
+
+      // Upsert in chunks to avoid request size limits
+      const chunkSize = 50
+      for (let i = 0; i < payloads.length; i += chunkSize) {
+        const chunk = payloads.slice(i, i + chunkSize)
+        const { error } = await supabase.from('grade_components').upsert(chunk, { onConflict: 'enrollment_id' })
+        if (error) throw error
+      }
+
+      // Refresh local state
+      const enrollmentIds = enrollments.map((e) => e.id)
+      const { data: gradesData, error: gErr } = await supabase
+        .from('grade_components')
+        .select('*')
+        .in('enrollment_id', enrollmentIds)
+      if (gErr) throw gErr
+      const map = {}
+      ;(gradesData || []).forEach((g) => {
+        map[g.enrollment_id] = g
+      })
+      setGradesMap(map)
+      setSubmitSuccess(t('instructorPortal.gradesSubmittedSuccess', 'Final grades submitted successfully.'))
     } catch (err) {
       console.error(err)
-      alert(t('common.error', 'Error'))
+      setSubmitError(err?.message || t('common.error', 'Error'))
     } finally {
       setSubmitting(false)
     }
   }
+
+  const canSubmitFinally =
+    gradeEntryAllowed &&
+    declarationChecked &&
+    checklist.allStudentsHaveGrades &&
+    checklist.weightsEqual100 &&
+    enrollments.length > 0
 
   if (loading && !selectedClass) {
     return (
@@ -275,11 +359,38 @@ export default function InstructorGradeSubmission() {
             {subjectCode} — {semesterLabel}
           </p>
         </div>
+        {classes.length > 1 && (
+          <div className="ph-acts">
+            <select
+              className="fc"
+              style={{ width: 'auto' }}
+              value={selectedClassId || ''}
+              onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : null)}
+            >
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.subjects?.code} — {getLocalizedName(cls.subjects, language === 'ar')}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="alert alert-warn" role="alert">
         {t('instructorPortal.gradeSubmissionWarning')}
       </div>
+
+      {!!submitError && (
+        <div className="alert alert-err" role="alert">
+          {submitError}
+        </div>
+      )}
+      {!!submitSuccess && (
+        <div className="alert alert-ok" role="status">
+          {submitSuccess}
+        </div>
+      )}
 
       {!gradeEntryAllowed && selectedClass && (
         <div className="alert alert-err" role="alert">
@@ -341,7 +452,7 @@ export default function InstructorGradeSubmission() {
               type="button"
               className="btn btn-err btn-lg btn-bl"
               onClick={handleSubmit}
-              disabled={!declarationChecked || submitting || !gradeEntryAllowed}
+              disabled={!canSubmitFinally || submitting}
             >
               ☁️ {t('instructorPortal.submitGradesFinally')}
             </button>

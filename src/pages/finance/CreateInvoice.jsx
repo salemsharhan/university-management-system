@@ -100,6 +100,20 @@ export default function CreateInvoice() {
   const [feeTypes, setFeeTypes] = useState([])
   const [selectedFeeStructures, setSelectedFeeStructures] = useState([]) // Array of selected fee structure IDs
   const [collegeCurrencyCode, setCollegeCurrencyCode] = useState('USD')
+  const [invoiceMode, setInvoiceMode] = useState('single') // single | bulk
+
+  // Bulk generation
+  const [academicYears, setAcademicYears] = useState([])
+  const [majors, setMajors] = useState([])
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState({ total: 0, done: 0, skipped: 0, failed: 0 })
+  const [bulkResult, setBulkResult] = useState([])
+  const [bulkForm, setBulkForm] = useState({
+    academic_year_id: '',
+    major_id: '',
+    semester_id: '',
+    send_email: true,
+  })
 
   const [formData, setFormData] = useState({
     student_id: '',
@@ -121,6 +135,296 @@ export default function CreateInvoice() {
     discount_amount: 0,
     notes: ''
   })
+
+  useEffect(() => {
+    if (!collegeId) return
+    fetchAcademicYears()
+    fetchMajorsForBulk()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collegeId])
+
+  const fetchAcademicYears = async () => {
+    try {
+      if (!collegeId && userRole !== 'admin') return
+      let q = supabase
+        .from('academic_years')
+        .select('id, name_en, name_ar, code, status, start_date, end_date, is_university_wide, college_id')
+        .order('start_date', { ascending: false })
+        .limit(30)
+      if (collegeId) q = q.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      const { data, error } = await q
+      if (!error) setAcademicYears(data || [])
+    } catch (e) {
+      console.error('fetchAcademicYears error:', e)
+      setAcademicYears([])
+    }
+  }
+
+  const fetchMajorsForBulk = async () => {
+    try {
+      let q = supabase.from('majors').select('id, name_en, name_ar, code, college_id, is_university_wide').eq('status', 'active').order('name_en')
+      if (collegeId) q = q.or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+      const { data, error } = await q
+      if (!error) setMajors(data || [])
+    } catch (e) {
+      console.error('fetchMajorsForBulk error:', e)
+      setMajors([])
+    }
+  }
+
+  const computeSemesterFeesFromConfig = async ({ semesterId, majorId }) => {
+    if (!collegeId || !semesterId) return { total: 0, items: [], portionsSource: null }
+    const { data: majorRow } = majorId
+      ? await supabase.from('majors').select('id, degree_level').eq('id', majorId).maybeSingle()
+      : { data: null }
+    const degreeLevel = majorRow?.degree_level || null
+
+    const { data: cfg } = await supabase
+      .from('finance_configuration')
+      .select('id, fee_type, fee_name_en, fee_name_ar, amount, semester_id, applies_to_semester, applies_to_major, applies_to_degree_level, is_active, payment_portions')
+      .eq('is_active', true)
+      .or(`college_id.eq.${collegeId},is_university_wide.eq.true`)
+
+    const matchesArray = (arr, value) => {
+      if (!Array.isArray(arr) || arr.length === 0) return true
+      if (value == null) return false
+      return arr.includes(value)
+    }
+
+    const applicable = (cfg || []).filter((row) => {
+      const feeType = String(row?.fee_type || '').toLowerCase()
+      if (feeType === 'admission_fee' || feeType === 'registration_fee' || feeType === 'application_fee' || feeType === 'wallet_credit') return false
+      const semOk =
+        (row?.semester_id != null && Number(row.semester_id) === Number(semesterId)) ||
+        (Array.isArray(row?.applies_to_semester) && row.applies_to_semester.includes(Number(semesterId)))
+      if (!semOk) return false
+      if (!matchesArray(row?.applies_to_major, Number(majorId))) return false
+      if (!matchesArray(row?.applies_to_degree_level, degreeLevel)) return false
+      return true
+    })
+
+    const num = (v) => {
+      const n = typeof v === 'number' ? v : parseFloat(String(v ?? '0'))
+      return Number.isFinite(n) ? n : 0
+    }
+    const total = applicable.reduce((acc, row) => acc + num(row?.amount), 0)
+    const portionsSource = applicable.find((r) => Array.isArray(r?.payment_portions) && r.payment_portions.length > 0) || null
+    return { total, items: applicable, portionsSource }
+  }
+
+  const calcDue = (portion, invoiceDate, previousPortionDate = null) => {
+    if (portion?.deadline_type === 'custom_date') return portion.custom_date
+    const days = parseInt(portion?.days || 0)
+    if (portion?.deadline_type === 'days_from_previous' && previousPortionDate) {
+      const d = new Date(previousPortionDate)
+      d.setDate(d.getDate() + days)
+      return d.toISOString().split('T')[0]
+    }
+    const d = new Date(invoiceDate)
+    d.setDate(d.getDate() + days)
+    return d.toISOString().split('T')[0]
+  }
+
+  const sendInvoiceEmail = async ({ to, invoiceNumber, semesterName, amount }) => {
+    if (!to) return
+    const subject = t('finance.bulkInvoice.emailSubject', { defaultValue: 'Payment invoice available' })
+    const message = t('finance.bulkInvoice.emailMessage', {
+      defaultValue:
+        'A new invoice ({{invoiceNumber}}) is available in your student portal for {{semester}}. Amount due: {{amount}}. Please log in to Student Portal → Invoices & fees to pay.',
+      invoiceNumber,
+      semester: semesterName || '—',
+      amount,
+    })
+    await supabase.functions.invoke('send-admission-notification', {
+      body: { to, subject, message, type: 'finance_invoice' },
+    })
+  }
+
+  const handleBulkGenerate = async () => {
+    setError('')
+    setBulkResult([])
+    setBulkProgress({ total: 0, done: 0, skipped: 0, failed: 0 })
+    if (!collegeId) {
+      setError(t('finance.createInvoicePage.selectCollegeContinue'))
+      return
+    }
+    if (!bulkForm.academic_year_id || !bulkForm.major_id || !bulkForm.semester_id) {
+      setError(t('finance.bulkInvoice.required', { defaultValue: 'Select academic year, major, and semester.' }))
+      return
+    }
+    try {
+      setBulkLoading(true)
+
+      const semesterId = parseInt(bulkForm.semester_id)
+      const majorId = parseInt(bulkForm.major_id)
+
+      // Build target student list
+      const { data: st } = await supabase
+        .from('students')
+        .select('id')
+        .eq('status', 'active')
+        .eq('college_id', collegeId)
+        .eq('major_id', majorId)
+      const studentIds = (st || []).map((r) => r.id)
+
+      setBulkProgress((p) => ({ ...p, total: studentIds.length }))
+      if (studentIds.length === 0) return
+
+      const { total, items, portionsSource } = await computeSemesterFeesFromConfig({ semesterId, majorId })
+      if (!total || total <= 0) {
+        setError(t('finance.bulkInvoice.noConfig', { defaultValue: 'No semester fee configuration found for this selection.' }))
+        return
+      }
+
+      const semesterObj = semesters.find((s) => String(s.id) === String(semesterId))
+      const semesterName = semesterObj ? getLocalizedName(semesterObj, isArabicLayout) : ''
+
+      // portion definition
+      const portions = Array.isArray(portionsSource?.payment_portions) ? portionsSource.payment_portions.slice() : []
+      const portionsToCreate =
+        portions.length > 0
+          ? portions.sort((a, b) => (a.portion_number || 0) - (b.portion_number || 0))
+          : [{ portion_number: 1, percentage: 100, deadline_type: 'days_from_invoice', days: 0 }]
+
+      const invoiceDate = new Date().toISOString().split('T')[0]
+
+      const results = []
+      for (const sid of studentIds) {
+        try {
+          // Skip if already has a payable invoice (child/standalone) for this semester
+          const { data: existing } = await supabase
+            .from('invoices')
+            .select('id')
+            .eq('student_id', sid)
+            .eq('semester_id', semesterId)
+            .neq('invoice_type', 'admission_fee')
+            .limit(1)
+            .maybeSingle()
+          if (existing?.id) {
+            results.push({ student_id: sid, status: 'skipped', reason: 'invoice_exists' })
+            setBulkProgress((p) => ({ ...p, done: p.done + 1, skipped: p.skipped + 1 }))
+            continue
+          }
+
+          const { data: parentNum } = await supabase.rpc('generate_invoice_number', { college_id_param: collegeId })
+          const { data: parent, error: parentErr } = await supabase
+            .from('invoices')
+            .insert({
+              invoice_number: parentNum,
+              student_id: sid,
+              college_id: collegeId,
+              invoice_date: invoiceDate,
+              due_date: invoiceDate,
+              invoice_type: 'course_fee',
+              status: 'pending',
+              subtotal: total,
+              discount_amount: 0,
+              scholarship_amount: 0,
+              tax_amount: 0,
+              total_amount: total,
+              paid_amount: 0,
+              pending_amount: total,
+              currency: collegeCurrencyCode,
+              payment_method: null,
+              notes: 'Bulk generated semester fees',
+              semester_id: semesterId,
+              fee_structure_id: portionsSource?.id || null,
+            })
+            .select('id, invoice_number')
+            .single()
+          if (parentErr) throw parentErr
+
+          let previousDue = invoiceDate
+          let firstPayableInvoiceNumber = null
+          for (const portion of portionsToCreate) {
+            const pct = parseFloat(portion?.percentage || 0)
+            const portionAmount = (total * pct) / 100
+            const dueDate = calcDue(portion, invoiceDate, previousDue)
+            const { data: childNum } = await supabase.rpc('generate_invoice_number', { college_id_param: collegeId })
+
+            const { data: child, error: childErr } = await supabase
+              .from('invoices')
+              .insert({
+                invoice_number: childNum,
+                student_id: sid,
+                college_id: collegeId,
+                invoice_date: invoiceDate,
+                due_date: dueDate,
+                invoice_type: 'course_fee',
+                status: 'pending',
+                subtotal: portionAmount,
+                discount_amount: 0,
+                scholarship_amount: 0,
+                tax_amount: 0,
+                total_amount: portionAmount,
+                paid_amount: 0,
+                pending_amount: portionAmount,
+                currency: collegeCurrencyCode,
+                payment_method: null,
+                notes: `Portion ${portion?.portion_number || 1} (${pct}%) - Bulk generated`,
+                semester_id: semesterId,
+                parent_invoice_id: parent.id,
+                fee_structure_id: portionsSource?.id || null,
+                portion_number: portion?.portion_number || 1,
+                portion_percentage: pct,
+              })
+              .select('id, invoice_number')
+              .single()
+            if (childErr) throw childErr
+            if (!firstPayableInvoiceNumber) firstPayableInvoiceNumber = child.invoice_number
+
+            const lines = (items || []).map((row) => {
+              const amt = parseFloat(row?.amount || 0) || 0
+              const lineTotal = (amt * pct) / 100
+              return {
+                invoice_id: child.id,
+                item_type: normalizeFeeTypeCode(row?.fee_type || 'other'),
+                item_name_en: row?.fee_name_en || 'Fee',
+                item_name_ar: row?.fee_name_ar || null,
+                description: `Portion ${portion?.portion_number || 1} (${pct}%)`,
+                quantity: 1,
+                unit_price: lineTotal,
+                discount_amount: 0,
+                scholarship_amount: 0,
+                total_amount: lineTotal,
+                reference_id: row?.id || null,
+                reference_type: 'finance_configuration',
+              }
+            })
+            if (lines.length > 0) {
+              const { error: itemsErr } = await supabase.from('invoice_items').insert(lines)
+              if (itemsErr) throw itemsErr
+            }
+
+            previousDue = dueDate
+          }
+
+          if (bulkForm.send_email) {
+            const { data: stu } = await supabase.from('students').select('email').eq('id', sid).maybeSingle()
+            await sendInvoiceEmail({
+              to: stu?.email,
+              invoiceNumber: firstPayableInvoiceNumber || parent.invoice_number,
+              semesterName,
+              amount: new Intl.NumberFormat(isArabicLayout ? 'ar' : 'en-US', { style: 'currency', currency: collegeCurrencyCode }).format(
+                portionsToCreate?.[0]?.percentage ? (total * parseFloat(portionsToCreate[0].percentage)) / 100 : total
+              ),
+            })
+          }
+
+          results.push({ student_id: sid, status: 'created', invoice_number: parent.invoice_number })
+          setBulkProgress((p) => ({ ...p, done: p.done + 1 }))
+        } catch (e) {
+          console.error('bulk student error:', sid, e)
+          results.push({ student_id: sid, status: 'failed', reason: e?.message || String(e) })
+          setBulkProgress((p) => ({ ...p, done: p.done + 1, failed: p.failed + 1 }))
+        }
+      }
+
+      setBulkResult(results)
+    } finally {
+      setBulkLoading(false)
+    }
+  }
 
   useEffect(() => {
     // Get current user ID from users table (for verified_by and created_by fields)
@@ -175,10 +479,22 @@ export default function CreateInvoice() {
       fetchStudentData()
       fetchSemesters()
     } else {
-      setSemesters([])
+      // In bulk mode we still need semesters (based on selected college/year)
+      if (invoiceMode !== 'bulk') setSemesters([])
       setStudentData(null)
     }
-  }, [selectedStudent])
+  }, [selectedStudent, invoiceMode])
+
+  // Bulk mode: fetch semesters for the selected college + chosen academic year
+  useEffect(() => {
+    if (invoiceMode !== 'bulk') return
+    if (!collegeId) {
+      setSemesters([])
+      return
+    }
+    fetchSemesters({ collegeIdOverride: collegeId, academicYearId: bulkForm.academic_year_id || null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceMode, collegeId, bulkForm.academic_year_id])
 
   useEffect(() => {
     // Fetch fee structures when student data is loaded
@@ -228,25 +544,31 @@ export default function CreateInvoice() {
     }
   }
 
-  const fetchSemesters = async () => {
-    const cid = selectedStudent?.college_id
+  const fetchSemesters = async ({ collegeIdOverride = null, academicYearId = null } = {}) => {
+    const cid = collegeIdOverride || selectedStudent?.college_id || collegeId
     if (!cid) {
       setSemesters([])
       return
     }
 
     try {
-      const { data, error } = await supabase
+      let q = supabase
         .from('semesters')
-        .select('id, name_en, name_ar, code, start_date')
+        .select('id, name_en, name_ar, code, start_date, academic_year_id')
         .or(`college_id.eq.${cid},is_university_wide.eq.true`)
         .order('start_date', { ascending: false })
         .limit(50)
 
+      if (academicYearId) {
+        q = q.eq('academic_year_id', Number(academicYearId))
+      }
+
+      const { data, error } = await q
       if (error) throw error
       setSemesters(data || [])
     } catch (err) {
       console.error('Error fetching semesters:', err)
+      setSemesters([])
     }
   }
 
@@ -1131,6 +1453,153 @@ export default function CreateInvoice() {
         </div>
       )}
 
+      {userRole === 'admin' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setInvoiceMode('single')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold ${
+                invoiceMode === 'single' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {t('finance.bulkInvoice.singleMode', { defaultValue: 'Single invoice' })}
+            </button>
+            <button
+              type="button"
+              onClick={() => setInvoiceMode('bulk')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold ${
+                invoiceMode === 'bulk' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {t('finance.bulkInvoice.bulkMode', { defaultValue: 'Bulk generate invoices' })}
+            </button>
+          </div>
+          <p className={`text-xs text-gray-500 mt-2 ${alignStart}`}>
+            {t('finance.bulkInvoice.modeHint', {
+              defaultValue: 'Bulk mode generates portion-based semester invoices for all students enrolled in the selected semester and emails them.',
+            })}
+          </p>
+        </div>
+      )}
+
+      {invoiceMode === 'bulk' && userRole === 'admin' ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                {t('finance.bulkInvoice.academicYear', { defaultValue: 'Academic year' })} *
+              </label>
+              <select
+                value={bulkForm.academic_year_id}
+                onChange={(e) => setBulkForm((p) => ({ ...p, academic_year_id: e.target.value }))}
+                className={fieldInputClassSm}
+              >
+                <option value="">{t('common.select', { defaultValue: 'Select' })}</option>
+                {academicYears.map((y) => (
+                  <option key={y.id} value={String(y.id)}>
+                    {getLocalizedName(y, isArabicLayout) || y.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                {t('finance.bulkInvoice.major', { defaultValue: 'Major' })} *
+              </label>
+              <select
+                value={bulkForm.major_id}
+                onChange={(e) => setBulkForm((p) => ({ ...p, major_id: e.target.value }))}
+                className={fieldInputClassSm}
+              >
+                <option value="">{t('common.select', { defaultValue: 'Select' })}</option>
+                {majors.map((m) => (
+                  <option key={m.id} value={String(m.id)}>
+                    {getLocalizedName(m, isArabicLayout) || m.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block text-sm font-medium text-gray-700 mb-2 ${alignStart}`}>
+                {t('finance.bulkInvoice.semester', { defaultValue: 'Semester' })} *
+              </label>
+              <select
+                value={bulkForm.semester_id}
+                onChange={(e) => setBulkForm((p) => ({ ...p, semester_id: e.target.value }))}
+                className={fieldInputClassSm}
+              >
+                <option value="">{t('common.select', { defaultValue: 'Select' })}</option>
+                {semesters.map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {getLocalizedName(s, isArabicLayout) || s.code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleBulkGenerate}
+                disabled={bulkLoading}
+                className={`w-full px-4 py-2 rounded-xl text-sm font-semibold ${
+                  bulkLoading ? 'bg-gray-100 text-gray-400' : 'bg-primary-600 text-white hover:bg-primary-700'
+                }`}
+              >
+                {bulkLoading ? t('finance.bulkInvoice.generating', { defaultValue: 'Generating...' }) : t('finance.bulkInvoice.generate', { defaultValue: 'Generate invoices' })}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={bulkForm.send_email}
+                onChange={(e) => setBulkForm((p) => ({ ...p, send_email: e.target.checked }))}
+              />
+              {t('finance.bulkInvoice.sendEmail', { defaultValue: 'Send email notification' })}
+            </label>
+          </div>
+
+          {bulkLoading && (
+            <div className="text-sm text-gray-600">
+              {t('finance.bulkInvoice.progress', { defaultValue: 'Progress' })}: {bulkProgress.done}/{bulkProgress.total} • {t('finance.bulkInvoice.skipped', { defaultValue: 'Skipped' })}:{' '}
+              {bulkProgress.skipped} • {t('finance.bulkInvoice.failed', { defaultValue: 'Failed' })}:{' '}
+              {bulkProgress.failed}
+            </div>
+          )}
+
+          {bulkResult.length > 0 && (
+            <div className="overflow-x-auto border border-gray-200 rounded-xl">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-700">
+                  <tr>
+                    <th className={`p-3 ${alignStart}`}>{t('finance.bulkInvoice.studentId', { defaultValue: 'Student ID' })}</th>
+                    <th className={`p-3 ${alignStart}`}>{t('common.status', { defaultValue: 'Status' })}</th>
+                    <th className={`p-3 ${alignStart}`}>{t('finance.bulkInvoice.details', { defaultValue: 'Details' })}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bulkResult.map((r, idx) => (
+                    <tr key={idx} className="border-t border-gray-100">
+                      <td className="p-3 font-mono text-xs">{r.student_id}</td>
+                      <td className="p-3">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          r.status === 'created' ? 'bg-green-100 text-green-800' : r.status === 'skipped' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-xs text-gray-600">{r.invoice_number || r.reason || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
       <form
         onSubmit={handleSubmit}
         className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-6"
@@ -1684,6 +2153,7 @@ export default function CreateInvoice() {
           </button>
         </div>
       </form>
+      )}
     </div>
   )
 }

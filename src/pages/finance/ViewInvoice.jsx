@@ -70,6 +70,7 @@ export default function ViewInvoice() {
   const [currentUserId, setCurrentUserId] = useState(null)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [relatedInvoices, setRelatedInvoices] = useState([]) // Parent or child invoices
+  const [cancelSubmitting, setCancelSubmitting] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
     payment_date: new Date().toISOString().split('T')[0],
     payment_method: 'other',
@@ -78,6 +79,54 @@ export default function ViewInvoice() {
     notes: ''
   })
   const [displayCurrency, setDisplayCurrency] = useState('USD')
+
+  const cancelInvoice = async () => {
+    if (!invoice?.id) return
+    const paid = parseFloat(invoice.paid_amount || 0)
+    if (paid > 0) {
+      alert(t('finance.viewInvoice.cannotCancelPaid', 'Cannot cancel an invoice that has payments.'))
+      return
+    }
+    if (!confirm(t('finance.viewInvoice.cancelConfirm', 'Cancel this invoice?'))) return
+
+    try {
+      setCancelSubmitting(true)
+
+      const { data: children } = await supabase
+        .from('invoices')
+        .select('id, paid_amount')
+        .eq('parent_invoice_id', invoice.id)
+
+      const childIds = (children || []).map((c) => c.id)
+      const anyChildPaid = (children || []).some((c) => parseFloat(c?.paid_amount || 0) > 0)
+      if (anyChildPaid) {
+        alert(t('finance.viewInvoice.cannotCancelPaidChildren', 'Cannot cancel: one or more installment invoices has payments.'))
+        return
+      }
+
+      if (childIds.length > 0) {
+        const { error: cErr } = await supabase
+          .from('invoices')
+          .update({ status: 'cancelled', pending_amount: 0 })
+          .in('id', childIds)
+        if (cErr) throw cErr
+      }
+
+      const { error: invErr } = await supabase
+        .from('invoices')
+        .update({ status: 'cancelled', pending_amount: 0 })
+        .eq('id', invoice.id)
+      if (invErr) throw invErr
+
+      setShowPaymentForm(false)
+      await fetchInvoice()
+    } catch (e) {
+      console.error('cancelInvoice error:', e)
+      setError(e?.message || String(e))
+    } finally {
+      setCancelSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     fetchCurrentUserId()
@@ -620,6 +669,10 @@ export default function ViewInvoice() {
 
   const pendingAmount = parseFloat(invoice.pending_amount || 0)
   const canAddPayment = (userRole === 'admin' || userRole === 'user') && pendingAmount > 0
+  const canCancel =
+    (userRole === 'admin' || userRole === 'user') &&
+    (invoice.status === 'pending' || invoice.status === 'overdue') &&
+    parseFloat(invoice.paid_amount || 0) === 0
 
   return (
     <div className="space-y-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
@@ -640,16 +693,30 @@ export default function ViewInvoice() {
             </p>
           </div>
         </div>
-        {canAddPayment && (
-          <button
-            type="button"
-            onClick={() => setShowPaymentForm(!showPaymentForm)}
-            className={`flex items-center gap-2 bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl shrink-0 ${isArabicLayout ? 'flex-row-reverse' : ''}`}
-          >
-            <Plus className="w-5 h-5 shrink-0" />
-            <span>{showPaymentForm ? t('finance.viewInvoice.cancel') : t('finance.viewInvoice.addPayment')}</span>
-          </button>
-        )}
+        <div className={`flex items-center gap-2 shrink-0 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+          {canAddPayment && (
+            <button
+              type="button"
+              onClick={() => setShowPaymentForm(!showPaymentForm)}
+              className={`flex items-center gap-2 bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl ${isArabicLayout ? 'flex-row-reverse' : ''}`}
+            >
+              <Plus className="w-5 h-5 shrink-0" />
+              <span>{showPaymentForm ? t('finance.viewInvoice.cancel') : t('finance.viewInvoice.addPayment')}</span>
+            </button>
+          )}
+          {canCancel && (
+            <button
+              type="button"
+              disabled={cancelSubmitting}
+              onClick={cancelInvoice}
+              className={`px-6 py-3 rounded-xl font-semibold shadow-sm transition-colors ${
+                cancelSubmitting ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-red-50 text-red-700 hover:bg-red-100'
+              }`}
+            >
+              {cancelSubmitting ? t('finance.viewInvoice.cancelling', 'Cancelling...') : t('finance.viewInvoice.cancelInvoice', 'Cancel invoice')}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Error and Success Messages */}

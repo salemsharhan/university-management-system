@@ -126,6 +126,41 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
         if (paymentError) throw paymentError
         paymentRecord = payment
 
+        // Send receipt email (best effort)
+        try {
+          const invNo = invoice?.invoice_number || invoice.id
+          const paid = Number(amount || 0)
+          const currency = invoice?.currency || ''
+          let toEmail = (student?.email || '').trim()
+          if (!toEmail && studentId) {
+            const { data: sRow } = await supabase.from('students').select('email').eq('id', studentId).maybeSingle()
+            toEmail = String(sRow?.email || '').trim()
+          }
+          const subject = t('payments.receiptEmailSubject', 'Payment received')
+          const message = t(
+            'payments.receiptEmailMessage',
+            'We received your payment of {{amount}} for invoice {{invoiceNumber}}. You can view your receipt in Student Portal → Payments.',
+            {
+              amount: `${currency ? `${currency} ` : ''}${paid.toFixed(2)}`,
+              invoiceNumber: String(invNo),
+            },
+          )
+          if (toEmail) {
+            await supabase.functions.invoke('send-admission-notification', {
+              body: {
+                type: 'payment_received',
+                scope: 'college',
+                to: toEmail,
+                collegeId: collegeId,
+                subject,
+                message,
+              },
+            })
+          }
+        } catch (e) {
+          console.warn('Receipt email failed:', e)
+        }
+
         // Trigger should update invoice, but we'll also update it manually
         // Note: Invoice status is automatically updated by database trigger when payment is inserted
         // We just need to ensure the payment is inserted correctly
@@ -266,7 +301,7 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
       // Fetch all invoices for this student for the specific semester (excluding admission fees)
       const { data: semesterInvoices, error: invoicesError } = await supabase
         .from('invoices')
-        .select('total_amount, paid_amount, status, invoice_type')
+        .select('id, total_amount, paid_amount, status, invoice_type, parent_invoice_id')
         .eq('student_id', studentId)
         .eq('semester_id', semesterId)
         .neq('invoice_type', 'admission_fee')
@@ -277,13 +312,25 @@ export default function PaymentModal({ isOpen, onClose, application, invoice, st
       }
 
       // Calculate total due and total paid for this semester
+      // Handle payment portions:
+      // - If invoice has children, DO NOT count the parent (children are the payable invoices).
+      // - Count child invoices and standalone invoices.
       let totalDue = 0
       let totalPaid = 0
+      const parentInvoiceIds = new Set()
 
-      semesterInvoices?.forEach(invoice => {
-        totalDue += parseFloat(invoice.total_amount || 0)
-        if (invoice.status === 'paid' || invoice.status === 'partially_paid') {
-          totalPaid += parseFloat(invoice.paid_amount || 0)
+      semesterInvoices?.forEach((inv) => {
+        if (!inv.parent_invoice_id) {
+          const hasChildren = semesterInvoices.some((c) => c.parent_invoice_id === inv.id)
+          if (hasChildren) parentInvoiceIds.add(inv.id)
+        }
+      })
+
+      semesterInvoices?.forEach((inv) => {
+        if (parentInvoiceIds.has(inv.id)) return
+        totalDue += parseFloat(inv.total_amount || 0)
+        if (inv.status === 'paid' || inv.status === 'partially_paid') {
+          totalPaid += parseFloat(inv.paid_amount || 0)
         }
       })
 

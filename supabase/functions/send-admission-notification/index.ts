@@ -203,6 +203,7 @@ serve(async (req) => {
     const isAdmin = caller.role === 'admin'
     const isCollegeStaff = caller.role === 'college'
     const isApplicant = caller.role === 'applicant'
+    const isStudent = caller.role === 'student'
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>))
     const scope = (body.scope as string) || 'college'
@@ -220,6 +221,15 @@ serve(async (req) => {
     if (isApplicant) {
       const authEmail = (authUser.email || '').trim().toLowerCase()
       if (type !== 'submitted' || to.trim().toLowerCase() !== authEmail) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    } else if (isStudent) {
+      // Students may only send a payment confirmation to themselves (prevents abuse)
+      const authEmail = (authUser.email || '').trim().toLowerCase()
+      if (type !== 'payment_received' || to.trim().toLowerCase() !== authEmail) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

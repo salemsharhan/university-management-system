@@ -42,6 +42,8 @@ export default function StudentEnrollment() {
   const [validationErrors, setValidationErrors] = useState([])
   const [currentSemesterCredits, setCurrentSemesterCredits] = useState(0)
   const [studentMajorSheet, setStudentMajorSheet] = useState(null)
+  const [majorSheetReady, setMajorSheetReady] = useState(false)
+  const [classesLoading, setClassesLoading] = useState(false)
   const [currentSemester, setCurrentSemester] = useState(null)
   const [registrationStatus, setRegistrationStatus] = useState(null) // { allowed: boolean, reason: string }
   const [semesterCreditsFromUni, setSemesterCreditsFromUni] = useState({
@@ -103,15 +105,23 @@ export default function StudentEnrollment() {
 
   useEffect(() => {
     if (formData.semester_id && student?.id) {
+      setMajorSheetReady(false)
+      setClasses([])
       fetchSemesterDetails()
-      checkRegistrationDeadline()
-      fetchClasses()
       fetchStudentMajorSheet()
       fetchCurrentSemesterEnrollments()
       fetchEnrolledRows()
       checkFinanceGate()
     }
   }, [formData.semester_id, student])
+
+  // Once semester details are loaded, compute registration window status.
+  useEffect(() => {
+    if (formData.semester_id && currentSemester) {
+      checkRegistrationDeadline()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.semester_id, currentSemester])
 
   useEffect(() => {
     if (formData.student_id && formData.semester_id && formData.class_ids.length > 0) {
@@ -123,10 +133,12 @@ export default function StudentEnrollment() {
   }, [formData.student_id, formData.class_ids, formData.semester_id, studentMajorSheet, currentSemesterCredits, semesterCreditsFromUni])
 
   useEffect(() => {
-    if (formData.semester_id && formData.student_id && studentMajorSheet) {
+    // Fetch classes once the major sheet has been resolved (to avoid UI "shows then disappears").
+    if (formData.semester_id && formData.student_id && majorSheetReady) {
       fetchClasses()
     }
-  }, [studentMajorSheet, formData.student_id, formData.semester_id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [majorSheetReady, formData.semester_id, formData.student_id])
 
   useEffect(() => {
     if (formData.class_ids && classes.length > 0) {
@@ -352,6 +364,7 @@ export default function StudentEnrollment() {
   const fetchStudentMajorSheet = async () => {
     try {
       if (!formData.student_id) return
+      setMajorSheetReady(false)
 
       const { data: studentData, error: studentError } = await supabase
         .from('students')
@@ -400,13 +413,20 @@ export default function StudentEnrollment() {
             major_sheet: majorSheetData
           })
           await fetchCourseGroups(majorSheetData.id)
+        } else {
+          setStudentMajorSheet(null)
         }
       } else if (studentMajorSheetData) {
         setStudentMajorSheet(studentMajorSheetData)
         await fetchCourseGroups(studentMajorSheetData.major_sheet.id)
+      } else {
+        setStudentMajorSheet(null)
       }
     } catch (err) {
       console.error('Error fetching student major sheet:', err)
+      setStudentMajorSheet(null)
+    } finally {
+      setMajorSheetReady(true)
     }
   }
 
@@ -466,6 +486,9 @@ export default function StudentEnrollment() {
   const fetchClasses = async () => {
     try {
       if (!formData.semester_id) return
+      if (!majorSheetReady) return
+
+      setClassesLoading(true)
 
       let query = supabase
         .from('classes')
@@ -501,6 +524,8 @@ export default function StudentEnrollment() {
     } catch (err) {
       console.error('Error fetching classes:', err)
       setError(err.message || 'Failed to load classes')
+    } finally {
+      setClassesLoading(false)
     }
   }
 
@@ -622,7 +647,7 @@ export default function StudentEnrollment() {
               class_id: parseInt(classId),
               semester_id: parseInt(formData.semester_id),
               status: 'enrolled',
-              enrolled_at: new Date().toISOString()
+              enrollment_date: new Date().toISOString(),
             })
 
           if (insertError) throw insertError
@@ -719,10 +744,12 @@ export default function StudentEnrollment() {
           🚫 <strong>{t('studentPortal.enrollmentBlocked', { defaultValue: 'Registration is blocked' })}</strong> —{' '}
           {financeBlockReason ? financeBlockReason : (registrationStatus?.reason || t('studentPortal.registrationClosed', { defaultValue: 'Registration is closed.' }))}
           {' '}
-          <a href="/student/payments" className="underline inline-flex items-center gap-1">
-            <CreditCard className="w-4 h-4" />
-            {t('studentPortal.payNow', { defaultValue: 'Pay now' })}
-          </a>
+          {!!financeBlockReason && (
+            <a href="/student/payments" className="underline inline-flex items-center gap-1">
+              <CreditCard className="w-4 h-4" />
+              {t('studentPortal.payNow', { defaultValue: 'Pay now' })}
+            </a>
+          )}
         </div>
       )}
 
@@ -822,6 +849,11 @@ export default function StudentEnrollment() {
                   onChange={(e) => setFormData((p) => ({ ...p, class_ids: e.target.value ? [e.target.value] : [] }))}
                 >
                   <option value="">{t('common.select', { defaultValue: 'Select' })}</option>
+                  {classesLoading || !majorSheetReady ? (
+                    <option value="" disabled>
+                      {t('common.loading', { defaultValue: 'Loading…' })}
+                    </option>
+                  ) : null}
                   {availableToAdd.map((c) => (
                     <option key={c.id} value={String(c.id)} disabled={c._seats <= 0}>
                       {c.subjects?.code} — {c.subjects?.name_en} ({c._seats} seats)
