@@ -1,0 +1,525 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../../contexts/LanguageContext'
+import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
+import { getLocalizedName } from '../../utils/localizedName'
+
+const UI = {
+  p: '#1a3a6b',
+  pl: '#2a5298',
+  acc: '#c8a84b',
+  bg: '#f4f6fb',
+  sur: '#ffffff',
+  bdr: '#dde3ef',
+  txt: '#1e2a3a',
+  muted: '#6b7a99',
+  ok: '#1a7a4a',
+  okBg: '#e6f7ef',
+  warn: '#b45309',
+  warnBg: '#fef3c7',
+  err: '#b91c1c',
+  errBg: '#fee2e2',
+  info: '#1d4ed8',
+  infoBg: '#dbeafe',
+}
+
+function combineDateTime(dateStr, timeStr) {
+  if (!dateStr || !timeStr) return null
+  const iso = `${dateStr}T${String(timeStr).slice(0, 8)}`
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function fmtHMS(seconds) {
+  const s = Math.max(0, Math.floor(seconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  const pad = (x) => String(x).padStart(2, '0')
+  return `${pad(h)}:${pad(m)}:${pad(ss)}`
+}
+
+export default function StudentExamRoom() {
+  const { t } = useTranslation()
+  const { isRTL, language } = useLanguage()
+  const isArabic = isRTL || language === 'ar'
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { examId } = useParams()
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [student, setStudent] = useState(null)
+  const [enrollment, setEnrollment] = useState(null)
+  const [exam, setExam] = useState(null)
+  const [questions, setQuestions] = useState([])
+  const [submission, setSubmission] = useState(null)
+
+  const [qIndex, setQIndex] = useState(0)
+  const [answers, setAnswers] = useState({})
+  const [flagged, setFlagged] = useState({})
+  const [optionOrder, setOptionOrder] = useState({})
+  const [remainingSec, setRemainingSec] = useState(0)
+  const [autosaveState, setAutosaveState] = useState('idle') // idle|saving|saved|err
+
+  const savingRef = useRef(false)
+
+  useEffect(() => {
+    if (!user?.email || !examId) return
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const { data: st, error: stErr } = await supabase
+          .from('students')
+          .select('id, name_en, name_ar, email')
+          .eq('email', user.email)
+          .eq('status', 'active')
+          .single()
+        if (stErr) throw stErr
+        setStudent(st)
+
+        const { data: ex, error: exErr } = await supabase
+          .from('subject_exams')
+          .select(
+            `
+            id, class_id, subject_id, title, title_ar, exam_type, status,
+            scheduled_date, start_time, end_time, duration_minutes, total_points, instructions, instructions_ar,
+            allow_calculator, allow_notes, assessment_settings,
+            classes(id, section, subjects(id, code, name_en, name_ar))
+          `
+          )
+          .eq('id', Number(examId))
+          .single()
+        if (exErr) throw exErr
+        setExam(ex)
+
+        const { data: enr, error: eErr } = await supabase
+          .from('enrollments')
+          .select('id, class_id, status')
+          .eq('student_id', st.id)
+          .eq('class_id', ex.class_id)
+          .eq('status', 'enrolled')
+          .single()
+        if (eErr) throw eErr
+        setEnrollment(enr)
+
+        const { data: sub } = await supabase
+          .from('exam_submissions')
+          .select('id, exam_id, student_id, enrollment_id, submission_data, status, submitted_at')
+          .eq('exam_id', ex.id)
+          .eq('student_id', st.id)
+          .maybeSingle()
+        setSubmission(sub || null)
+
+        const prevData = sub?.submission_data && typeof sub.submission_data === 'object' ? sub.submission_data : {}
+        setAnswers(prevData.answers || {})
+        setFlagged(prevData.flagged || {})
+        setOptionOrder(prevData.optionOrder || {})
+        setQIndex(Number(prevData.qIndex || 0) || 0)
+
+        const start = combineDateTime(ex.scheduled_date, ex.start_time)
+        const end = combineDateTime(ex.scheduled_date, ex.end_time)
+        const dur = Number(ex.duration_minutes || 0) * 60
+
+        const now = Date.now()
+        const endMs = end?.getTime()
+        const startMs = start?.getTime()
+
+        // Window guard (only allow when open)
+        if (ex.status !== 'EX_OPN') {
+          setError(t('studentPortal.elearning.examNotOpen', 'This exam is not open.'))
+          setRemainingSec(0)
+          return
+        }
+        if (startMs && now < startMs) {
+          setError(t('studentPortal.elearning.examNotStarted', 'Exam has not started yet.'))
+          setRemainingSec(Math.max(0, Math.floor((startMs - now) / 1000)))
+          return
+        }
+
+        const { data: qs, error: qErr } = await supabase
+          .from('subject_exam_questions')
+          .select('id, question_order, question_type, question_text, question_text_ar, options, marks')
+          .eq('subject_exam_id', ex.id)
+          .order('question_order', { ascending: true })
+        if (qErr) throw qErr
+        const normalized = (qs || []).map((q) => ({
+          ...q,
+          options: Array.isArray(q.options) ? q.options : [],
+        }))
+
+        // Shuffle questions if setting says so
+        const settings = ex.assessment_settings || {}
+        const shuffled = settings.shuffle_questions ? [...normalized].sort(() => Math.random() - 0.5) : normalized
+        setQuestions(shuffled)
+
+        if (endMs) {
+          setRemainingSec(Math.max(0, Math.floor((endMs - now) / 1000)))
+        } else if (dur) {
+          setRemainingSec(dur)
+        } else {
+          setRemainingSec(0)
+        }
+      } catch (e) {
+        console.error(e)
+        setError(e?.message || String(e))
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [user?.email, examId, t])
+
+  // Ensure stable per-question option order for shuffle_answers
+  useEffect(() => {
+    if (!exam?.id || !student?.id || !questions.length) return
+    const settings = exam.assessment_settings || {}
+    if (!settings.shuffle_answers) return
+
+    setOptionOrder((prev) => {
+      const next = { ...(prev || {}) }
+      let changed = false
+      for (const q of questions) {
+        const key = String(q.id)
+        if (next[key] || q.question_type === 'true_false') continue
+        const size = Array.isArray(q.options) ? q.options.length : 0
+        const order = Array.from({ length: size }, (_, i) => i)
+        // deterministic-ish shuffle: use a seeded swap based on ids
+        let seed = (Number(q.id) || 1) * 31 + (Number(student.id) || 1) * 97
+        for (let i = order.length - 1; i > 0; i--) {
+          seed = (seed * 9301 + 49297) % 233280
+          const j = seed % (i + 1)
+          const tmp = order[i]
+          order[i] = order[j]
+          order[j] = tmp
+        }
+        next[key] = order
+        changed = true
+      }
+      return changed ? next : prev
+    })
+  }, [exam?.id, student?.id, questions])
+
+  // Countdown
+  useEffect(() => {
+    if (!remainingSec) return
+    const it = setInterval(() => setRemainingSec((s) => Math.max(0, s - 1)), 1000)
+    return () => clearInterval(it)
+  }, [remainingSec])
+
+  // Auto-submit when timer hits 0 (best-effort)
+  useEffect(() => {
+    if (!exam?.id) return
+    if (remainingSec !== 0) return
+    if (exam?.status === 'EX_OPN') {
+      // do not spam if already submitted
+      if (submission?.status === 'EX_SUB') return
+      ;(async () => {
+        try {
+          await persistDraft({ time_up: true })
+          await submitFinal()
+        } catch {
+          // ignore
+        }
+      })()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingSec, exam?.id])
+
+  const courseCode = exam?.classes?.subjects?.code || '—'
+  const courseName = getLocalizedName(exam?.classes?.subjects, isArabic) || '—'
+  const examTitle = (isArabic ? exam?.title_ar : exam?.title) || exam?.title || '—'
+
+  const currentQ = questions[qIndex] || null
+  const totalQ = questions.length
+
+  const answeredCount = useMemo(() => {
+    return questions.filter((q) => answers[String(q.id)] != null).length
+  }, [questions, answers])
+
+  const persistDraft = async (patch = {}) => {
+    if (!student?.id || !enrollment?.id || !exam?.id) return
+    if (savingRef.current) return
+    savingRef.current = true
+    setAutosaveState('saving')
+    try {
+      const payload = {
+        answers,
+        flagged,
+        qIndex,
+        optionOrder,
+        ...patch,
+      }
+      const row = {
+        exam_id: exam.id,
+        student_id: student.id,
+        enrollment_id: enrollment.id,
+        submission_data: payload,
+        status: 'EX_DRF',
+        updated_at: new Date().toISOString(),
+      }
+
+      if (submission?.id) {
+        const { error } = await supabase.from('exam_submissions').update(row).eq('id', submission.id)
+        if (error) throw error
+      } else {
+        const { data, error } = await supabase.from('exam_submissions').insert(row).select('id, submission_data, status').single()
+        if (error) throw error
+        setSubmission({ id: data.id, submission_data: data.submission_data, status: data.status })
+      }
+      setAutosaveState('saved')
+      setTimeout(() => setAutosaveState('idle'), 1200)
+    } catch (e) {
+      console.error(e)
+      setAutosaveState('err')
+    } finally {
+      savingRef.current = false
+    }
+  }
+
+  // Autosave on answer changes (debounced)
+  useEffect(() => {
+    if (!exam?.id || !student?.id) return
+    const h = setTimeout(() => persistDraft(), 700)
+    return () => clearTimeout(h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, flagged, qIndex, optionOrder])
+
+  const setAnswer = (q, value) => {
+    setAnswers((m) => ({ ...(m || {}), [String(q.id)]: value }))
+  }
+
+  const submitFinal = async () => {
+    if (!student?.id || !enrollment?.id || !exam?.id) return
+    if (remainingSec <= 0) return
+    try {
+      const nowIso = new Date().toISOString()
+      const payload = { answers, flagged, qIndex, optionOrder, submitted: true }
+      const row = {
+        exam_id: exam.id,
+        student_id: student.id,
+        enrollment_id: enrollment.id,
+        submission_data: payload,
+        status: 'EX_SUB',
+        submitted_at: nowIso,
+        updated_at: nowIso,
+      }
+      if (submission?.id) {
+        const { error } = await supabase.from('exam_submissions').update(row).eq('id', submission.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('exam_submissions').insert(row)
+        if (error) throw error
+      }
+      navigate(`/student/elearning/exams/${exam.id}/submitted`)
+    } catch (e) {
+      console.error(e)
+      setError(e?.message || String(e))
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-600 border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (error && !exam) {
+    return (
+      <div className="rounded-xl border bg-white p-6" style={{ borderColor: UI.bdr }}>
+        <div className="text-sm" style={{ color: UI.err }}>{error}</div>
+      </div>
+    )
+  }
+
+  return (
+    <div dir={isArabic ? 'rtl' : 'ltr'} className="space-y-4">
+      <nav className="flex flex-wrap items-center gap-2 text-sm" style={{ color: UI.muted }}>
+        <Link to="/dashboard" style={{ color: UI.muted }} className="hover:underline">
+          {t('studentPortal.dashboard', 'Dashboard')}
+        </Link>
+        <span style={{ color: UI.bdr }}>›</span>
+        <Link to="/student/elearning/exams" style={{ color: UI.muted }} className="hover:underline">
+          {t('studentPortal.elearning.exams', 'Exams')}
+        </Link>
+        <span style={{ color: UI.bdr }}>›</span>
+        <span className="font-semibold" style={{ color: UI.p }}>
+          {courseCode}
+        </span>
+      </nav>
+
+      {/* Timer header */}
+      <div className="rounded-xl px-5 py-4 text-white flex items-center gap-4" style={{ background: `linear-gradient(135deg, ${UI.err}, #dc2626)` }}>
+        <div className="text-2xl">⏱️</div>
+        <div className="flex-1">
+          <div className="text-xs font-extrabold uppercase tracking-widest opacity-80">{t('studentPortal.elearning.timeRemaining', 'Time remaining')}</div>
+          <div className="text-3xl font-extrabold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {fmtHMS(remainingSec)}
+          </div>
+          <div className="text-xs opacity-80">
+            {courseCode} — {examTitle} — {totalQ} {t('studentPortal.elearning.questions', 'questions')}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="text-xs opacity-80">{t('studentPortal.elearning.progress', 'Progress')}</div>
+          <div className="text-2xl font-extrabold">
+            {answeredCount} / {totalQ}
+          </div>
+          <div className="w-[120px] h-[6px] rounded-full overflow-hidden mt-2" style={{ background: 'rgba(255,255,255,.3)' }}>
+            <div className="h-full" style={{ width: `${totalQ ? Math.round((answeredCount / totalQ) * 100) : 0}%`, background: '#fff' }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg px-4 py-3 border-r-4 flex gap-3 items-start" style={{ background: UI.infoBg, color: UI.info, borderColor: UI.info }}>
+        <span>🔒</span>
+        <div className="text-sm">
+          {t('studentPortal.elearning.proctorNote', 'Integrity monitoring is enabled. Do not leave the exam window.')}
+        </div>
+        <div className="ms-auto text-xs font-extrabold" style={{ color: UI.muted }}>
+          {autosaveState === 'saving'
+            ? t('studentPortal.elearning.saving', 'Saving…')
+            : autosaveState === 'saved'
+              ? t('studentPortal.elearning.saved', 'Saved')
+              : autosaveState === 'err'
+                ? t('studentPortal.elearning.saveFailed', 'Save failed')
+                : t('studentPortal.elearning.autosave', 'Autosave')}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5 items-start">
+        {/* Question */}
+        <div className="bg-white rounded-xl border shadow-sm p-6" style={{ borderColor: UI.bdr }}>
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="text-xs font-extrabold uppercase tracking-wide" style={{ color: UI.muted }}>
+              {t('studentPortal.elearning.questionXofY', { defaultValue: 'Question {{x}} of {{y}}', x: qIndex + 1, y: totalQ })}
+            </div>
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-md border text-xs font-bold"
+              style={{ borderColor: UI.bdr, background: UI.bg, color: UI.txt }}
+              onClick={() => setFlagged((m) => ({ ...(m || {}), [String(currentQ?.id)]: !m?.[String(currentQ?.id)] }))}
+              disabled={!currentQ}
+            >
+              {flagged[String(currentQ?.id)] ? '⚑' : '⚐'} {t('studentPortal.elearning.flag', 'Flag')}
+            </button>
+          </div>
+
+          <div className="text-base font-extrabold mb-4" style={{ color: UI.txt }}>
+            {(isArabic ? currentQ?.question_text_ar : currentQ?.question_text) || currentQ?.question_text || '—'}
+          </div>
+
+          {/* Options */}
+          <div className="space-y-2">
+            {currentQ?.question_type === 'true_false' ? (
+              <>
+                {['true', 'false'].map((v) => (
+                  <label key={v} className="flex items-center gap-3 rounded-md border px-4 py-3 cursor-pointer" style={{ borderColor: UI.bdr }}>
+                    <input
+                      type="radio"
+                      name={`q-${currentQ.id}`}
+                      checked={answers[String(currentQ.id)] === v}
+                      onChange={() => setAnswer(currentQ, v)}
+                      style={{ accentColor: UI.pl, width: 16, height: 16 }}
+                    />
+                    <span className="text-sm font-semibold">{v === 'true' ? (isArabic ? '✓ صح' : 'True') : (isArabic ? '✗ خطأ' : 'False')}</span>
+                  </label>
+                ))}
+              </>
+            ) : (
+              (optionOrder[String(currentQ?.id)] || (currentQ?.options || []).map((_, i) => i)).map((origIndex) => {
+                const opt = (currentQ?.options || [])[origIndex]
+                return (
+                <label key={origIndex} className="flex items-center gap-3 rounded-md border px-4 py-3 cursor-pointer" style={{ borderColor: UI.bdr }}>
+                  <input
+                    type="radio"
+                    name={`q-${currentQ.id}`}
+                    checked={answers[String(currentQ.id)] === origIndex}
+                    onChange={() => setAnswer(currentQ, origIndex)}
+                    style={{ accentColor: UI.pl, width: 16, height: 16 }}
+                  />
+                  <span className="text-sm font-semibold">{opt}</span>
+                </label>
+                )
+              })
+            )}
+          </div>
+
+          <div className="flex items-center justify-between mt-6 pt-4 border-t" style={{ borderColor: UI.bdr }}>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-md border font-bold text-sm"
+              style={{ borderColor: UI.bdr, background: UI.bg, color: UI.txt }}
+              onClick={() => setQIndex((x) => Math.max(0, x - 1))}
+              disabled={qIndex === 0}
+            >
+              ← {t('studentPortal.elearning.prevQuestion', 'Previous')}
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded-md font-extrabold text-white"
+              style={{ background: UI.p }}
+              onClick={() => setQIndex((x) => Math.min(totalQ - 1, x + 1))}
+              disabled={qIndex >= totalQ - 1}
+            >
+              {t('studentPortal.elearning.nextQuestion', 'Next')} →
+            </button>
+          </div>
+
+          <div className="mt-5 rounded-xl border p-4 flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: UI.ok, background: UI.okBg }}>
+            <div>
+              <div className="text-sm font-extrabold" style={{ color: UI.ok }}>
+                {t('studentPortal.elearning.readyToSubmit', 'Ready to submit?')}
+              </div>
+              <div className="text-xs" style={{ color: UI.ok }}>
+                {t('studentPortal.elearning.answeredOutOf', { defaultValue: 'Answered {{a}} of {{t}}', a: answeredCount, t: totalQ })}
+              </div>
+            </div>
+            <button type="button" className="px-6 py-2.5 rounded-md font-extrabold text-white" style={{ background: UI.ok }} onClick={submitFinal}>
+              ✅ {t('studentPortal.elearning.submitFinal', 'Submit final')}
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation grid */}
+        <div className="bg-white rounded-xl border shadow-sm p-5 sticky top-4" style={{ borderColor: UI.bdr }}>
+          <div className="font-extrabold mb-3" style={{ color: UI.p }}>
+            {t('studentPortal.elearning.navigate', 'Navigate')}
+          </div>
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            {questions.map((q, i) => {
+              const answered = answers[String(q.id)] != null
+              const isCurrent = i === qIndex
+              const isFlag = !!flagged[String(q.id)]
+              const bg = isCurrent ? UI.p : answered ? UI.ok : UI.bg
+              const br = isFlag ? UI.warn : UI.bdr
+              const col = isCurrent || answered ? '#fff' : UI.txt
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setQIndex(i)}
+                  className="h-9 rounded-md font-extrabold text-sm"
+                  style={{ background: bg, border: `1.5px solid ${br}`, color: col }}
+                >
+                  {i + 1}
+                </button>
+              )
+            })}
+          </div>
+          <div className="text-xs space-y-1" style={{ color: UI.muted }}>
+            <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: UI.ok }} /> {t('studentPortal.elearning.answered', 'Answered')}</div>
+            <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: UI.p }} /> {t('studentPortal.elearning.current', 'Current')}</div>
+            <div className="flex items-center gap-2"><span className="inline-block w-3 h-3 rounded-sm" style={{ background: UI.warnBg, border: `1.5px solid ${UI.warn}` }} /> {t('studentPortal.elearning.flagged', 'Flagged')}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+

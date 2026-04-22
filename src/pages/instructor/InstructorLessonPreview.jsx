@@ -244,12 +244,82 @@ export default function InstructorLessonPreview() {
           {elements.map((element) => {
             const content = element.content || {}
 
-            if (element.element_type === 'text' || element.element_type === 'discussion') {
+            if (element.element_type === 'heading') {
+              const level = Number(content.level || 3)
+              const text = content.text || element.title || '-'
+              const Tag = level === 2 ? 'h2' : level === 4 ? 'h4' : 'h3'
+              return (
+                <div key={element.id} style={{ marginBottom: 14 }}>
+                  <Tag style={{ fontSize: level === 2 ? 20 : level === 4 ? 15 : 17, fontWeight: 800, color: 'var(--p)', margin: '10px 0 6px' }}>
+                    {text}
+                  </Tag>
+                </div>
+              )
+            }
+
+            if (element.element_type === 'paragraph' || element.element_type === 'discussion') {
               return (
                 <div key={element.id} className="lb-block" style={{ marginBottom: 16 }}>
                   <div className="lb-block-hd"><span className="lb-block-type">{element.element_type}</span></div>
-                  <div style={{ fontWeight: 700, marginBottom: 8 }}>{element.title || '-'}</div>
+                  {element.title && <div style={{ fontWeight: 700, marginBottom: 8 }}>{element.title}</div>}
                   <div style={{ whiteSpace: 'pre-wrap' }}>{content.text || ''}</div>
+                </div>
+              )
+            }
+
+            if (element.element_type === 'code') {
+              return (
+                <div key={element.id} style={{ background: '#1e2a3a', borderRadius: 'var(--rs)', padding: 16, marginBottom: 18, color: '#e2e8f0', overflowX: 'auto' }}>
+                  {content.caption && <div style={{ color: '#64b5f6', marginBottom: 6, fontWeight: 700 }}>{content.caption}</div>}
+                  <pre style={{ margin: 0, direction: 'ltr', textAlign: 'left' }}>
+                    <code>{content.code || ''}</code>
+                  </pre>
+                </div>
+              )
+            }
+
+            if (element.element_type === 'table') {
+              const headers = Array.isArray(content.headers) ? content.headers : []
+              const rows = Array.isArray(content.rows) ? content.rows : []
+              return (
+                <div key={element.id} className="tw" style={{ marginBottom: 18 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        {headers.map((h, i) => (
+                          <th key={i}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r, ri) => (
+                        <tr key={ri}>
+                          {(Array.isArray(r) ? r : []).map((cell, ci) => (
+                            <td key={ci}>{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            }
+
+            if (element.element_type === 'interactive_order') {
+              const items = Array.isArray(content.items) ? content.items : []
+              return (
+                <div key={element.id} className="interactive-block" style={{ marginBottom: 18 }}>
+                  <h4 style={{ fontSize: 15, fontWeight: 800, color: 'var(--info)', marginBottom: 8 }}>
+                    🎯 {element.title || 'Interactive exercise'}
+                  </h4>
+                  {content.prompt && <div style={{ fontSize: 13, color: 'var(--info)', marginBottom: 12 }}>{content.prompt}</div>}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {items.map((it, idx) => (
+                      <div key={idx} style={{ background: '#fff', border: '1.5px solid var(--info)', borderRadius: 'var(--rs)', padding: '10px 14px', fontSize: 13 }}>
+                        ⠿ {it}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )
             }

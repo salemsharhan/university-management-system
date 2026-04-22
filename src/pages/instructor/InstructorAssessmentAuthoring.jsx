@@ -392,6 +392,37 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
     }
   }
 
+  const publishAssessment = async () => {
+    if (!selectedClass || !platformUserId || !examForm.title.trim()) return
+    setSaving(true)
+    try {
+      // First save (ensures questions exist)
+      await saveAssessment()
+      if (!selectedExamId) return
+
+      const start = examForm.start_datetime ? new Date(examForm.start_datetime) : new Date()
+      const end = examForm.end_datetime ? new Date(examForm.end_datetime) : new Date(start.getTime() + (Number(examForm.duration_minutes || 90) * 60 * 1000))
+      const now = new Date()
+      const nextStatus = now >= start && now <= end ? 'EX_OPN' : 'EX_SCH'
+      const payload = {
+        status: nextStatus,
+        published_at: new Date().toISOString(),
+        opened_at: nextStatus === 'EX_OPN' ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      }
+
+      await supabase.from('subject_exams').update(payload).eq('id', selectedExamId)
+      await loadExams(selectedClass.id)
+      await loadExamWithQuestions(selectedExamId)
+      alert(t('instructorPortal.publishLesson', 'Published'))
+    } catch (err) {
+      console.error(err)
+      alert(t('common.error', 'Error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const uploadAssessmentFile = async (file) => {
     if (!file || !selectedClass) return
     setAssessmentFileUploading(true)
@@ -570,6 +601,9 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
               )}
               <button type="button" className="btn btn-gh" onClick={saveAssessment} disabled={saving}>
                 💾 {t('instructorPortal.saveDraft')}
+              </button>
+              <button type="button" className="btn btn-ok" onClick={publishAssessment} disabled={saving || !examForm.title.trim()}>
+                🚀 {t('instructorPortal.publishLesson', 'Publish')}
               </button>
               <Link
                 to={`/instructor/exam-settings?classId=${selectedClassId || ''}&examId=${selectedExamId || ''}`}

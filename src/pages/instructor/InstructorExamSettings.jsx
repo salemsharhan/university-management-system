@@ -213,17 +213,51 @@ export default function InstructorExamSettings() {
         form.duration_minutes
       )
       const assessment_settings = mergeAssessmentSettings()
+
+      // Save & activate should also move the exam into a student-visible lifecycle status.
+      // If we are inside the window -> open; otherwise -> scheduled.
+      const startIso = times?.scheduled_date && times?.start_time ? new Date(`${times.scheduled_date}T${times.start_time}`).toISOString() : null
+      const endIso = times?.scheduled_date && times?.end_time ? new Date(`${times.scheduled_date}T${times.end_time}`).toISOString() : null
+      const now = Date.now()
+      const startMs = startIso ? new Date(startIso).getTime() : null
+      const endMs = endIso ? new Date(endIso).getTime() : null
+
+      let status = 'EX_SCH'
+      if (startMs != null && endMs != null && now >= startMs && now <= endMs) status = 'EX_OPN'
+      else status = 'EX_SCH'
+
       const payload = {
         ...times,
         duration_minutes: Number(form.duration_minutes) || times.duration_minutes,
         assessment_settings,
+        // Ensure exam is linked to the current class; student visibility depends on class enrollment.
+        class_id: examRow.class_id || classRow.id,
+        status,
+        published_at: status === 'EX_SCH' ? new Date().toISOString() : examRow.published_at || new Date().toISOString(),
+        opened_at: status === 'EX_OPN' ? new Date().toISOString() : examRow.opened_at || null,
         updated_at: new Date().toISOString(),
       }
 
       const { error } = await supabase.from('subject_exams').update(payload).eq('id', examRow.id)
       if (error) throw error
 
-      setExamRow((er) => (er ? { ...er, ...payload, assessment_settings } : er))
+      // Force-persist lifecycle fields and read back what the DB accepted.
+      // (We’ve seen cases where the update succeeds but status isn’t applied due to older builds or partial payloads.)
+      const { data: after, error: afterErr } = await supabase
+        .from('subject_exams')
+        .update({
+          class_id: payload.class_id,
+          status,
+          published_at: payload.published_at,
+          opened_at: payload.opened_at,
+          updated_at: payload.updated_at,
+        })
+        .eq('id', examRow.id)
+        .select('id, status, published_at, opened_at, updated_at')
+        .single()
+      if (afterErr) throw afterErr
+
+      setExamRow((er) => (er ? { ...er, ...payload, ...(after || {}) , assessment_settings } : er))
       setSaveStatus('ok')
     } catch (e) {
       console.error(e)

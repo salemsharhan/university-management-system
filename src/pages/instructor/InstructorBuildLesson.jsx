@@ -8,12 +8,16 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 
 const ELEMENT_TYPES = [
-  { key: 'text', label: 'Text / Headings', icon: 'TXT' },
+  { key: 'heading', label: 'Heading', icon: 'H' },
+  { key: 'paragraph', label: 'Paragraph', icon: 'P' },
+  { key: 'code', label: 'Code block', icon: '{ }' },
+  { key: 'table', label: 'Table', icon: '▦' },
+  { key: 'interactive_order', label: 'Interactive: order steps', icon: '⇅' },
   { key: 'video', label: 'Video', icon: 'VID' },
+  { key: 'attachment', label: 'Attachment', icon: 'ATT' },
   { key: 'quiz', label: 'Quiz', icon: 'QZ' },
   { key: 'poll', label: 'Poll', icon: 'POL' },
   { key: 'discussion', label: 'Discussion', icon: 'DIS' },
-  { key: 'attachment', label: 'Attachment', icon: 'ATT' },
 ]
 
 const emptyLesson = {
@@ -30,12 +34,24 @@ const emptyLesson = {
 }
 
 function createElement(type) {
+  const defaults = (() => {
+    if (type === 'heading') return { level: 3, text: '' }
+    if (type === 'paragraph') return { text: '' }
+    if (type === 'code') return { language: 'python', code: '', caption: '' }
+    if (type === 'table') return { headers: [], rows: [] }
+    if (type === 'interactive_order') return { prompt: '', items: [], correct_order: [], shuffle: true }
+    if (type === 'video') return { url: '', caption: '', duration_minutes: null, start_time: '', end_time: '' }
+    if (type === 'attachment') return { file_url: '', file_name: '' }
+    if (type === 'quiz' || type === 'poll') return { question: '', options: [] }
+    if (type === 'discussion') return { text: '' }
+    return {}
+  })()
   return {
     id: null,
     tempId: Math.random().toString(36).slice(2),
     element_type: type,
     title: '',
-    content: {},
+    content: defaults,
   }
 }
 
@@ -60,6 +76,7 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
   const [selectedCloIds, setSelectedCloIds] = useState([])
   const [elements, setElements] = useState([])
   const [lessonMediaUploadKey, setLessonMediaUploadKey] = useState(null)
+  const [tableHeadersDraft, setTableHeadersDraft] = useState({})
   /** Instructors need `can_add_materials` on their row to use the lesson builder (same flag as “lesson content” in admin). Admins always allowed. */
   const [canAddLessonContent, setCanAddLessonContent] = useState(isAdmin)
 
@@ -402,6 +419,13 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
 
   const portalClass = `instructor-portal lesson-builder-root${embedded ? ' lesson-builder-embedded' : ''}`
 
+  const listSep = isRTL ? '، ' : ', '
+  const splitList = (raw) =>
+    String(raw || '')
+      .split(/[,،]/g)
+      .map((x) => x.trim())
+      .filter(Boolean)
+
   if (loading) {
     return (
       <div className={portalClass} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -736,7 +760,10 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
             {elements.map((element, idx) => (
               <div key={element.id || element.tempId} className="lb-block">
                 <div className="lb-block-hd">
-                  <span className="lb-block-type">{ELEMENT_TYPES.find((x) => x.key === element.element_type)?.icon} {element.element_type}</span>
+                  <span className="lb-block-type">
+                    {ELEMENT_TYPES.find((x) => x.key === element.element_type)?.icon}{' '}
+                    {ELEMENT_TYPES.find((x) => x.key === element.element_type)?.label || element.element_type}
+                  </span>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button type="button" className="btn btn-gh btn-sm" disabled={lessonEditBlocked} onClick={() => moveElement(idx, -1)}>Up</button>
                     <button type="button" className="btn btn-gh btn-sm" disabled={lessonEditBlocked} onClick={() => moveElement(idx, 1)}>Down</button>
@@ -744,12 +771,52 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                   </div>
                 </div>
 
-                <div className="fg" style={{ marginBottom: 8 }}>
-                  <label className="fl" style={{ fontSize: 12 }}>{t('common.title', 'Title')}</label>
-                  <input className="fc" value={element.title || ''} onChange={(e) => updateElement(idx, { title: e.target.value })} />
-                </div>
+                {/* element title (optional for most types) */}
+                {!(element.element_type === 'heading' || element.element_type === 'paragraph') && (
+                  <div className="fg" style={{ marginBottom: 8 }}>
+                    <label className="fl" style={{ fontSize: 12 }}>{t('common.title', 'Title')}</label>
+                    <input className="fc" value={element.title || ''} onChange={(e) => updateElement(idx, { title: e.target.value })} />
+                  </div>
+                )}
 
-                {(element.element_type === 'text' || element.element_type === 'discussion') && (
+                {element.element_type === 'heading' && (
+                  <div className="fr">
+                    <div className="fg">
+                      <label className="fl" style={{ fontSize: 12 }}>Level</label>
+                      <select
+                        className="fc"
+                        disabled={lessonEditBlocked}
+                        value={element.content?.level ?? 3}
+                        onChange={(e) => updateElement(idx, { content: { ...element.content, level: Number(e.target.value) } })}
+                      >
+                        <option value={2}>H2</option>
+                        <option value={3}>H3</option>
+                        <option value={4}>H4</option>
+                      </select>
+                    </div>
+                    <div className="fg">
+                      <label className="fl" style={{ fontSize: 12 }}>{t('common.title', 'Title')}</label>
+                      <input
+                        className="fc"
+                        disabled={lessonEditBlocked}
+                        value={element.content?.text || ''}
+                        onChange={(e) => updateElement(idx, { content: { ...element.content, text: e.target.value } })}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {element.element_type === 'paragraph' && (
+                  <textarea
+                    className="fc"
+                    rows={4}
+                    disabled={lessonEditBlocked}
+                    value={element.content?.text || ''}
+                    onChange={(e) => updateElement(idx, { content: { ...element.content, text: e.target.value } })}
+                  />
+                )}
+
+                {element.element_type === 'discussion' && (
                   <textarea
                     className="fc"
                     rows={3}
@@ -757,6 +824,249 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                     value={element.content?.text || ''}
                     onChange={(e) => updateElement(idx, { content: { ...element.content, text: e.target.value } })}
                   />
+                )}
+
+                {element.element_type === 'code' && (
+                  <>
+                    <div className="fr">
+                      <div className="fg">
+                        <label className="fl" style={{ fontSize: 12 }}>Language</label>
+                        <select
+                          className="fc"
+                          disabled={lessonEditBlocked}
+                          value={element.content?.language || 'python'}
+                          onChange={(e) => updateElement(idx, { content: { ...element.content, language: e.target.value } })}
+                        >
+                          <option value="python">Python</option>
+                          <option value="javascript">JavaScript</option>
+                          <option value="typescript">TypeScript</option>
+                          <option value="java">Java</option>
+                          <option value="csharp">C#</option>
+                          <option value="sql">SQL</option>
+                          <option value="text">Plain</option>
+                        </select>
+                      </div>
+                      <div className="fg">
+                        <label className="fl" style={{ fontSize: 12 }}>Caption (optional)</label>
+                        <input
+                          className="fc"
+                          disabled={lessonEditBlocked}
+                          value={element.content?.caption || ''}
+                          onChange={(e) => updateElement(idx, { content: { ...element.content, caption: e.target.value } })}
+                        />
+                      </div>
+                    </div>
+                    <textarea
+                      className="fc"
+                      rows={8}
+                      style={{ fontFamily: 'monospace', direction: 'ltr', textAlign: 'left' }}
+                      disabled={lessonEditBlocked}
+                      value={element.content?.code || ''}
+                      onChange={(e) => updateElement(idx, { content: { ...element.content, code: e.target.value } })}
+                      placeholder="Paste code here..."
+                    />
+                  </>
+                )}
+
+                {element.element_type === 'table' && (
+                  <>
+                    <div className="fr">
+                      <div className="fg">
+                        <label className="fl" style={{ fontSize: 12 }}>Caption (optional)</label>
+                        <input
+                          className="fc"
+                          disabled={lessonEditBlocked}
+                          value={element.title || ''}
+                          onChange={(e) => updateElement(idx, { title: e.target.value })}
+                          placeholder="e.g. Time complexity comparison"
+                        />
+                      </div>
+                      <div className="fg">
+                        <label className="fl" style={{ fontSize: 12 }}>Columns</label>
+                        <input
+                          className="fc"
+                          disabled={lessonEditBlocked}
+                          value={
+                            tableHeadersDraft[String(element.id || element.tempId)] ??
+                            (element.content?.headers || []).join(listSep)
+                          }
+                          onChange={(e) => {
+                            const raw = e.target.value
+                            const draftKey = String(element.id || element.tempId)
+                            setTableHeadersDraft((m) => ({ ...(m || {}), [draftKey]: raw }))
+
+                            const headers = splitList(raw)
+                            const oldRows = Array.isArray(element.content?.rows) ? element.content.rows : []
+                            const nextRows = oldRows.map((r) => {
+                              const row = Array.isArray(r) ? r : []
+                              const trimmed = row.slice(0, headers.length)
+                              while (trimmed.length < headers.length) trimmed.push('')
+                              return trimmed
+                            })
+                            updateElement(idx, { content: { ...element.content, headers, rows: nextRows } })
+                          }}
+                          onBlur={() => {
+                            const draftKey = String(element.id || element.tempId)
+                            setTableHeadersDraft((m) => {
+                              const next = { ...(m || {}) }
+                              delete next[draftKey]
+                              return next
+                            })
+                          }}
+                          placeholder={isRTL ? 'الخوارزمية، أفضل، متوسط، أسوأ، الذاكرة' : 'Algorithm, Best, Average, Worst, Memory'}
+                        />
+                        <div className="fh">Use comma separated names. Rows below will match the number of columns.</div>
+                      </div>
+                    </div>
+
+                    {Array.isArray(element.content?.headers) && element.content.headers.length > 0 ? (
+                      <div style={{ border: '1px solid var(--bdr)', borderRadius: 'var(--rs)', overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--p)', color: '#fff' }}>
+                              {element.content.headers.map((h, hi) => (
+                                <th key={hi} style={{ padding: '10px 12px', textAlign: 'start', whiteSpace: 'nowrap' }}>
+                                  {h}
+                                </th>
+                              ))}
+                              <th style={{ padding: '10px 12px', width: 90 }} />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(Array.isArray(element.content?.rows) ? element.content.rows : []).map((r, ri) => (
+                              <tr key={ri} style={{ borderBottom: '1px solid var(--bdr)' }}>
+                                {element.content.headers.map((_, ci) => {
+                                  const value = (Array.isArray(r) ? r[ci] : '') || ''
+                                  return (
+                                    <td key={ci} style={{ padding: 10, verticalAlign: 'top' }}>
+                                      <input
+                                        className="fc"
+                                        style={{ padding: '8px 10px', fontSize: 13 }}
+                                        disabled={lessonEditBlocked}
+                                        value={value}
+                                        onChange={(e) => {
+                                          const rows = Array.isArray(element.content?.rows) ? [...element.content.rows] : []
+                                          const nextRow = Array.isArray(rows[ri]) ? [...rows[ri]] : []
+                                          while (nextRow.length < element.content.headers.length) nextRow.push('')
+                                          nextRow[ci] = e.target.value
+                                          rows[ri] = nextRow
+                                          updateElement(idx, { content: { ...element.content, rows } })
+                                        }}
+                                      />
+                                    </td>
+                                  )
+                                })}
+                                <td style={{ padding: 10, verticalAlign: 'top' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-err btn-sm"
+                                    disabled={lessonEditBlocked}
+                                    onClick={() => {
+                                      const rows = (Array.isArray(element.content?.rows) ? element.content.rows : []).filter((_, x) => x !== ri)
+                                      updateElement(idx, { content: { ...element.content, rows } })
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                            {(Array.isArray(element.content?.rows) ? element.content.rows : []).length === 0 && (
+                              <tr>
+                                <td colSpan={element.content.headers.length + 1} style={{ padding: 14, color: 'var(--muted)' }}>
+                                  No rows yet. Click “Add row”.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="alert alert-warn" style={{ marginBottom: 0 }}>
+                        Add columns first to start editing table rows.
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-gh btn-sm"
+                        disabled={lessonEditBlocked || !(Array.isArray(element.content?.headers) && element.content.headers.length)}
+                        onClick={() => {
+                          const headers = Array.isArray(element.content?.headers) ? element.content.headers : []
+                          const nextRow = headers.map(() => '')
+                          const rows = Array.isArray(element.content?.rows) ? [...element.content.rows, nextRow] : [nextRow]
+                          updateElement(idx, { content: { ...element.content, rows } })
+                        }}
+                      >
+                        + Add row
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-gh btn-sm"
+                        disabled={lessonEditBlocked}
+                        onClick={() => {
+                          // paste/import fallback: allows quick bulk editing for power users
+                          const headers = Array.isArray(element.content?.headers) ? element.content.headers : []
+                          const rowsText = prompt('Paste rows. One row per line, use | to separate cells.') || ''
+                          if (!rowsText.trim()) return
+                          const rows = rowsText
+                            .split('\n')
+                            .map((ln) => ln.trim())
+                            .filter(Boolean)
+                            .map((ln) => ln.split('|').map((c) => c.trim()))
+                            .map((r) => {
+                              const copy = r.slice(0, headers.length)
+                              while (copy.length < headers.length) copy.push('')
+                              return copy
+                            })
+                          updateElement(idx, { content: { ...element.content, rows } })
+                        }}
+                      >
+                        Import rows
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {element.element_type === 'interactive_order' && (
+                  <>
+                    <div className="fg" style={{ marginBottom: 8 }}>
+                      <label className="fl" style={{ fontSize: 12 }}>Prompt</label>
+                      <input
+                        className="fc"
+                        disabled={lessonEditBlocked}
+                        value={element.content?.prompt || ''}
+                        onChange={(e) => updateElement(idx, { content: { ...element.content, prompt: e.target.value } })}
+                        placeholder="e.g. Drag the steps to the correct order"
+                      />
+                    </div>
+                    <div className="fg" style={{ marginBottom: 8 }}>
+                      <label className="fl" style={{ fontSize: 12 }}>Items (one per line, first line = correct first step)</label>
+                      <textarea
+                        className="fc"
+                        rows={4}
+                        disabled={lessonEditBlocked}
+                        value={(element.content?.items || []).join('\n')}
+                        onChange={(e) => {
+                          const items = e.target.value.split('\n').map((x) => x.trim()).filter(Boolean)
+                          const correct = items.map((_, i) => i)
+                          updateElement(idx, { content: { ...element.content, items, correct_order: correct } })
+                        }}
+                        placeholder={'Split list into halves\nSort each half\nMerge the sorted halves'}
+                      />
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        style={{ accentColor: 'var(--p)' }}
+                        disabled={lessonEditBlocked}
+                        checked={element.content?.shuffle ?? true}
+                        onChange={(e) => updateElement(idx, { content: { ...element.content, shuffle: e.target.checked } })}
+                      />
+                      Shuffle items for students
+                    </label>
+                  </>
                 )}
 
                 {element.element_type === 'video' && (
@@ -786,6 +1096,13 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                       disabled={lessonEditBlocked}
                       value={element.content?.url || ''}
                       onChange={(e) => updateElement(idx, { content: { ...element.content, url: e.target.value } })}
+                    />
+                    <label className="fl" style={{ fontSize: 12, marginTop: 10 }}>Caption (optional)</label>
+                    <input
+                      className="fc"
+                      disabled={lessonEditBlocked}
+                      value={element.content?.caption || ''}
+                      onChange={(e) => updateElement(idx, { content: { ...element.content, caption: e.target.value } })}
                     />
                   </div>
                 )}
@@ -831,15 +1148,84 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
                       value={element.content?.question || ''}
                       onChange={(e) => updateElement(idx, { content: { ...element.content, question: e.target.value } })}
                     />
-                    <textarea
-                      className="fc"
-                      rows={3}
-                      style={{ marginTop: 8 }}
-                      placeholder="Option 1\nOption 2\nOption 3"
-                      disabled={lessonEditBlocked}
-                      value={(element.content?.options || []).join('\n')}
-                      onChange={(e) => updateElement(idx, { content: { ...element.content, options: e.target.value.split('\n').filter(Boolean) } })}
-                    />
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)' }}>Options</div>
+                        <button
+                          type="button"
+                          className="btn btn-gh btn-sm"
+                          disabled={lessonEditBlocked}
+                          onClick={() => {
+                            const options = Array.isArray(element.content?.options) ? [...element.content.options] : []
+                            options.push('')
+                            updateElement(idx, { content: { ...element.content, options } })
+                          }}
+                        >
+                          + Add option
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {(Array.isArray(element.content?.options) ? element.content.options : []).map((opt, oi) => (
+                          <div key={oi} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span style={{ width: 26, textAlign: 'center', fontWeight: 800, color: 'var(--muted)' }}>{oi + 1}</span>
+                            <input
+                              className="fc"
+                              disabled={lessonEditBlocked}
+                              value={opt || ''}
+                              placeholder={`Option ${oi + 1}`}
+                              onChange={(e) => {
+                                const options = Array.isArray(element.content?.options) ? [...element.content.options] : []
+                                options[oi] = e.target.value
+                                updateElement(idx, { content: { ...element.content, options } })
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-gh btn-sm"
+                              disabled={lessonEditBlocked || oi === 0}
+                              onClick={() => {
+                                const options = Array.isArray(element.content?.options) ? [...element.content.options] : []
+                                const tmp = options[oi - 1]
+                                options[oi - 1] = options[oi]
+                                options[oi] = tmp
+                                updateElement(idx, { content: { ...element.content, options } })
+                              }}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-gh btn-sm"
+                              disabled={lessonEditBlocked || oi === (Array.isArray(element.content?.options) ? element.content.options.length - 1 : 0)}
+                              onClick={() => {
+                                const options = Array.isArray(element.content?.options) ? [...element.content.options] : []
+                                const tmp = options[oi + 1]
+                                options[oi + 1] = options[oi]
+                                options[oi] = tmp
+                                updateElement(idx, { content: { ...element.content, options } })
+                              }}
+                            >
+                              ↓
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-err btn-sm"
+                              disabled={lessonEditBlocked}
+                              onClick={() => {
+                                const options = (Array.isArray(element.content?.options) ? element.content.options : []).filter((_, x) => x !== oi)
+                                updateElement(idx, { content: { ...element.content, options } })
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                        {(Array.isArray(element.content?.options) ? element.content.options : []).length === 0 && (
+                          <div style={{ fontSize: 13, color: 'var(--muted)' }}>No options yet. Click “Add option”.</div>
+                        )}
+                      </div>
+                    </div>
                   </>
                 )}
               </div>

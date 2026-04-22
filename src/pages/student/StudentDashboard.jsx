@@ -515,6 +515,14 @@ export default function StudentDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
             <div className="text-lg font-extrabold mb-4" style={{ color: STUDENT_PORTAL_BG }}>{tx('روابط سريعة', 'Quick links')}</div>
             <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => navigate('/student/elearning/sessions')}
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2"
+              >
+                <span className="text-base">📹</span>
+                {tx('بوابة التعلم الإلكتروني — جلسات Teams', 'e-Learning — Teams sessions')}
+              </button>
               <button type="button" onClick={() => navigate('/student/coming-soon')} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2">
                 <ClipboardList className="w-4 h-4" />
                 {tx('تقديم طلب خدمة', 'Submit service request')}

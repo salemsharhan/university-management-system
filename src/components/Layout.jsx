@@ -202,6 +202,13 @@ const navigation = [
       { name: 'New Application', translationKey: 'navigation.newApplication', href: '/admissions/applications/create' },
     ]
   },
+  {
+    name: 'Student Requests',
+    translationKey: 'navigation.studentRequests',
+    href: '/admin/requests',
+    icon: FileText,
+    roles: ['admin', 'user'],
+  },
   { 
     name: 'Settings', 
     translationKey: 'navigation.settings',

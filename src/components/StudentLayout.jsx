@@ -52,7 +52,7 @@ const NAV = [
   {
     label: { ar: 'الخدمات الطلابية', en: 'Student services' },
     items: [
-      { href: '/student/coming-soon', label: { ar: 'مركز الطلبات', en: 'Requests center' }, icon: '📋' },
+      { href: '/student/requests', label: { ar: 'مركز الطلبات', en: 'Requests center' }, icon: '📋' },
       { href: '/student/coming-soon', label: { ar: 'الإرشاد الأكاديمي', en: 'Academic advising' }, icon: '🧑‍🏫' },
     ],
   },
@@ -91,6 +91,7 @@ export default function StudentLayout({ children }) {
     if (path.startsWith('/student/schedule')) return 'الجدول الدراسي'
     if (path.startsWith('/student/grades')) return 'الدرجات والنتائج'
     if (path.startsWith('/student/graduation-path')) return 'مسار التخرج'
+    if (path.startsWith('/student/requests')) return 'مركز الطلبات'
     return 'بوابة الطالب'
   }, [location.pathname])
 
@@ -225,6 +226,16 @@ export default function StudentLayout({ children }) {
                 </div>
               )}
             </div>
+
+            <Link
+              to="/student/elearning/sessions"
+              className="h-9 px-3 rounded-full border flex items-center gap-2 text-sm font-semibold"
+              style={{ backgroundColor: UI.bg, borderColor: UI.bdr, color: UI.p }}
+              aria-label="بوابة التعلم الإلكتروني"
+              title="بوابة التعلم الإلكتروني"
+            >
+              📹 {isArabic ? 'التعلم الإلكتروني' : 'e‑Learning'}
+            </Link>
 
             <Link
               to="/student/coming-soon"

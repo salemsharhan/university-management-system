@@ -26,6 +26,7 @@ import CreateCollege from './pages/admin/CreateCollege'
 import ViewCollege from './pages/admin/ViewCollege'
 import CollegeProfile from './pages/admin/CollegeProfile'
 import CollegeKPIs from './pages/admin/CollegeKPIs'
+import RequestsManagement from './pages/admin/RequestsManagement'
 import CreateInstructor from './pages/CreateInstructor'
 import CreateAcademicYear from './pages/academic/CreateAcademicYear'
 import CreateSemester from './pages/academic/CreateSemester'
@@ -93,6 +94,16 @@ import StudentHolds from './pages/student/StudentHolds'
 import StudentPaymentReceipt from './pages/student/StudentPaymentReceipt'
 import StudentComingSoon from './pages/student/StudentComingSoon'
 import StudentDocuments from './pages/student/StudentDocuments'
+import StudentRequestsCenter from './pages/student/StudentRequestsCenter'
+import StudentRequestDetail from './pages/student/StudentRequestDetail'
+import StudentTeamsSessions from './pages/student/StudentTeamsSessions'
+import StudentSessionLobby from './pages/student/StudentSessionLobby'
+import StudentSessionHistory from './pages/student/StudentSessionHistory'
+import StudentCourseware from './pages/student/StudentCourseware'
+import StudentLessonViewer from './pages/student/StudentLessonViewer'
+import StudentELearningExams from './pages/student/StudentELearningExams'
+import StudentExamRoom from './pages/student/StudentExamRoom'
+import StudentExamSubmitted from './pages/student/StudentExamSubmitted'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
 import InstructorDashboard from './pages/instructor/InstructorDashboard'
 import InstructorMyCourses from './pages/instructor/InstructorMyCourses'
@@ -143,6 +154,7 @@ import LoginApplicant from './pages/applicant/LoginApplicant'
 import ApplicantApplicationStatusPage from './pages/applicant/ApplicantApplicationStatusPage'
 import ApplicantOfferLetter from './pages/applicant/ApplicantOfferLetter'
 import ApplicantOfferLetterIndex from './pages/applicant/ApplicantOfferLetterIndex'
+import AdminRequestDetail from './pages/admin/RequestDetail'
 
 /** Old bookmarked URLs: /track/:id → /application-status/:id */
 function LegacyTrackIdRedirect() {
@@ -392,6 +404,26 @@ function App() {
               <ProtectedRoute>
                 <RoleBasedLayout>
                   <Settings />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/requests"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <RequestsManagement />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/requests/:id"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <AdminRequestDetail />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }
@@ -986,6 +1018,26 @@ function App() {
             }
           />
           <Route
+            path="/student/requests"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentRequestsCenter />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/requests/:id"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentRequestDetail />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/student/schedule"
             element={
               <ProtectedRoute allowedRoles={['student']}>
@@ -1041,6 +1093,106 @@ function App() {
               <ProtectedRoute allowedRoles={['student']}>
                 <RoleBasedLayout>
                   <StudentComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/sessions"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentTeamsSessions />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/sessions/history"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentSessionHistory />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/sessions/:classScheduleId/:sessionDate/lobby"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentSessionLobby />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/coming-soon"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentComingSoon />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/courseware"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentCourseware />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/courseware/:classId"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentLessonViewer />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/courseware/:classId/lesson/:lessonId"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentLessonViewer />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/exams"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentELearningExams />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/exams/:examId"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentExamRoom />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/exams/:examId/submitted"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentExamSubmitted />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

@@ -44,6 +44,7 @@ const TABS = [
   { id: 'previous', labelKey: 'viewStudent.tabs.previousEducation', icon: Award },
   { id: 'identity', labelKey: 'viewStudent.tabs.identity', icon: FileText },
   { id: 'documents', labelKey: 'viewStudent.tabs.documents', icon: Paperclip },
+  { id: 'requests', labelKey: 'viewStudent.tabs.requests', icon: FileText },
   { id: 'payments', labelKey: 'viewStudent.tabs.payments', icon: CreditCard },
   { id: 'emergency', labelKey: 'viewStudent.tabs.emergency', icon: Heart },
   { id: 'other', labelKey: 'viewStudent.tabs.other', icon: Stethoscope },
@@ -80,6 +81,7 @@ export default function ViewStudent() {
   const [enrollmentEligibility, setEnrollmentEligibility] = useState(null)
   const [activeSemester, setActiveSemester] = useState(null)
   const [studentDocuments, setStudentDocuments] = useState([])
+  const [studentRequests, setStudentRequests] = useState([])
   const [adminInvoices, setAdminInvoices] = useState([])
   const [adminPayments, setAdminPayments] = useState([])
   const [semesterOptions, setSemesterOptions] = useState([])
@@ -128,6 +130,21 @@ export default function ViewStudent() {
       else setStudentDocuments([])
     }
     fetchDocs()
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    const fetchRequests = async () => {
+      const { data, error } = await supabase
+        .from('student_service_requests')
+        .select('id, request_number, request_type, status, description, created_at, updated_at')
+        .eq('student_id', id)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (!error) setStudentRequests(data || [])
+      else setStudentRequests([])
+    }
+    fetchRequests()
   }, [id])
 
   useEffect(() => {
@@ -1051,6 +1068,42 @@ export default function ViewStudent() {
                   )
                   })}
                 </ul>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'requests' && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                {t('viewStudent.requestsIntro', 'Student service requests created from the student portal are listed below.')}
+              </p>
+              {studentRequests.length === 0 ? (
+                <p className="text-gray-500 italic">{t('viewStudent.noRequests', 'No requests on file.')}</p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr className="text-gray-600">
+                        <th className="px-4 py-3 text-left">{t('viewStudent.requests.number', 'Request #')}</th>
+                        <th className="px-4 py-3 text-left">{t('viewStudent.requests.type', 'Type')}</th>
+                        <th className="px-4 py-3 text-left">{t('common.date', 'Date')}</th>
+                        <th className="px-4 py-3 text-left">{t('common.status', 'Status')}</th>
+                        <th className="px-4 py-3 text-left">{t('common.notes', 'Notes')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {studentRequests.map((r) => (
+                        <tr key={r.id} className="border-t border-gray-100">
+                          <td className="px-4 py-3 font-semibold" dir="ltr">{r.request_number}</td>
+                          <td className="px-4 py-3">{r.request_type}</td>
+                          <td className="px-4 py-3" dir="ltr">{r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}</td>
+                          <td className="px-4 py-3">{r.status || '—'}</td>
+                          <td className="px-4 py-3 text-gray-600">{r.description || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}
