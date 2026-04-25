@@ -377,11 +377,10 @@ export default function Layout({ children }) {
   const isAdminTheme = userRole === 'admin'
   
   // Filter navigation based on user role
-  // Show all items if userRole is not yet loaded (during initial load)
   const navigation = userRole === 'admin' ? adminNavigation : defaultNavigation
   const filteredNavigation = navigation.filter(item => {
     if (!item.roles) return true
-    if (!userRole) return true // Show all during loading
+    if (!userRole) return false
     return item.roles.includes(userRole)
   })
 
