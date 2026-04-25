@@ -1431,7 +1431,7 @@ export default function CreateInstructor() {
             <ArrowLeft className="w-5 h-5" />
             <span>{t('createInstructor.back')}</span>
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-extrabold text-[#1F3A70]">
             {isEditMode ? t('createInstructor.editModeTitle') : t('createInstructor.title')}
           </h1>
           <p className="text-gray-600 mt-1">
@@ -1440,7 +1440,7 @@ export default function CreateInstructor() {
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-6" dir={isArabicLayout ? 'rtl' : 'ltr'}>
           <div className="flex items-center justify-between">
             {displayedSteps.map((step, index) => {
               const StepIcon = step.icon
@@ -1453,20 +1453,20 @@ export default function CreateInstructor() {
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                         isActive
-                          ? 'bg-primary-gradient text-white shadow-lg'
+                          ? 'bg-[#5BA3D0]/15 text-[#1F3A70] shadow-sm ring-2 ring-[#5BA3D0]'
                           : isCompleted
-                          ? 'bg-green-500 text-white'
+                          ? 'bg-[#5BA3D0] text-white'
                           : 'bg-gray-200 text-gray-600'
                       }`}
                     >
                       <StepIcon className="w-6 h-6" />
                     </div>
-                    <span className={`mt-2 text-xs font-medium ${isActive ? 'text-primary-600' : 'text-gray-500'}`}>
+                    <span className={`mt-2 text-xs font-semibold ${isActive ? 'text-[#5BA3D0]' : 'text-gray-500'}`}>
                       {step.name}
                     </span>
                   </div>
                   {index < displayedSteps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-2 ${isCompleted ? 'bg-green-500' : 'bg-gray-200'}`} />
+                    <div className={`flex-1 h-1 mx-2 ${isCompleted ? 'bg-[#5BA3D0]' : 'bg-gray-200'}`} />
                   )}
                 </div>
               )
@@ -1475,7 +1475,7 @@ export default function CreateInstructor() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-6">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 mb-6">
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
                 {error}
@@ -1505,7 +1505,7 @@ export default function CreateInstructor() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(prev => Math.min(steps.length, prev + 1))}
-                className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all`}
+                className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-[#5BA3D0] text-white rounded-lg font-semibold hover:bg-[#1F3A70] hover:shadow-lg transition-colors`}
               >
                 <span>{t('createInstructor.next')}</span>
                 <NextIcon className="w-5 h-5" />
@@ -1514,7 +1514,7 @@ export default function CreateInstructor() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-[#D4AF37] text-white rounded-lg font-semibold hover:bg-[#b8942a] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Save className="w-5 h-5" />
                 <span>
