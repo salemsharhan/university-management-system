@@ -1431,7 +1431,7 @@ export default function CreateInstructor() {
             <ArrowLeft className="w-5 h-5" />
             <span>{t('createInstructor.back')}</span>
           </button>
-          <h1 className="text-3xl font-extrabold text-[#1F3A70]">
+          <h1 className="text-3xl font-extrabold text-[#1a3a6b]">
             {isEditMode ? t('createInstructor.editModeTitle') : t('createInstructor.title')}
           </h1>
           <p className="text-gray-600 mt-1">
@@ -1453,20 +1453,20 @@ export default function CreateInstructor() {
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
                         isActive
-                          ? 'bg-[#5BA3D0]/15 text-[#1F3A70] shadow-sm ring-2 ring-[#5BA3D0]'
+                          ? 'bg-[#2a5298]/15 text-[#1a3a6b] shadow-sm ring-2 ring-[#2a5298]'
                           : isCompleted
-                          ? 'bg-[#5BA3D0] text-white'
+                          ? 'bg-[#2a5298] text-white'
                           : 'bg-gray-200 text-gray-600'
                       }`}
                     >
                       <StepIcon className="w-6 h-6" />
                     </div>
-                    <span className={`mt-2 text-xs font-semibold ${isActive ? 'text-[#5BA3D0]' : 'text-gray-500'}`}>
+                    <span className={`mt-2 text-xs font-semibold ${isActive ? 'text-[#2a5298]' : 'text-gray-500'}`}>
                       {step.name}
                     </span>
                   </div>
                   {index < displayedSteps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-2 ${isCompleted ? 'bg-[#5BA3D0]' : 'bg-gray-200'}`} />
+                    <div className={`flex-1 h-1 mx-2 ${isCompleted ? 'bg-[#2a5298]' : 'bg-gray-200'}`} />
                   )}
                 </div>
               )
@@ -1505,7 +1505,7 @@ export default function CreateInstructor() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(prev => Math.min(steps.length, prev + 1))}
-                className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-[#5BA3D0] text-white rounded-lg font-semibold hover:bg-[#1F3A70] hover:shadow-lg transition-colors`}
+                className={`flex items-center ${isArabicLayout ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-[#2a5298] text-white rounded-lg font-semibold hover:bg-[#1a3a6b] hover:shadow-lg transition-colors`}
               >
                 <span>{t('createInstructor.next')}</span>
                 <NextIcon className="w-5 h-5" />
@@ -1514,7 +1514,7 @@ export default function CreateInstructor() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-[#D4AF37] text-white rounded-lg font-semibold hover:bg-[#b8942a] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-2 bg-[#c8a84b] text-[#1a3a6b] rounded-lg font-semibold hover:bg-[#b8942e] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Save className="w-5 h-5" />
                 <span>

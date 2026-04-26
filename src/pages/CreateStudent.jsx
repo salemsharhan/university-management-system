@@ -520,7 +520,7 @@ export default function CreateStudent() {
             <ArrowLeft className="w-5 h-5" />
             <span>{t('students.backToStudents')}</span>
           </button>
-          <h1 className="text-3xl font-extrabold text-[#1F3A70]">{t('createStudent.title')}</h1>
+          <h1 className="text-3xl font-extrabold text-[#1a3a6b]">{t('createStudent.title')}</h1>
           <p className="text-gray-600 mt-1">{t('students.step')} {currentStep} {t('students.of')} {steps.length} • {steps[currentStep - 1].name}</p>
         </div>
 
@@ -538,22 +538,22 @@ export default function CreateStudent() {
                     <div
                       className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
                         isActive
-                          ? 'bg-[#5BA3D0]/15 border-[#5BA3D0] text-[#1F3A70]'
+                          ? 'bg-[#2a5298]/15 border-[#2a5298] text-[#1a3a6b]'
                           : isCompleted
-                          ? 'bg-[#5BA3D0] border-[#5BA3D0] text-white'
+                          ? 'bg-[#2a5298] border-[#2a5298] text-white'
                           : 'bg-gray-100 border-gray-300 text-gray-400'
                       }`}
                     >
                       <StepIcon className="w-6 h-6" />
                     </div>
-                    <span className={`text-xs mt-2 font-semibold ${isActive ? 'text-[#5BA3D0]' : 'text-gray-500'}`}>
+                    <span className={`text-xs mt-2 font-semibold ${isActive ? 'text-[#2a5298]' : 'text-gray-500'}`}>
                       {step.name}
                     </span>
                   </div>
                   {index < steps.length - 1 && (
                     <div
                       className={`flex-1 h-1 mx-2 ${
-                        isCompleted ? 'bg-[#5BA3D0]' : 'bg-gray-200'
+                        isCompleted ? 'bg-[#2a5298]' : 'bg-gray-200'
                       }`}
                     />
                   )}
@@ -590,7 +590,7 @@ export default function CreateStudent() {
               <button
                 type="button"
                 onClick={nextStep}
-                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 bg-[#5BA3D0] text-white rounded-xl font-semibold hover:bg-[#1F3A70] hover:shadow-lg transition-colors`}
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 bg-[#2a5298] text-white rounded-xl font-semibold hover:bg-[#1a3a6b] hover:shadow-lg transition-colors`}
               >
                 <span>{t('createStudent.next') || t('common.next')}</span>
                 <ArrowRight className="w-5 h-5" />
@@ -599,7 +599,7 @@ export default function CreateStudent() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 bg-[#D4AF37] text-white rounded-xl font-semibold hover:bg-[#b8942a] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-6 py-3 bg-[#c8a84b] text-[#1a3a6b] rounded-xl font-semibold hover:bg-[#b8942e] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <Check className="w-5 h-5" />
                 <span>{loading ? t('createStudent.creating') : t('createStudent.createStudent')}</span>
@@ -641,7 +641,7 @@ function EssentialInfoStep({
               value={formData.first_name}
               onChange={(e) => handleChange('first_name', e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
             />
           </div>
           <div>
@@ -650,7 +650,7 @@ function EssentialInfoStep({
               type="text"
               value={formData.middle_name}
               onChange={(e) => handleChange('middle_name', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
             />
           </div>
           <div>
@@ -660,7 +660,7 @@ function EssentialInfoStep({
               value={formData.last_name}
               onChange={(e) => handleChange('last_name', e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
             />
           </div>
           <div>
@@ -697,7 +697,7 @@ function EssentialInfoStep({
               value={formData.date_of_birth}
               onChange={(e) => handleChange('date_of_birth', e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
             />
           </div>
           <div>
@@ -705,7 +705,7 @@ function EssentialInfoStep({
             <select
               value={formData.gender}
               onChange={(e) => handleChange('gender', e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
             >
               <option value="">{t('createStudent.selectGender')}</option>
               <option value="male">{t('createStudent.male')}</option>
@@ -785,7 +785,7 @@ function EssentialInfoStep({
               value={formData.email}
               onChange={(e) => handleChange('email', e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
             />
           </div>
           <div>

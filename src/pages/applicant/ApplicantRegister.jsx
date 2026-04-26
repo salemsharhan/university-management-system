@@ -115,7 +115,7 @@ export default function ApplicantRegister() {
       <div className="w-full max-w-md bg-white rounded-2xl border border-[#dde3ef] shadow-xl p-8">
         <div className="text-center mb-6">
           <img src="/assets/IBU Logo.png" alt="" className="h-14 mx-auto mb-3 object-contain" />
-          <h1 className="text-xl font-extrabold text-[#1F3A70]">{t('applicantRegister.title')}</h1>
+          <h1 className="text-xl font-extrabold text-[#1a3a6b]">{t('applicantRegister.title')}</h1>
           <p className="text-sm text-[#6b7a99] mt-1">{t('applicantRegister.subtitle')}</p>
         </div>
 
@@ -123,7 +123,7 @@ export default function ApplicantRegister() {
           {[1, 2, 3].map((s) => (
             <div
               key={s}
-              className={`h-2 flex-1 rounded-full max-w-[72px] ${step >= s ? 'bg-[#5BA3D0]' : 'bg-[#dde3ef]'}`}
+              className={`h-2 flex-1 rounded-full max-w-[72px] ${step >= s ? 'bg-[#2a5298]' : 'bg-[#dde3ef]'}`}
             />
           ))}
         </div>
@@ -142,7 +142,7 @@ export default function ApplicantRegister() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full rounded-lg border border-[#dde3ef] py-2.5 text-sm focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0] outline-none ${
+                  className={`w-full rounded-lg border border-[#dde3ef] py-2.5 text-sm focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298] outline-none ${
                     isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'
                   }`}
                   placeholder="name@university.edu"
@@ -155,7 +155,7 @@ export default function ApplicantRegister() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#5BA3D0] text-white font-bold text-sm hover:bg-[#1F3A70] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#2a5298] text-white font-bold text-sm hover:bg-[#1a3a6b] transition-colors disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
               {t('applicantRegister.sendCode')}
@@ -175,7 +175,7 @@ export default function ApplicantRegister() {
                   autoComplete="one-time-code"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  className={`w-full rounded-lg border border-[#dde3ef] py-2.5 text-sm tracking-widest font-mono focus:ring-2 focus:ring-[#5BA3D0] outline-none ${
+                  className={`w-full rounded-lg border border-[#dde3ef] py-2.5 text-sm tracking-widest font-mono focus:ring-2 focus:ring-[#2a5298] outline-none ${
                     isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'
                   }`}
                   placeholder="••••••"
@@ -187,7 +187,7 @@ export default function ApplicantRegister() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#5BA3D0] text-white font-bold text-sm hover:bg-[#1F3A70] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#2a5298] text-white font-bold text-sm hover:bg-[#1a3a6b] transition-colors disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
               {t('applicantRegister.verify')}
@@ -199,7 +199,7 @@ export default function ApplicantRegister() {
                 setOtp('')
                 setError('')
               }}
-              className="w-full text-sm text-[#5BA3D0] font-semibold hover:text-[#1F3A70] hover:underline transition-colors"
+              className="w-full text-sm text-[#2a5298] font-semibold hover:text-[#1a3a6b] hover:underline transition-colors"
             >
               {t('applicantRegister.changeEmail')}
             </button>
@@ -214,7 +214,7 @@ export default function ApplicantRegister() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full rounded-lg border border-[#dde3ef] py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#5BA3D0] outline-none"
+                className="w-full rounded-lg border border-[#dde3ef] py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#2a5298] outline-none"
                 placeholder={t('applicantRegister.displayNamePlaceholder')}
               />
             </div>
@@ -226,7 +226,7 @@ export default function ApplicantRegister() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full rounded-lg border border-[#dde3ef] py-2.5 text-sm focus:ring-2 focus:ring-[#5BA3D0] outline-none ${
+                  className={`w-full rounded-lg border border-[#dde3ef] py-2.5 text-sm focus:ring-2 focus:ring-[#2a5298] outline-none ${
                     isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'
                   }`}
                   autoComplete="new-password"
@@ -241,7 +241,7 @@ export default function ApplicantRegister() {
                 type="password"
                 value={password2}
                 onChange={(e) => setPassword2(e.target.value)}
-                className="w-full rounded-lg border border-[#dde3ef] py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#5BA3D0] outline-none"
+                className="w-full rounded-lg border border-[#dde3ef] py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#2a5298] outline-none"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -251,7 +251,7 @@ export default function ApplicantRegister() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#D4AF37] text-white font-bold text-sm hover:bg-[#b8942a] transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-[#c8a84b] text-[#1a3a6b] font-bold text-sm hover:bg-[#b8942e] transition-colors disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
               {t('applicantRegister.finish')}
@@ -261,7 +261,7 @@ export default function ApplicantRegister() {
 
         <p className="text-center text-sm text-[#6b7a99] mt-6">
           {t('applicantRegister.haveAccount')}{' '}
-          <Link to="/login/applicant" className="text-[#5BA3D0] font-bold hover:text-[#1F3A70] hover:underline transition-colors">
+          <Link to="/login/applicant" className="text-[#2a5298] font-bold hover:text-[#1a3a6b] hover:underline transition-colors">
             {t('applicantRegister.signIn')}
           </Link>
         </p>

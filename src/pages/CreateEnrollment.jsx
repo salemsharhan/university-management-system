@@ -1078,7 +1078,7 @@ export default function CreateEnrollment() {
           <span>{t('enrollments.back')}</span>
         </button>
         <div className={`flex-1 ${isRTL ? 'text-right pr-4' : 'text-left pl-4'}`}>
-          <h1 className="text-3xl font-extrabold text-[#1F3A70]">{t('enrollments.createTitle')}</h1>
+          <h1 className="text-3xl font-extrabold text-[#1a3a6b]">{t('enrollments.createTitle')}</h1>
           <p className="text-gray-600 mt-1">{t('enrollments.createSubtitle')}</p>
         </div>
       </div>
@@ -1128,7 +1128,7 @@ export default function CreateEnrollment() {
                 <div
                   className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
                     currentStep >= step.id
-                      ? 'bg-[#5BA3D0]/15 border-[#5BA3D0] text-[#1F3A70]'
+                      ? 'bg-[#2a5298]/15 border-[#2a5298] text-[#1a3a6b]'
                       : 'bg-gray-100 border-gray-300 text-gray-400'
                   }`}
                 >
@@ -1144,7 +1144,7 @@ export default function CreateEnrollment() {
               {index < steps.length - 1 && (
                 <div
                   className={`flex-1 h-1 mx-2 ${
-                    currentStep > step.id ? 'bg-[#5BA3D0]' : 'bg-gray-200'
+                    currentStep > step.id ? 'bg-[#2a5298]' : 'bg-gray-200'
                   }`}
                 />
               )}
@@ -1179,7 +1179,7 @@ export default function CreateEnrollment() {
                   setFormData(prev => ({ ...prev, academic_year_id: e.target.value, semester_id: '', student_id: '', class_ids: [] }))
                   setError('')
                 }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
               >
                 <option value="">{t('enrollments.allAcademicYears') || 'All Academic Years'}</option>
                 {academicYears.map(year => (
@@ -1198,7 +1198,7 @@ export default function CreateEnrollment() {
                   setFormData(prev => ({ ...prev, semester_id: e.target.value, student_id: '', class_ids: [] }))
                   setError('')
                 }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5BA3D0] focus:border-[#5BA3D0]"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2a5298] focus:border-[#2a5298]"
               >
                 <option value="">{t('enrollments.semesterHint')}</option>
                 {(formData.academic_year_id
@@ -1584,7 +1584,7 @@ export default function CreateEnrollment() {
         {currentStep < steps.length ? (
           <button
             onClick={handleNext}
-            className={`flex items-center px-6 py-2 bg-[#5BA3D0] text-white rounded-lg font-semibold hover:bg-[#1F3A70] hover:shadow-lg transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
+            className={`flex items-center px-6 py-2 bg-[#2a5298] text-white rounded-lg font-semibold hover:bg-[#1a3a6b] hover:shadow-lg transition-colors ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
           >
             <span>{t('enrollments.next')}</span>
             {isRTL ? <ArrowLeft className="w-4 h-4" /> : <ArrowRight className="w-4 h-4" />}
@@ -1593,7 +1593,7 @@ export default function CreateEnrollment() {
           <button
             onClick={handleSubmit}
             disabled={loading || validationErrors.length > 0}
-            className={`flex items-center px-6 py-2 bg-[#D4AF37] text-white rounded-lg font-semibold hover:bg-[#b8942a] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
+            className={`flex items-center px-6 py-2 bg-[#c8a84b] text-[#1a3a6b] rounded-lg font-semibold hover:bg-[#b8942e] hover:shadow-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : 'space-x-2'}`}
           >
             <Check className="w-4 h-4" />
             <span>{loading ? t('enrollments.enrolling') : validationErrors.length > 0 ? t('enrollments.cannotEnroll') : t('enrollments.completeEnrollment')}</span>
