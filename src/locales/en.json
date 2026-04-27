@@ -270,6 +270,17 @@
     "applyForAdmission": "Apply for admission (new applicant portal)",
     "copyright": "© 2025 University Management System. All rights reserved."
   },
+  "landing": {
+    "title": "University Portal",
+    "subtitle": "University Management System for learning, admissions, academics, and student services.",
+    "newAdmissionTitle": "New admission",
+    "newAdmissionDesc": "Create a new applicant account & start your application.",
+    "trackStatusTitle": "Track status",
+    "trackStatusDesc": "Sign in to view your application status and updates.",
+    "applyButton": "Apply for admission",
+    "portalButton": "Applicant portal",
+    "footer": "Imam Bukhari University (IBU). All rights reserved."
+  },
   "applicantPortal": {
     "sidebarNav": "Applicant navigation",
     "tagline": "Applicant portal",
@@ -1533,7 +1544,26 @@
     "twoFactorHint": "Add an extra layer of security",
     "sessionTimeout": "Session timeout (minutes)",
     "saveChanges": "Save changes",
-    "savedAlert": "Settings saved successfully."
+    "savedAlert": "Settings saved successfully.",
+    "superAdminCreate": {
+      "title": "Create Super Admin",
+      "subtitle": "Create additional Super Admin users who can access university-wide settings and administration.",
+      "name": "Name",
+      "email": "Email",
+      "password": "Password",
+      "confirm": "Confirm password",
+      "submit": "Create Super Admin",
+      "listTitle": "Super Admin users",
+      "refresh": "Refresh",
+      "none": "No super admin users found.",
+      "colName": "Name",
+      "colEmail": "Email",
+      "colCreated": "Created",
+      "invalidEmail": "Please enter a valid email.",
+      "passwordMin": "Password must be at least 6 characters.",
+      "passwordMismatch": "Passwords do not match.",
+      "success": "Super admin user created successfully."
+    }
   },
   "academic": {
     "create": "Create",

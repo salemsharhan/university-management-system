@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react'
+import LanguageToggle from '../../components/LanguageToggle'
 
 export default function LoginApplicant() {
   const { t } = useTranslation()
@@ -51,6 +52,9 @@ export default function LoginApplicant() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="relative min-h-screen" style={{ fontFamily: "'Cairo', system-ui, sans-serif" }}>
+        <div className={`absolute top-6 ${isRTL ? 'left-6' : 'right-6'} z-20`}>
+          <LanguageToggle />
+        </div>
         <Link
           to="/"
           className={`absolute top-6 ${isRTL ? 'right-6' : 'left-6'} z-20 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur hover:bg-white transition ${

@@ -354,53 +354,6 @@ export default function RegisterApplication({ portal = false }) {
     setCurrentStep(prev => Math.max(prev - 1, 1))
   }
 
-  const validateApplicationAgainstMajor = async (majorId, applicationData) => {
-    if (!majorId) return { isValid: false, errors: ['Major is required'] }
-
-    try {
-      const { data: major, error: majorError } = await supabase
-        .from('majors')
-        .select('id, validation_rules, registration_fee')
-        .eq('id', majorId)
-        .single()
-
-      if (majorError) throw majorError
-      if (!major?.validation_rules || Object.keys(major.validation_rules).length === 0) {
-        return { isValid: true, errors: [], requiresFee: paymentsEnabled ? !!major?.registration_fee : false }
-      }
-
-      const rules = major.validation_rules
-      const errors = []
-
-      if (rules.toefl_min && (!applicationData.toefl_score || applicationData.toefl_score < rules.toefl_min)) {
-        errors.push(`TOEFL score must be at least ${rules.toefl_min}`)
-      }
-      if (rules.ielts_min && (!applicationData.ielts_score || applicationData.ielts_score < rules.ielts_min)) {
-        errors.push(`IELTS score must be at least ${rules.ielts_min}`)
-      }
-      if (rules.gpa_min && (!applicationData.gpa || applicationData.gpa < rules.gpa_min)) {
-        errors.push(`High school GPA must be at least ${rules.gpa_min}`)
-      }
-      if (rules.graduation_year_min && (!applicationData.graduation_year || applicationData.graduation_year < rules.graduation_year_min)) {
-        errors.push(`Graduation year must be ${rules.graduation_year_min} or later`)
-      }
-      if (rules.certificate_types_allowed && rules.certificate_types_allowed.length > 0) {
-        if (!applicationData.certificate_type || !rules.certificate_types_allowed.includes(applicationData.certificate_type)) {
-          errors.push(`Certificate type must be one of: ${rules.certificate_types_allowed.join(', ')}`)
-        }
-      }
-
-      return {
-        isValid: errors.length === 0,
-        errors,
-        requiresFee: paymentsEnabled ? !!major?.registration_fee : false,
-      }
-    } catch (err) {
-      console.error('Error validating against major:', err)
-      return { isValid: false, errors: ['Error validating application requirements'] }
-    }
-  }
-
   const handleSubmit = async () => {
     const validationError = validateStep(currentStep)
     if (validationError) {
@@ -417,37 +370,11 @@ export default function RegisterApplication({ portal = false }) {
     setError('')
 
     try {
-      let finalStatusCode = formData.submit_as_draft ? 'APDR' : 'APSB'
-      let triggerCode = formData.submit_as_draft ? null : 'TRSB'
-      let validationResult = null
-      let legacyStatus = 'pending'
-
-      if (!formData.submit_as_draft && formData.major_id) {
-        const gpaParsed = parseDecimalField(formData.gpa, { scale: 2, min: 0, max: 4 }).value
-        const ieltsParsed = parseDecimalField(formData.ielts_score, { scale: 1, min: 0, max: 9 }).value
-        validationResult = await validateApplicationAgainstMajor(parseInt(formData.major_id), {
-          toefl_score: formData.toefl_score ? parseInt(formData.toefl_score) : null,
-          ielts_score: ieltsParsed,
-          gpa: gpaParsed,
-          graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
-          certificate_type: formData.certificate_type?.trim() || null,
-        })
-
-        if (!validationResult.isValid) {
-          finalStatusCode = 'APIV'
-          triggerCode = 'TRVF'
-          legacyStatus = 'rejected'
-        } else if (validationResult.requiresFee) {
-          // Fee is required, but payment is only enabled after documents are verified.
-          finalStatusCode = 'RVDV'
-          triggerCode = 'TRVP'
-          legacyStatus = 'pending'
-        } else {
-          finalStatusCode = 'RVQU'
-          triggerCode = 'TRVP'
-          legacyStatus = 'pending'
-        }
-      }
+      // No auto-validation / auto-rejection based on major rules.
+      // All submitted applications go to normal workflow for manual review.
+      const finalStatusCode = formData.submit_as_draft ? 'APDR' : 'APSB'
+      const triggerCode = formData.submit_as_draft ? null : 'TRSB'
+      const legacyStatus = 'pending'
 
       // Use alias fields if main fields are empty (for compatibility)
       const streetAddress = formData.street_address || formData.address || ''
@@ -512,9 +439,7 @@ export default function RegisterApplication({ portal = false }) {
           status_code: finalStatusCode,
           financial_milestone_code: 'PM00',
           status_changed_at: new Date().toISOString(),
-          review_notes: validationResult && !validationResult.isValid 
-            ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
-            : null,
+          review_notes: null,
           ...(portal && user?.id ? { applicant_user_id: user.id } : {}),
         })
         .select('id, application_number, created_at')
@@ -534,13 +459,7 @@ export default function RegisterApplication({ portal = false }) {
             to_status_code: finalStatusCode,
             trigger_code: triggerCode,
             triggered_by: null,
-            notes: validationResult && !validationResult.isValid 
-              ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
-              : validationResult?.isValid && validationResult?.requiresFee
-              ? 'Validation passed. Payment required.'
-              : validationResult?.isValid
-              ? 'Validation passed. No payment required.'
-              : 'Application submitted.',
+            notes: 'Application submitted.',
           })
           .then(() => {
             console.log('Audit log created successfully')

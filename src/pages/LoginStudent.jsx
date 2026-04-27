@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { canLoginWithoutSemesterPm10Milestone, checkFinancePermission } from '../utils/financePermissions'
 import { getPaymentsEnabled } from '../utils/getPaymentsEnabled'
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react'
+import LanguageToggle from '../components/LanguageToggle'
 
 export default function LoginStudent() {
   const [email, setEmail] = useState('')
@@ -123,6 +124,9 @@ export default function LoginStudent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       <div className="relative min-h-screen">
+        <div className="absolute top-6 right-6 z-20">
+          <LanguageToggle />
+        </div>
         {/* Back button */}
         <Link
           to="/"

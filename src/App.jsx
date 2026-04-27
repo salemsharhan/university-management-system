@@ -6,7 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import './i18n'
 import Layout from './components/Layout'
 import RoleBasedLayout from './components/RoleBasedLayout'
-import RoleSelection from './pages/RoleSelection'
+import Landing from './pages/Landing'
 import LoginAdmin from './pages/LoginAdmin'
 import LoginCollege from './pages/LoginCollege'
 import LoginInstructor from './pages/LoginInstructor'
@@ -173,7 +173,7 @@ function App() {
         <CollegeProvider>
           <BrowserRouter>
         <Routes>
-          <Route path="/" element={<RoleSelection />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/login/admin" element={<LoginAdmin />} />
           <Route path="/login/college" element={<LoginCollege />} />
           <Route path="/login/instructor" element={<LoginInstructor />} />

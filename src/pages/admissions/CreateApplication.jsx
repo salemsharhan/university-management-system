@@ -210,66 +210,6 @@ export default function CreateApplication() {
     setCurrentStep(prev => Math.max(prev - 1, 1))
   }
 
-  const validateApplicationAgainstMajor = async (majorId, applicationData) => {
-    if (!majorId) return { isValid: false, errors: ['Major is required'] }
-
-    try {
-      // Fetch major with validation rules
-      const { data: major, error: majorError } = await supabase
-        .from('majors')
-        .select('id, validation_rules, registration_fee')
-        .eq('id', majorId)
-        .single()
-
-      if (majorError) throw majorError
-      if (!major?.validation_rules || Object.keys(major.validation_rules).length === 0) {
-        // No validation rules set, application passes
-        return { isValid: true, errors: [], requiresFee: paymentsEnabled ? !!major?.registration_fee : false }
-      }
-
-      const rules = major.validation_rules
-      const errors = []
-
-      // Validate TOEFL score
-      if (rules.toefl_min && (!applicationData.toefl_score || applicationData.toefl_score < rules.toefl_min)) {
-        errors.push(`TOEFL score must be at least ${rules.toefl_min} (provided: ${applicationData.toefl_score || 'none'})`)
-      }
-
-      // Validate IELTS score
-      if (rules.ielts_min && (!applicationData.ielts_score || applicationData.ielts_score < rules.ielts_min)) {
-        errors.push(`IELTS score must be at least ${rules.ielts_min} (provided: ${applicationData.ielts_score || 'none'})`)
-      }
-
-      // Validate GPA
-      if (rules.gpa_min && (!applicationData.gpa || applicationData.gpa < rules.gpa_min)) {
-        errors.push(`High school GPA must be at least ${rules.gpa_min} (provided: ${applicationData.gpa || 'none'})`)
-      }
-
-      // Validate graduation year
-      if (rules.graduation_year_min && (!applicationData.graduation_year || applicationData.graduation_year < rules.graduation_year_min)) {
-        errors.push(`Graduation year must be ${rules.graduation_year_min} or later (provided: ${applicationData.graduation_year || 'none'})`)
-      }
-
-      // Validate certificate type
-      if (rules.certificate_types_allowed && rules.certificate_types_allowed.length > 0) {
-        if (!applicationData.certificate_type || !rules.certificate_types_allowed.includes(applicationData.certificate_type)) {
-          errors.push(`Certificate type must be one of: ${rules.certificate_types_allowed.join(', ')} (provided: ${applicationData.certificate_type || 'none'})`)
-        }
-      }
-
-      return {
-        isValid: errors.length === 0,
-        errors,
-        requiresFee: paymentsEnabled ? !!major?.registration_fee : false,
-        requiresInterview: rules.requires_interview || false,
-        requiresEntranceExam: rules.requires_entrance_exam || false,
-      }
-    } catch (err) {
-      console.error('Error validating against major:', err)
-      return { isValid: false, errors: ['Error validating application requirements'] }
-    }
-  }
-
   const handleSubmit = async () => {
     const validationError = validateStep(currentStep)
     if (validationError) {
@@ -287,38 +227,11 @@ export default function CreateApplication() {
     setSuccess(false)
 
     try {
-      let finalStatusCode = formData.submit_as_draft ? 'APDR' : 'APSB'
-      let triggerCode = formData.submit_as_draft ? null : 'TRSB' // Applicant submitted application
-      let validationResult = null
-      let legacyStatus = 'pending'
-
-      // If submitting (not draft), validate against major rules
-      if (!formData.submit_as_draft && formData.major_id) {
-        validationResult = await validateApplicationAgainstMajor(parseInt(formData.major_id), {
-          toefl_score: formData.toefl_score ? parseInt(formData.toefl_score) : null,
-          ielts_score: formData.ielts_score ? parseFloat(formData.ielts_score) : null,
-          gpa: formData.gpa ? parseFloat(formData.gpa) : null,
-          graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
-          certificate_type: formData.certificate_type?.trim() || null,
-        })
-
-        if (!validationResult.isValid) {
-          // Validation failed - move to APIV (Application Invalid)
-          finalStatusCode = 'APIV'
-          triggerCode = 'TRVF' // Auto validation failed
-          legacyStatus = 'rejected'
-        } else if (validationResult.requiresFee && paymentsEnabled) {
-          // Validation passed and fee required - move to APPN (Application Payment Pending)
-          finalStatusCode = 'APPN'
-          triggerCode = 'TRPW' // Payment required
-          legacyStatus = 'pending'
-        } else {
-          // Validation passed and no fee required - move to RVQU (Review Queue)
-          finalStatusCode = 'RVQU'
-          triggerCode = 'TRVP' // Auto validation passed
-          legacyStatus = 'pending'
-        }
-      }
+      // No auto-validation / auto-rejection based on major rules.
+      // Submissions follow the normal workflow for manual review.
+      const finalStatusCode = formData.submit_as_draft ? 'APDR' : 'APSB'
+      const triggerCode = formData.submit_as_draft ? null : 'TRSB' // Submitted
+      const legacyStatus = 'pending'
 
       const { data: application, error } = await supabase
         .from('applications')
@@ -369,9 +282,7 @@ export default function CreateApplication() {
           status_code: finalStatusCode,
           financial_milestone_code: 'PM00', // Start with no payment
           status_changed_at: new Date().toISOString(),
-          review_notes: validationResult && !validationResult.isValid 
-            ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
-            : null,
+          review_notes: null,
         })
         .select()
         .single()
@@ -389,13 +300,7 @@ export default function CreateApplication() {
             to_status_code: finalStatusCode,
             trigger_code: triggerCode,
             triggered_by: null, // System-triggered
-            notes: validationResult && !validationResult.isValid 
-              ? `Auto-validation failed: ${validationResult.errors.join('; ')}` 
-              : validationResult?.isValid && validationResult?.requiresFee
-              ? 'Validation passed. Payment required.'
-              : validationResult?.isValid
-              ? 'Validation passed. No payment required.'
-              : 'Application submitted.',
+            notes: 'Application submitted.',
           })
 
         if (auditError) console.error('Error logging status change:', auditError)
