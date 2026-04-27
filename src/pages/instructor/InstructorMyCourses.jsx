@@ -340,9 +340,6 @@ export default function InstructorMyCourses() {
             ))}
             {semesters.length === 0 && <option value="">{semesterLabel || ''}</option>}
           </select>
-          <Link to="/instructor/templates" className="btn btn-gh">
-            📋 {t('instructorPortal.templates')}
-          </Link>
         </div>
       </div>
 

@@ -8,6 +8,27 @@ export default function FinancialSettings({ formData, handleChange }) {
   
   return (
     <div className="space-y-8">
+      {/* Payments toggle */}
+      <div className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-between'} p-4 bg-amber-50 border border-amber-200 rounded-lg`}>
+        <div>
+          <label className="text-sm font-semibold text-amber-900">
+            {t('colleges.financialSettings.paymentsEnabled', 'Enable payments')}
+          </label>
+          <p className="text-xs text-amber-800">
+            {t(
+              'colleges.financialSettings.paymentsEnabledDesc',
+              'When disabled, admission and student portal will not require payments and invoice menus will be hidden.',
+            )}
+          </p>
+        </div>
+        <input
+          type="checkbox"
+          checked={formData.payments_enabled !== false}
+          onChange={(e) => handleChange('payments_enabled', e.target.checked)}
+          className="rounded border-amber-300 text-primary-600 focus:ring-primary-500"
+        />
+      </div>
+
       {/* Payment Gateway Settings */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('colleges.financialSettings.paymentGatewaySettings')}</h3>

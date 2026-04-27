@@ -108,7 +108,7 @@ export default function StudentExamRoom() {
 
         const { data: sub } = await supabase
           .from('exam_submissions')
-          .select('id, exam_id, student_id, enrollment_id, submission_data, status, submitted_at')
+          .select('id, exam_id, student_id, enrollment_id, submission_data, status, submitted_at, started_at')
           .eq('exam_id', ex.id)
           .eq('student_id', st.id)
           .maybeSingle()
@@ -122,7 +122,7 @@ export default function StudentExamRoom() {
 
         const start = combineDateTime(ex.scheduled_date, ex.start_time)
         const end = combineDateTime(ex.scheduled_date, ex.end_time)
-        const dur = Number(ex.duration_minutes || 0) * 60
+        const durationSec = Number(ex.duration_minutes || 0) * 60
 
         const now = Date.now()
         const endMs = end?.getTime()
@@ -156,10 +156,52 @@ export default function StudentExamRoom() {
         const shuffled = settings.shuffle_questions ? [...normalized].sort(() => Math.random() - 0.5) : normalized
         setQuestions(shuffled)
 
-        if (endMs) {
+        // Determine remaining time:
+        // - If duration_minutes is set, timing starts when the student opens the exam (started_at).
+        // - end_time (if set) is treated as an absolute cap (min).
+        let startedAt = sub?.started_at ? new Date(sub.started_at).getTime() : null
+        if (durationSec > 0 && !startedAt) {
+          // Create/patch a draft row to capture started_at immediately.
+          const startedIso = new Date().toISOString()
+          if (sub?.id) {
+            await supabase.from('exam_submissions').update({ started_at: startedIso }).eq('id', sub.id)
+            startedAt = new Date(startedIso).getTime()
+            setSubmission((prev) => (prev ? { ...prev, started_at: startedIso } : prev))
+          } else {
+            const initialPayload = {
+              answers: prevData.answers || {},
+              flagged: prevData.flagged || {},
+              qIndex: Number(prevData.qIndex || 0) || 0,
+              optionOrder: prevData.optionOrder || {},
+            }
+            const row = {
+              exam_id: ex.id,
+              student_id: st.id,
+              enrollment_id: enr.id,
+              submission_data: initialPayload,
+              status: 'EX_DRF',
+              started_at: startedIso,
+              updated_at: startedIso,
+            }
+            const { data: created, error: cErr } = await supabase
+              .from('exam_submissions')
+              .insert(row)
+              .select('id, submission_data, status, started_at')
+              .single()
+            if (!cErr && created?.id) {
+              startedAt = new Date(created.started_at).getTime()
+              setSubmission(created)
+            }
+          }
+        }
+
+        if (durationSec > 0 && startedAt) {
+          const durEndMs = startedAt + durationSec * 1000
+          const effectiveEndMs = endMs ? Math.min(endMs, durEndMs) : durEndMs
+          setRemainingSec(Math.max(0, Math.floor((effectiveEndMs - now) / 1000)))
+        } else if (endMs) {
+          // Fallback: no duration → use scheduled end window.
           setRemainingSec(Math.max(0, Math.floor((endMs - now) / 1000)))
-        } else if (dur) {
-          setRemainingSec(dur)
         } else {
           setRemainingSec(0)
         }
@@ -259,6 +301,7 @@ export default function StudentExamRoom() {
         enrollment_id: enrollment.id,
         submission_data: payload,
         status: 'EX_DRF',
+        started_at: submission?.started_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
 
@@ -294,7 +337,10 @@ export default function StudentExamRoom() {
 
   const submitFinal = async () => {
     if (!student?.id || !enrollment?.id || !exam?.id) return
-    if (remainingSec <= 0) return
+    if (submission?.status === 'EX_SUB') {
+      navigate(`/student/elearning/exams/${exam.id}/submitted`)
+      return
+    }
     try {
       const nowIso = new Date().toISOString()
       const payload = { answers, flagged, qIndex, optionOrder, submitted: true }
@@ -304,6 +350,7 @@ export default function StudentExamRoom() {
         enrollment_id: enrollment.id,
         submission_data: payload,
         status: 'EX_SUB',
+        started_at: submission?.started_at || nowIso,
         submitted_at: nowIso,
         updated_at: nowIso,
       }

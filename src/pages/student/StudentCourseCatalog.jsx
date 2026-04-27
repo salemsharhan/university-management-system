@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { getLocalizedName } from '../../utils/localizedName'
 import { getStudentSemesterMilestone, checkFinancePermission } from '../../utils/financePermissions'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import { supabase } from '../../lib/supabase'
 
 const UI = {
@@ -138,8 +139,9 @@ export default function StudentCourseCatalog() {
 
   const checkFinancialStatus = async () => {
     if (!student?.id || !selectedSemesterId) return
+    const paymentsEnabled = await getPaymentsEnabled(student.college_id).catch(() => true)
     const { milestone, hold } = await getStudentSemesterMilestone(student.id, parseInt(selectedSemesterId))
-    const check = checkFinancePermission('SE_REG', milestone, hold)
+    const check = checkFinancePermission('SE_REG', milestone, hold, null, paymentsEnabled)
     setRegistrationAllowed(check.allowed)
     setFinancialHold(!!hold || !check.allowed)
   }

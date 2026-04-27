@@ -62,9 +62,19 @@ export const getStudentSemesterMilestone = async (studentId, semesterId) => {
  * @param {string} financialMilestoneCode - Current financial milestone (e.g., 'PM00', 'PM10', 'PM30', 'PM60', 'PM90', 'PM100')
  * @param {string} financialHoldCode - Current financial hold code (optional, e.g., 'FHNP', 'FHPP', 'FHOD', 'FHCH', 'FHEX')
  * @param {string} gradesVisibilityStatus - Grades visibility status for subject actions (optional, e.g., 'GV_HID', 'GV_REL')
+ * @param {boolean} paymentsEnabled - When false, bypass all finance gating (optional)
  * @returns {object} { allowed: boolean, reason: string }
  */
-export const checkFinancePermission = (actionCode, financialMilestoneCode = 'PM00', financialHoldCode = null, gradesVisibilityStatus = null) => {
+export const checkFinancePermission = (
+  actionCode,
+  financialMilestoneCode = 'PM00',
+  financialHoldCode = null,
+  gradesVisibilityStatus = null,
+  paymentsEnabled = true,
+) => {
+  if (paymentsEnabled === false) {
+    return { allowed: true, reason: null }
+  }
   // Map of finance milestone codes to their numeric threshold
   const milestoneThresholds = {
     'PM00': 0,

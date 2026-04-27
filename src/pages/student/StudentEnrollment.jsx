@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { ArrowLeft, CreditCard } from 'lucide-react'
 import { getStudentSemesterMilestone, checkFinancePermission } from '../../utils/financePermissions'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 
 const UI = {
   p: '#1a3a6b',
@@ -208,8 +209,9 @@ export default function StudentEnrollment() {
   const checkFinanceGate = async () => {
     try {
       if (!student?.id || !formData.semester_id) return
+      const paymentsEnabled = await getPaymentsEnabled(student.college_id).catch(() => true)
       const { milestone, hold } = await getStudentSemesterMilestone(student.id, parseInt(formData.semester_id))
-      const check = checkFinancePermission('SE_REG', milestone, hold)
+      const check = checkFinancePermission('SE_REG', milestone, hold, null, paymentsEnabled)
       setFinanceBlockReason(check.allowed ? '' : (check.reason || 'Financial hold'))
     } catch (e) {
       console.error('Finance gate error:', e)
@@ -558,8 +560,9 @@ export default function StudentEnrollment() {
 
       // Check financial milestone (requires PM30 for enrollment)
       if (currentSemester) {
+        const paymentsEnabled = await getPaymentsEnabled(student?.college_id).catch(() => true)
         const { milestone, hold } = await getStudentSemesterMilestone(parseInt(formData.student_id), currentSemester.id)
-        const financeCheck = checkFinancePermission('SE_REG', milestone, hold)
+        const financeCheck = checkFinancePermission('SE_REG', milestone, hold, null, paymentsEnabled)
         if (!financeCheck.allowed) {
           errors.push(`Financial: ${financeCheck.reason}`)
         }

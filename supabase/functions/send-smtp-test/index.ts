@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
+import { buildBrandedEmailHtml, buildPlainTextEmail } from './email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -133,6 +134,10 @@ async function sendSmtpMessage(cfg: SmtpShape, to: string, subject: string, text
       subject,
       text,
       html,
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      },
     })
   } finally {
     transporter.close()
@@ -354,10 +359,17 @@ serve(async (req) => {
       scope === 'university'
         ? 'University SMTP test'
         : 'College SMTP test'
-    const text =
+    const message =
       'This is a test message from your university management system SMTP settings.\n\nIf you received this email, your configuration is working.'
-    const html =
-      '<p>This is a <strong>test message</strong> from your university management system SMTP settings.</p><p>If you received this email, your configuration is working.</p>'
+    const text = buildPlainTextEmail({ subject, message })
+    const html = buildBrandedEmailHtml({
+      brandName: smtpCfg.fromName,
+      brandEmail: smtpCfg.fromEmail || smtpCfg.username,
+      subject,
+      message,
+      metaLabel: scope === 'university' ? 'Scope' : 'Scope',
+      metaValue: scope,
+    })
 
     await sendSmtpMessage(smtpCfg, to, subject, text, html)
 

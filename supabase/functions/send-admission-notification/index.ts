@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
+import { buildBrandedEmailHtml, buildPlainTextEmail } from './email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -90,66 +91,31 @@ async function sendSmtpMessage(cfg: SmtpShape, to: string, subject: string, text
           }
         : undefined,
     ignoreTLS: plainNoTls,
-    tls: plainNoTls ? { rejectUnauthorized: false } : undefined,
+    tls: plainNoTls ? { rejectUnauthorized: false } : { minVersion: 'TLSv1.2' as const },
   })
 
-  await transporter.sendMail({
-    from: effective.fromName ? `"${effective.fromName}" <${effective.fromEmail}>` : effective.fromEmail,
-    to,
-    subject,
-    text,
-    html,
-  })
+  const fromAddr =
+    effective.fromName && effective.fromEmail
+      ? `"${String(effective.fromName).replace(/"/g, '\\"')}" <${effective.fromEmail}>`
+      : effective.fromEmail || effective.username
+
+  try {
+    await transporter.sendMail({
+      from: fromAddr,
+      to,
+      subject,
+      text,
+      html,
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      },
+    })
+  } finally {
+    transporter.close()
+  }
 }
 
-function escapeHtml(s: string) {
-  return s
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
-function buildEmailHtml(params: { subject: string; message: string; appNo?: string; type?: string }) {
-  const msg = escapeHtml(params.message).replaceAll('\n', '<br/>')
-  const appNo = params.appNo ? escapeHtml(params.appNo) : ''
-  return `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(params.subject)}</title>
-    <style>
-      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 0; background: #f4f6fb; color: #1e2a3a; }
-      .wrap { max-width: 640px; margin: 0 auto; padding: 28px 16px; }
-      .card { background: #ffffff; border: 1px solid #dde3ef; border-radius: 12px; padding: 22px; }
-      .brand { display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
-      .logo { width: 40px; height: 40px; border-radius: 10px; background: #1a3a6b; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; }
-      .title { font-size: 18px; font-weight: 800; color: #1a3a6b; margin: 0; }
-      .meta { margin-top: 6px; color: #6b7a99; font-size: 13px; }
-      .pill { display:inline-block; padding: 4px 10px; border-radius: 999px; background: #e6f7ef; color: #1a7a4a; font-weight: 700; font-size: 12px; }
-      .msg { margin-top: 14px; font-size: 14px; line-height: 1.7; color: #1e2a3a; }
-      .foot { margin-top: 16px; color: #6b7a99; font-size: 12px; }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="card">
-        <div class="brand">
-          <div class="logo">IBU</div>
-          <div>
-            <p class="title">${escapeHtml(params.subject)}</p>
-            ${appNo ? `<div class="meta">Application: <span class="pill">${appNo}</span></div>` : `<div class="meta">Admissions notification</div>`}
-          </div>
-        </div>
-        <div class="msg">${msg}</div>
-        <div class="foot">Please do not reply to this email. For support, contact the admissions office.</div>
-      </div>
-    </div>
-  </body>
-</html>`
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
@@ -324,8 +290,17 @@ serve(async (req) => {
       })
     }
 
-    const html = buildEmailHtml({ subject, message, appNo, type })
-    const text = `${subject}\n\n${message}${appNo ? `\n\nApplication: ${appNo}` : ''}`
+    const brandName = smtpCfg?.fromName || ''
+    const brandEmail = smtpCfg?.fromEmail || ''
+    const html = buildBrandedEmailHtml({
+      brandName,
+      brandEmail,
+      subject,
+      message,
+      metaLabel: appNo ? 'Application' : '',
+      metaValue: appNo || '',
+    })
+    const text = buildPlainTextEmail({ subject, message, metaLine: appNo ? `Application: ${appNo}` : '' })
     await sendSmtpMessage(smtpCfg, to, subject, text, html)
 
     return new Response(JSON.stringify({ success: true }), {

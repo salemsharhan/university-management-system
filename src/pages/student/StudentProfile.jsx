@@ -246,7 +246,7 @@ export default function StudentProfile() {
 
             <div className="mt-4 rounded-md border-r-4 border-blue-700 bg-[#dbeafe] text-blue-700 px-4 py-3 text-sm">
               ℹ️ {t('studentPortal.profile.personalInfoNotePrefix', { defaultValue: 'To change your name, date of birth, or nationality, please submit a' })}{' '}
-              <Link to="/student/coming-soon" className="underline">
+              <Link to="/student/requests" className="underline">
                 {t('studentPortal.profile.dataChangeRequest', { defaultValue: 'data change request' })}
               </Link>{' '}
               {t('studentPortal.profile.personalInfoNoteSuffix', { defaultValue: 'with supporting documents.' })}

@@ -8,6 +8,7 @@ import { createStudentFromApplication } from '../../utils/createStudentFromAppli
 import { getLocalizedName } from '../../utils/localizedName'
 import { resolveOnboardingFeeAmount } from '../../utils/resolveOnboardingFeeAmount'
 import { resolveRegistrationFeeAmount } from '../../utils/resolveRegistrationFeeAmount'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Mail, Phone, MapPin, Calendar, GraduationCap, FileText, User, AlertCircle, BookOpen, Edit, Save, X, ChevronDown, ChevronUp, ArrowRight, Info, Sparkles, Shield, TrendingUp, ArrowDown } from 'lucide-react'
 
 const TIMELINE_TRIGGER_ICONS = {
@@ -537,15 +538,39 @@ function EditApplicationModal({
               <label className="text-sm font-medium text-gray-700">Scholarship Request</label>
             </div>
             {formData.scholarship_request && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Percentage</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.scholarship_percentage || ''}
-                  onChange={(e) => handleFieldChange('scholarship_percentage', e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('admissions.viewApplication.detail.scholarshipType')}
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.scholarship_type || ''}
+                    onChange={(e) => handleFieldChange('scholarship_type', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Scholarship Percentage</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.scholarship_percentage || ''}
+                    onChange={(e) => handleFieldChange('scholarship_percentage', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('admissions.viewApplication.detail.scholarshipDetails')}
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={formData.scholarship_details || ''}
+                    onChange={(e) => handleFieldChange('scholarship_details', e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -753,6 +778,7 @@ export default function ViewApplication() {
   
   const [loading, setLoading] = useState(true)
   const [application, setApplication] = useState(null)
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
   const [error, setError] = useState('')
   const [updating, setUpdating] = useState(false)
   
@@ -809,14 +835,22 @@ export default function ViewApplication() {
     return { idOk, trOk, allOk: idOk && trOk }
   }, [applicationDocuments])
 
+  /** ID + transcript verified, and every uploaded document row verified (e.g. scholarship files). */
+  const offerLetterDocumentsReady = useMemo(() => {
+    const docs = Array.isArray(applicationDocuments) ? applicationDocuments : []
+    if (docs.length === 0 || !coreDocVerified.allOk) return false
+    return docs.every((d) => !!d.verified_at)
+  }, [applicationDocuments, coreDocVerified.allOk])
+
   const canReceiveRegistrationFee = useMemo(() => {
+    if (!paymentsEnabled) return false
     const code = String(application?.status_code || '').toUpperCase()
     if (!application?.id) return false
     if (application?.registration_fee_paid_at) return false
     if (!coreDocVerified.allOk) return false
     // We only collect the registration fee after document verification step
     return code === 'RVDV' || code === 'RVRC' || code === 'RVIN'
-  }, [application?.id, application?.status_code, application?.registration_fee_paid_at, coreDocVerified.allOk])
+  }, [paymentsEnabled, application?.id, application?.status_code, application?.registration_fee_paid_at, coreDocVerified.allOk])
 
   const openReceiveFeeModal = async () => {
     setError('')
@@ -835,6 +869,48 @@ export default function ViewApplication() {
     setReceivingFee(true)
     setError('')
     try {
+      const paymentsEnabled = await getPaymentsEnabled(application.college_id).catch(() => true)
+      if (!paymentsEnabled) {
+        const now = new Date().toISOString()
+        const from = application.status_code || null
+        const nextStatus = 'RVQU'
+
+        const { error: updErr } = await supabase
+          .from('applications')
+          .update({
+            registration_fee_amount: 0,
+            status_code: nextStatus,
+            status: 'pending',
+            status_changed_at: now,
+          })
+          .eq('id', applicationId)
+        if (updErr) throw updErr
+
+        await supabase.from('status_change_audit_log').insert({
+          entity_type: 'application',
+          entity_id: applicationId,
+          from_status_code: from,
+          to_status_code: nextStatus,
+          transition_reason_code: null,
+          trigger_code: 'TRVP',
+          notes: 'Application status updated.',
+        })
+
+        setApplication((prev) =>
+          prev
+            ? {
+                ...prev,
+                registration_fee_amount: 0,
+                status_code: nextStatus,
+                status: 'pending',
+                status_changed_at: now,
+              }
+            : prev
+        )
+        setShowReceiveFeeModal(false)
+        return
+      }
+
       const amt = Number(receiveFeeAmount)
       if (!Number.isFinite(amt) || amt <= 0) throw new Error('Fee amount is required.')
       const now = new Date().toISOString()
@@ -1019,6 +1095,7 @@ export default function ViewApplication() {
 
       if (error) throw error
       setApplication(data)
+      getPaymentsEnabled(data?.college_id).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
 
       // Fetch uploaded documents + outstanding requests (side effects; do not block primary view)
       setLoadingDocuments(true)
@@ -1282,12 +1359,23 @@ export default function ViewApplication() {
 
   const handleSendOfferLetter = async () => {
     if (!applicationId || !application) return
+    if (!offerLetterDocumentsReady) {
+      setError(
+        t(
+          'admissions.viewApplication.sendOfferLetterBlockedDocuments',
+          'Verify the ID photo, transcript, and every other uploaded document before sending the offer letter.',
+        ),
+      )
+      return
+    }
     setSendingOffer(true)
     setError('')
     try {
       const deadlineIso = offerDeadline ? new Date(offerDeadline).toISOString() : null
-      const amountNum = tuitionAmount !== '' ? Number(tuitionAmount) : null
-      if (!Number.isFinite(amountNum) || Number(amountNum) <= 0) {
+      let amountNum = tuitionAmount !== '' ? Number(tuitionAmount) : null
+      if (!paymentsEnabled) {
+        amountNum = 0
+      } else if (!Number.isFinite(amountNum) || Number(amountNum) <= 0) {
         throw new Error('Tuition fee amount is required.')
       }
 
@@ -1312,7 +1400,9 @@ export default function ViewApplication() {
         to_status_code: 'DCCA',
         transition_reason_code: null,
         trigger_code: 'TROF',
-        notes: `Offer letter sent. Tuition fee: ${amountNum}.`,
+        notes: paymentsEnabled
+          ? `Offer letter sent. Tuition fee: ${amountNum}.`
+          : 'Offer letter sent.',
       })
 
       setApplication((prev) =>
@@ -1333,10 +1423,15 @@ export default function ViewApplication() {
         const subject = t('offerLetter.emailSentSubject', 'Your offer letter is ready')
         const message =
           offerMessage?.trim() ||
-          t(
-            'offerLetter.emailSentBody',
-            'Please log in to your applicant portal to view your offer letter and pay the tuition fee before the deadline.'
-          )
+          (paymentsEnabled
+            ? t(
+                'offerLetter.emailSentBody',
+                'Please log in to your applicant portal to view your offer letter and pay the tuition fee before the deadline.',
+              )
+            : t(
+                'offerLetter.emailSentBodyPortal',
+                'Please log in to your applicant portal to view your offer letter.',
+              ))
         await supabase.functions.invoke('send-admission-notification', {
           body: {
             scope: 'college',
@@ -1679,6 +1774,8 @@ export default function ViewApplication() {
       personal_statement: application.personal_statement || '',
       scholarship_request: application.scholarship_request || false,
       scholarship_percentage: application.scholarship_percentage ? String(application.scholarship_percentage) : '',
+      scholarship_type: application.scholarship_type || '',
+      scholarship_details: application.scholarship_details || '',
       enrollment_date: application.enrollment_date || '',
     })
     await fetchEditMajors()
@@ -1817,9 +1914,16 @@ export default function ViewApplication() {
               })()
               setShowOfferModal(true)
             }}
-            disabled={updating || sendingOffer || !application?.registration_fee_paid_at}
+            disabled={updating || sendingOffer || !offerLetterDocumentsReady}
             className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!application?.registration_fee_paid_at ? 'Registration fee must be paid first' : undefined}
+            title={
+              !updating && !sendingOffer && !offerLetterDocumentsReady
+                ? t(
+                    'admissions.viewApplication.sendOfferLetterBlockedDocuments',
+                    'Verify the ID photo, transcript, and every other uploaded document before sending the offer letter.',
+                  )
+                : undefined
+            }
           >
             <Mail className="w-4 h-4" />
             <span>{t('admissions.viewApplication.sendOfferLetter', 'Send offer letter')}</span>
@@ -2274,10 +2378,15 @@ export default function ViewApplication() {
                   {t('admissions.viewApplication.sendOfferLetter', 'Send offer letter')}
                 </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  {t(
-                    'admissions.viewApplication.sendOfferLetterHint',
-                    'Set the tuition fee amount and deadline. The applicant will receive an email and can pay tuition from the offer letter screen.'
-                  )}
+                  {paymentsEnabled
+                    ? t(
+                        'admissions.viewApplication.sendOfferLetterHint',
+                        'Set the tuition fee amount and deadline. The applicant will receive an email and can pay tuition from the offer letter screen.',
+                      )
+                    : t(
+                        'admissions.viewApplication.sendOfferLetterHintPortal',
+                        'The applicant will receive an email with a link to view the offer letter in their portal.',
+                      )}
                 </p>
               </div>
               <button type="button" onClick={() => setShowOfferModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
@@ -2286,30 +2395,34 @@ export default function ViewApplication() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
-                <div className="font-semibold">
-                  {t('admissions.viewApplication.tuitionTotal', 'Total semester fees')}:{' '}
-                  <span className="font-mono">{Number(tuitionTotalAmount || 0).toFixed(2)}</span>
-                </div>
-                <div className="mt-1 text-xs text-gray-600">
-                  {t('admissions.viewApplication.onboardingPercentNote', 'Onboarding payment is 10% (PM10).')}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  {t('admissions.viewApplication.tuitionAmount', 'Tuition fee amount')}
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={tuitionAmount}
-                  onChange={(e) => setTuitionAmount(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                  placeholder="0.00"
-                  disabled
-                />
-              </div>
+              {paymentsEnabled && (
+                <>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
+                    <div className="font-semibold">
+                      {t('admissions.viewApplication.tuitionTotal', 'Total semester fees')}:{' '}
+                      <span className="font-mono">{Number(tuitionTotalAmount || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="mt-1 text-xs text-gray-600">
+                      {t('admissions.viewApplication.onboardingPercentNote', 'Onboarding payment is 10% (PM10).')}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      {t('admissions.viewApplication.tuitionAmount', 'Tuition fee amount')}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={tuitionAmount}
+                      onChange={(e) => setTuitionAmount(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      placeholder="0.00"
+                      disabled
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -2615,6 +2728,7 @@ export default function ViewApplication() {
                 </h2>
               </div>
               <div className={`flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
+                {paymentsEnabled && (
                 <button
                   type="button"
                   onClick={openReceiveFeeModal}
@@ -2623,6 +2737,7 @@ export default function ViewApplication() {
                 >
                   {t('admissions.viewApplication.receiveRegistrationFee', 'Receive registration fee')}
                 </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowRequestDocsModal(true)}
@@ -2652,7 +2767,11 @@ export default function ViewApplication() {
                         <li key={doc.id} className={`py-4 flex items-start justify-between gap-4 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
                           <div className="min-w-0">
                             <div className={`flex items-center gap-2 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
-                              <span className="font-semibold text-gray-900 text-sm">{doc.document_type}</span>
+                              <span className="font-semibold text-gray-900 text-sm">
+                                {t(`admissions.viewApplication.documentTypes.${doc.document_type}`, {
+                                  defaultValue: doc.document_type,
+                                })}
+                              </span>
                               {verified ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold">
                                   <CheckCircle className="w-3.5 h-3.5" />
@@ -2725,7 +2844,7 @@ export default function ViewApplication() {
             )}
           </div>
 
-          {showReceiveFeeModal && (
+          {paymentsEnabled && showReceiveFeeModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
                 <div className={`flex items-start justify-between gap-3 mb-4 ${isArabicLayout ? 'flex-row-reverse' : ''}`}>
@@ -3044,7 +3163,10 @@ export default function ViewApplication() {
           )}
 
           {/* Additional Information */}
-          {(application?.personal_statement || application?.scholarship_request) && (
+          {(application?.personal_statement ||
+            application?.scholarship_request ||
+            application?.scholarship_type ||
+            application?.scholarship_details) && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
               <div className={`flex items-center gap-2 mb-6 ${isArabicLayout ? 'justify-start' : ''}`}>
                 {isArabicLayout ? (
@@ -3072,14 +3194,37 @@ export default function ViewApplication() {
                 </div>
               )}
               {application.scholarship_request && (
-                <div>
-                  <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
-                    {t('admissions.viewApplication.detail.scholarshipRequest')}
-                  </label>
-                  <p className={`text-gray-900 ${alignStart}`}>
-                    {t('admissions.viewApplication.detail.scholarshipYes')}{' '}
-                    {application.scholarship_percentage && `(${application.scholarship_percentage}%)`}
-                  </p>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className={`text-sm font-bold text-gray-800 mb-2 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.scholarshipSection')}
+                    </h3>
+                    <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.scholarshipRequest')}
+                    </label>
+                    <p className={`text-gray-900 ${alignStart}`}>
+                      {t('admissions.viewApplication.detail.scholarshipYes')}{' '}
+                      {application.scholarship_percentage != null &&
+                        application.scholarship_percentage !== '' &&
+                        `(${application.scholarship_percentage}%)`}
+                    </p>
+                  </div>
+                  {application.scholarship_type && (
+                    <div>
+                      <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                        {t('admissions.viewApplication.detail.scholarshipType')}
+                      </label>
+                      <p className={`text-gray-900 ${alignStart}`}>{application.scholarship_type}</p>
+                    </div>
+                  )}
+                  {application.scholarship_details && (
+                    <div>
+                      <label className={`block text-sm font-medium text-gray-500 mb-1 ${alignStart}`}>
+                        {t('admissions.viewApplication.detail.scholarshipDetails')}
+                      </label>
+                      <p className={`text-gray-900 whitespace-pre-wrap ${alignStart}`}>{application.scholarship_details}</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

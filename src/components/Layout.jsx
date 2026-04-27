@@ -292,6 +292,7 @@ const adminNavigation = [
       { name: 'Build lessons', translationKey: 'navigation.buildLessonsAdmin', href: '/academic/classes/build-lessons' },
       { name: 'Curriculum map', translationKey: 'navigation.curriculumMap', href: '/admin/curriculum-map' },
       { name: 'Rubric builder', translationKey: 'navigation.rubricBuilderAdmin', href: '/admin/rubric-builder' },
+      { name: 'e‑Library', translationKey: 'navigation.elibrary', href: '/admin/elibrary' },
     ],
   },
   {

@@ -7,6 +7,7 @@ import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
 import { canLoginWithoutSemesterPm10Milestone } from '../../utils/financePermissions'
 import PaymentModal from '../../components/payment/PaymentModal'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import {
   CheckCircle,
   XCircle,
@@ -69,6 +70,7 @@ export default function ApplicationStatus() {
   const [error, setError] = useState('')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null)
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
   const [studentInvoices, setStudentInvoices] = useState([])
   const [applicationInvoices, setApplicationInvoices] = useState([])
   const [student, setStudent] = useState(null)
@@ -343,6 +345,7 @@ export default function ApplicationStatus() {
       }
 
       setApplication(data)
+      getPaymentsEnabled(data.college_id).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
     } catch (err) {
       console.error('Error fetching application:', err)
       setError('Failed to load application. Please try again.')
@@ -459,42 +462,46 @@ export default function ApplicationStatus() {
     const paymentDate = formatDate(application?.registration_fee_paid_at) || findLogDate(['APPC'])
     const latestUploadAt = latestDocumentsUploadedAt ? formatDate(new Date(latestDocumentsUploadedAt).toISOString()) : null
     const hasAnyDocs = (Array.isArray(applicationDocuments) ? applicationDocuments.length : 0) > 0
+    // When payments are off, applicants never enter APPN/APPC; treat post-submit as after APSB for doc-flow UI.
+    const docFlowGateIdx = paymentsEnabled ? getStageIndex('APPC') : getStageIndex('APSB')
+
+    const paymentStage = {
+      key: 'payment',
+      title: t('track.stages.paymentConfirmation', 'Payment confirmation'),
+      desc: t('track.stages.paymentConfirmationDesc', 'Your payment is being processed / confirmed'),
+      date: paymentDate,
+      status: application?.registration_fee_paid_at
+        ? 'completed'
+        : String(application?.status_code || '').toUpperCase() === 'APPN'
+          ? 'in_progress'
+          : 'pending',
+    }
 
     const stages = [
       {
-        key: 1,
+        key: 'order',
         title: t('track.stages.orderReceipt', 'Order receipt'),
         desc: t('track.stages.orderReceiptDesc', 'Your request has been received and registered in the system'),
         date: formatDate(created),
         status: currentIdx >= getStageIndex('APSB') ? 'completed' : currentIdx > getStageIndex('APDR') ? 'in_progress' : 'pending',
       },
+      ...(paymentsEnabled ? [paymentStage] : []),
       {
-        key: 2,
-        title: t('track.stages.paymentConfirmation', 'Payment confirmation'),
-        desc: t('track.stages.paymentConfirmationDesc', 'Your payment is being processed / confirmed'),
-        date: paymentDate,
-        status: application?.registration_fee_paid_at
-          ? 'completed'
-          : (String(application?.status_code || '').toUpperCase() === 'APPN'
-              ? 'in_progress'
-              : 'pending'),
-      },
-      {
-        key: 3,
+        key: 'documents',
         title: t('track.stages.documentVerification', 'Document verification'),
         desc: t('track.stages.documentVerificationDesc', 'Uploaded documents are being verified'),
         date: latestUploadAt || findLogDate(['RVDV', 'RVRI', 'RVRC']),
         status:
           allRequiredCoreVerified || currentIdx > getStageIndex('RVDV')
             ? 'completed'
-            : currentIdx >= getStageIndex('RVDV') || (currentIdx >= getStageIndex('APPC') && hasAnyDocs)
+            : currentIdx >= getStageIndex('RVDV') || (currentIdx >= docFlowGateIdx && hasAnyDocs)
               ? 'in_progress'
-              : allRequiredCoreUploaded && currentIdx >= getStageIndex('APPC')
+              : allRequiredCoreUploaded && currentIdx >= docFlowGateIdx
                 ? 'in_progress'
                 : 'pending',
       },
       {
-        key: 4,
+        key: 'review',
         title: t('track.stages.academicReview', 'Academic Review'),
         desc: t('track.stages.academicReviewDesc', 'Under review — expected to be completed within 5-7 business days'),
         date: findLogDate(['RVQU', 'RVIN', 'RVHL', 'RVIV', 'RVEX']) || null,
@@ -506,7 +513,7 @@ export default function ApplicationStatus() {
               : 'pending',
       },
       {
-        key: 5,
+        key: 'decision',
         title: t('track.stages.admissionDecision', 'Admission decision'),
         desc:
           currentIdx >= getStageIndex('DCFA') || currentIdx >= getStageIndex('DCCA')
@@ -675,6 +682,7 @@ export default function ApplicationStatus() {
   const statusInfo = getStatusInfo(application.status_code)
   const StatusIcon = statusInfo.icon
   const showRegistrationPayment =
+    paymentsEnabled &&
     String(application?.status_code || '').toUpperCase() === 'APPN' &&
     allRequiredCoreVerified &&
     !application?.registration_fee_paid_at &&

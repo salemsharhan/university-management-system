@@ -102,6 +102,7 @@ export default function UniversitySettings() {
     add_drop_period_days: 14,
 
     // Financial
+    payments_enabled: true,
     tap_api_key: '',
     tap_secret_key: '',
     test_mode: true,
@@ -379,6 +380,7 @@ export default function UniversitySettings() {
       }
 
       const financialSettings = {
+        payments_enabled: formData.payments_enabled,
         tap_api_key: formData.tap_api_key,
         tap_secret_key: formData.tap_secret_key,
         test_mode: formData.test_mode,

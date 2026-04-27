@@ -232,8 +232,9 @@ export async function createStudentFromApplication(application, customPassword =
         graduation_year: application.graduation_year ? parseInt(application.graduation_year) : null,
         high_school_gpa: application.gpa ? parseFloat(application.gpa) : null,
         has_scholarship: application.scholarship_request || false,
-        scholarship_type: null, // Not in application
+        scholarship_type: application.scholarship_type?.trim() || null,
         scholarship_percentage: application.scholarship_percentage ? parseFloat(application.scholarship_percentage) : null,
+        scholarship_details: application.scholarship_details?.trim() || null,
         medical_conditions: null, // Not in application
         allergies: null, // Not in application
         medications: null, // Not in application

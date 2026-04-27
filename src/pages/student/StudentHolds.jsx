@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
 import { checkFinancePermission } from '../../utils/financePermissions'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 
 const UI = {
   p: '#1a3a6b',
@@ -48,6 +49,7 @@ export default function StudentHolds() {
   const [docs, setDocs] = useState([])
   const [audit, setAudit] = useState([])
   const [registrationGate, setRegistrationGate] = useState({ allowed: true, reason: '' })
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
 
   useEffect(() => {
     if (user?.email) fetchAll()
@@ -70,6 +72,8 @@ export default function StudentHolds() {
         return
       }
       setStudent(studentData)
+      const pe = await getPaymentsEnabled(studentData.college_id).catch(() => true)
+      setPaymentsEnabled(pe)
 
       const { data: semData } = await supabase
         .from('semesters')
@@ -97,7 +101,7 @@ export default function StudentHolds() {
 
         const milestone = semStatus?.financial_milestone_code || 'PM00'
         const hold = semStatus?.financial_hold_reason_code || studentData.financial_hold_reason_code || null
-        const gate = checkFinancePermission('SE_REG', milestone, hold)
+        const gate = checkFinancePermission('SE_REG', milestone, hold, null, pe)
         setRegistrationGate(gate)
 
         const holdCode = hold ?? null
@@ -113,7 +117,7 @@ export default function StudentHolds() {
         }
       } else {
         setSemesterFinance(null)
-        const gate = checkFinancePermission('SE_REG', 'PM00', studentData.financial_hold_reason_code || null)
+        const gate = checkFinancePermission('SE_REG', 'PM00', studentData.financial_hold_reason_code || null, null, pe)
         setRegistrationGate(gate)
 
         const holdCode = studentData.financial_hold_reason_code || null
@@ -310,7 +314,7 @@ export default function StudentHolds() {
                   {t('studentPortal.holds.viewInvoice', { defaultValue: 'View invoice' })}
                 </a>
                 <a
-                  href="/student/coming-soon"
+                  href="/student/requests"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-xs font-extrabold"
                   style={{ backgroundColor: UI.bg, border: `1px solid ${UI.bdr}`, color: UI.txt }}
                 >
@@ -379,7 +383,7 @@ export default function StudentHolds() {
                   ↑ {t('studentPortal.holds.uploadUpdated', { defaultValue: 'Upload updated document' })}
                 </a>
                 <a
-                  href="/student/coming-soon"
+                  href="/student/requests"
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-xs font-extrabold"
                   style={{ backgroundColor: UI.bg, border: `1px solid ${UI.bdr}`, color: UI.txt }}
                 >

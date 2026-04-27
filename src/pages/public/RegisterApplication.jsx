@@ -5,32 +5,45 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
-import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload } from 'lucide-react'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
+import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload, Award } from 'lucide-react'
 
-const steps = [
-  { id: 1, name: 'Personal Information', icon: User },
-  { id: 2, name: 'Contact Information', icon: Phone },
-  { id: 3, name: 'Emergency Contact', icon: AlertCircle },
-  { id: 4, name: 'Academic Information', icon: GraduationCap },
-  { id: 5, name: 'Test Scores', icon: FileText },
-  { id: 6, name: 'Transfer Information', icon: BookOpen },
-  { id: 7, name: 'Additional Information', icon: FileText },
-  { id: 8, name: 'Documents', icon: Upload },
+const CORE_DOCUMENT_SPECS = [
+  { key: 'id_photo', accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+  { key: 'transcript', accept: 'image/jpeg,image/png,application/pdf' },
 ]
-
-const REGISTER_DOCUMENT_TYPES = [
-  { key: 'id_photo', label: 'ID photo', accept: 'image/jpeg,image/png,image/webp,application/pdf' },
-  { key: 'transcript', label: 'Transcript / Grades', accept: 'image/jpeg,image/png,application/pdf' },
+const SCHOLARSHIP_DOCUMENT_SPECS = [
+  { key: 'scholarship_letter', accept: 'image/jpeg,image/png,application/pdf' },
+  { key: 'scholarship_financial', accept: 'image/jpeg,image/png,application/pdf' },
+  { key: 'scholarship_recommendation', accept: 'image/jpeg,image/png,application/pdf' },
 ]
+const ALL_DOCUMENT_SPECS = [...CORE_DOCUMENT_SPECS, ...SCHOLARSHIP_DOCUMENT_SPECS]
 
 export default function RegisterApplication({ portal = false }) {
   const { t } = useTranslation()
   const { isRTL, language, changeLanguage } = useLanguage()
+
+  const steps = useMemo(
+    () => [
+      { id: 1, nameKey: 'registerApplication.steps.personal', icon: User },
+      { id: 2, nameKey: 'registerApplication.steps.contact', icon: Phone },
+      { id: 3, nameKey: 'registerApplication.steps.emergency', icon: AlertCircle },
+      { id: 4, nameKey: 'registerApplication.steps.academic', icon: GraduationCap },
+      { id: 5, nameKey: 'registerApplication.steps.tests', icon: FileText },
+      { id: 6, nameKey: 'registerApplication.steps.transfer', icon: BookOpen },
+      { id: 7, nameKey: 'registerApplication.steps.additional', icon: FileText },
+      { id: 8, nameKey: 'registerApplication.steps.scholarship', icon: Award },
+      { id: 9, nameKey: 'registerApplication.steps.scholarshipDocs', icon: Upload },
+      { id: 10, nameKey: 'registerApplication.steps.documents', icon: Upload },
+    ],
+    [t]
+  )
   const navigate = useNavigate()
   const location = useLocation()
   const { user, userRole, loading: authLoading } = useAuth()
   const [colleges, setColleges] = useState([])
   const [selectedCollegeId, setSelectedCollegeId] = useState('')
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
   const [majors, setMajors] = useState([])
   const [semesters, setSemesters] = useState([])
   const [currentStep, setCurrentStep] = useState(1)
@@ -39,7 +52,9 @@ export default function RegisterApplication({ portal = false }) {
   const [error, setError] = useState('')
   const [applicationNumber, setApplicationNumber] = useState(null)
   const [submittedApplication, setSubmittedApplication] = useState(null)
-  const [documentFiles, setDocumentFiles] = useState({ id_photo: null, transcript: null })
+  const [documentFiles, setDocumentFiles] = useState(() =>
+    Object.fromEntries(ALL_DOCUMENT_SPECS.map((s) => [s.key, null]))
+  )
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -120,6 +135,7 @@ export default function RegisterApplication({ portal = false }) {
     has_scholarship: false, // Alias
     scholarship_type: '',
     scholarship_percentage: '',
+    scholarship_details: '',
     
     // Medical
     medical_conditions: '',
@@ -141,6 +157,11 @@ export default function RegisterApplication({ portal = false }) {
   useEffect(() => {
     fetchColleges()
   }, [])
+
+  useEffect(() => {
+    if (!selectedCollegeId) return
+    getPaymentsEnabled(parseInt(selectedCollegeId)).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
+  }, [selectedCollegeId])
 
   // Applicant portal: require selecting program first (from /portal/apply). We pass it in the URL.
   useEffect(() => {
@@ -199,31 +220,10 @@ export default function RegisterApplication({ portal = false }) {
 
       if (error) throw error
 
-      // Applicant portal: send a submission confirmation email (safe: applicant can only email themselves)
-      if (portal && !formData.submit_as_draft && formData.email) {
-        try {
-          await supabase.functions.invoke('send-admission-notification', {
-            body: {
-              scope: 'college',
-              collegeId: Number(selectedCollegeId),
-              to: String(formData.email).trim(),
-              type: 'submitted',
-              subject: t('track.submittedEmailSubject', 'Thanks for submitting your application'),
-              message: t(
-                'track.submittedEmailBody',
-                'Thank you for submitting your application. We will review it and get back to you soon. You can track your status anytime from your dashboard.'
-              ),
-              application: { id: application.id, application_number: application.application_number },
-            },
-          })
-        } catch (e) {
-          console.warn('Submission email failed:', e?.message || e)
-        }
-      }
       setColleges(data || [])
     } catch (err) {
       console.error('Error fetching colleges:', err)
-      setError('Failed to load colleges. Please refresh the page.')
+      setError(t('registerApplication.loadCollegesError'))
     } finally {
       setLoadingColleges(false)
     }
@@ -271,7 +271,7 @@ export default function RegisterApplication({ portal = false }) {
     try {
       const { data, error } = await supabase
         .from('semesters')
-        .select('id, name_en, code, start_date, end_date')
+        .select('id, name_en, name_ar, code, start_date, end_date')
         .or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
         .order('start_date', { ascending: false })
 
@@ -300,31 +300,35 @@ export default function RegisterApplication({ portal = false }) {
     switch (step) {
       case 1:
         if (!formData.first_name || !formData.last_name || !formData.email || !formData.date_of_birth) {
-          return 'Please fill in all required fields in Personal Information'
+          return t('registerApplication.errors.step1Required')
         }
         break
       case 4:
         if (!formData.major_id) {
-          return 'Please select a major'
+          return t('registerApplication.errors.selectMajor')
         }
         {
-          // DB: applications.gpa DECIMAL(3,2) (safe range < 10, we enforce 0-4)
           const g = parseDecimalField(formData.gpa, { scale: 2, min: 0, max: 4 })
-          if (g.error) return `GPA: ${g.error}`
+          if (g.error) return `${t('registerApplication.errors.gpaPrefix')}: ${g.error}`
         }
         break
       case 5: {
-        // DB: ielts_score DECIMAL(3,1) — enforce 0.0 to 9.0
         const i = parseDecimalField(formData.ielts_score, { scale: 1, min: 0, max: 9 })
-        if (i.error) return `IELTS: ${i.error}`
+        if (i.error) return `${t('registerApplication.errors.ieltsPrefix')}: ${i.error}`
         break
       }
-      case 7: {
-        // DB: scholarship_percentage DECIMAL(5,2) — enforce 0-100
-        if (formData.scholarship_request) {
-          const sp = parseDecimalField(formData.scholarship_percentage, { scale: 2, min: 0, max: 100 })
-          if (sp.error) return `Scholarship percentage: ${sp.error}`
-        }
+      case 8: {
+        if (!formData.scholarship_request) break
+        const st = String(formData.scholarship_type || '').trim()
+        if (!st) return t('registerApplication.errors.scholarshipTypeRequired')
+        const sp = parseDecimalField(formData.scholarship_percentage, { scale: 2, min: 0, max: 100 })
+        if (sp.error) return `${t('registerApplication.errors.scholarshipPctPrefix')}: ${sp.error}`
+        break
+      }
+      case 9: {
+        if (!formData.scholarship_request) break
+        const hasSchDoc = SCHOLARSHIP_DOCUMENT_SPECS.some((s) => documentFiles[s.key])
+        if (!hasSchDoc) return t('registerApplication.scholarship.requireOneDoc')
         break
       }
     }
@@ -333,7 +337,7 @@ export default function RegisterApplication({ portal = false }) {
 
   const handleNext = () => {
     if (!selectedCollegeId) {
-      setError('Please select a college first')
+      setError(t('registerApplication.errors.selectCollegeFirst'))
       return
     }
     const validationError = validateStep(currentStep)
@@ -362,7 +366,7 @@ export default function RegisterApplication({ portal = false }) {
 
       if (majorError) throw majorError
       if (!major?.validation_rules || Object.keys(major.validation_rules).length === 0) {
-        return { isValid: true, errors: [], requiresFee: !!major?.registration_fee }
+        return { isValid: true, errors: [], requiresFee: paymentsEnabled ? !!major?.registration_fee : false }
       }
 
       const rules = major.validation_rules
@@ -389,7 +393,7 @@ export default function RegisterApplication({ portal = false }) {
       return {
         isValid: errors.length === 0,
         errors,
-        requiresFee: !!major?.registration_fee,
+        requiresFee: paymentsEnabled ? !!major?.registration_fee : false,
       }
     } catch (err) {
       console.error('Error validating against major:', err)
@@ -405,7 +409,7 @@ export default function RegisterApplication({ portal = false }) {
     }
 
     if (!selectedCollegeId) {
-      setError('College selection is required')
+      setError(t('registerApplication.errors.collegeRequired'))
       return
     }
 
@@ -500,7 +504,9 @@ export default function RegisterApplication({ portal = false }) {
           transfer_credits: formData.transfer_credits ? parseInt(formData.transfer_credits) : null,
           personal_statement: formData.personal_statement?.trim() || null,
           scholarship_request: scholarshipRequest,
+          scholarship_type: scholarshipRequest ? formData.scholarship_type?.trim() || null : null,
           scholarship_percentage: scholarshipRequest ? scholarshipParsed : null,
+          scholarship_details: scholarshipRequest ? formData.scholarship_details?.trim() || null : null,
           college_id: parseInt(selectedCollegeId),
           status: legacyStatus,
           status_code: finalStatusCode,
@@ -546,7 +552,7 @@ export default function RegisterApplication({ portal = false }) {
       }
 
       // Upload document files if provided (optional at registration; same types as track page)
-      for (const { key } of REGISTER_DOCUMENT_TYPES) {
+      for (const { key } of ALL_DOCUMENT_SPECS) {
         const file = documentFiles[key]
         if (file && application?.id) {
           try {
@@ -594,7 +600,7 @@ export default function RegisterApplication({ portal = false }) {
       setSubmittedApplication(application)
     } catch (err) {
       console.error('Error creating application:', err)
-      setError(err.message || 'Failed to submit application. Please try again.')
+      setError(err.message || t('registerApplication.errors.submitFailed'))
     } finally {
       setLoading(false)
     }
@@ -612,7 +618,7 @@ export default function RegisterApplication({ portal = false }) {
   const copyApplicationNumber = () => {
     if (applicationNumber) {
       navigator.clipboard.writeText(applicationNumber)
-      alert('Application number copied to clipboard!')
+      alert(t('registerApplication.success.copied'))
     }
   }
 
@@ -625,11 +631,11 @@ export default function RegisterApplication({ portal = false }) {
             <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Submitted Successfully!</h1>
-            <p className="text-gray-600 mb-8">Your application has been received. Please save your application number for tracking.</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('registerApplication.success.title')}</h1>
+            <p className="text-gray-600 mb-8">{t('registerApplication.success.subtitle')}</p>
             
             <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-              <p className="text-sm font-medium text-gray-700 mb-2">Your Application Number</p>
+              <p className="text-sm font-medium text-gray-700 mb-2">{t('registerApplication.success.appNumberLabel')}</p>
               <div className="flex items-center justify-center space-x-3">
                 <p className="text-3xl font-bold text-blue-600 font-mono">{applicationNumber}</p>
                 <button
@@ -643,19 +649,19 @@ export default function RegisterApplication({ portal = false }) {
             </div>
 
             <div className="bg-gray-50 rounded-xl p-6 mb-6 text-left">
-              <h3 className="font-semibold text-gray-900 mb-3">Next Steps:</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">{t('registerApplication.success.nextTitle')}</h3>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <span>Save your application number and date of birth to track your application status</span>
+                  <span className="text-blue-600 me-2">•</span>
+                  <span>{t('registerApplication.success.step1')}</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <span>You will receive an email confirmation shortly</span>
+                  <span className="text-blue-600 me-2">•</span>
+                  <span>{t('registerApplication.success.step2')}</span>
                 </li>
                 <li className="flex items-start">
-                  <span className="text-blue-600 mr-2">•</span>
-                  <span>Check your application status at any time using the tracking page</span>
+                  <span className="text-blue-600 me-2">•</span>
+                  <span>{t('registerApplication.success.step3')}</span>
                 </li>
               </ul>
             </div>
@@ -669,13 +675,13 @@ export default function RegisterApplication({ portal = false }) {
                 }
                 className="px-6 py-3 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all"
               >
-                {portal ? t('applicantPortal.viewApplication', 'View application') : 'Track Application Status'}
+                {portal ? t('applicantPortal.viewApplication', 'View application') : t('registerApplication.success.track')}
               </button>
               <button
                 onClick={() => {
                   setApplicationNumber(null)
                   setSubmittedApplication(null)
-                  setDocumentFiles({ id_photo: null, transcript: null })
+                  setDocumentFiles(Object.fromEntries(ALL_DOCUMENT_SPECS.map((s) => [s.key, null])))
                   setFormData({
                     first_name: '',
                     middle_name: '',
@@ -718,6 +724,12 @@ export default function RegisterApplication({ portal = false }) {
                     personal_statement: '',
                     scholarship_request: false,
                     scholarship_percentage: '',
+                    scholarship_type: '',
+                    scholarship_details: '',
+                    medical_conditions: '',
+                    allergies: '',
+                    medications: '',
+                    notes: '',
                     status_code: 'APDR',
                     submit_as_draft: false,
                   })
@@ -726,7 +738,7 @@ export default function RegisterApplication({ portal = false }) {
                 }}
                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all"
               >
-                Submit Another Application
+                {t('registerApplication.success.another')}
               </button>
             </div>
           </div>
@@ -775,19 +787,21 @@ export default function RegisterApplication({ portal = false }) {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Student Application</h1>
-          <p className="text-gray-600">Complete the form below to apply for admission</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{t('registerApplication.headerTitle')}</h1>
+          <p className="text-gray-600">{t('registerApplication.headerSubtitle')}</p>
         </div>
 
-        {/* College Selection */}
+        {/* College Selection — gap (not space-x) for RTL; logical text align + select dir */}
         <div className="bg-white rounded-2xl shadow-sm border-2 border-blue-200 p-6 mb-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="p-3 rounded-lg bg-blue-100">
-              <Building2 className="w-6 h-6 text-blue-700" />
+          <div className="mb-4 flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+              <Building2 className="h-6 w-6 text-blue-700" aria-hidden />
             </div>
-            <div>
-              <p className="text-base font-bold text-blue-900">Select College *</p>
-              <p className="text-sm text-blue-700">Choose the college you wish to apply to</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-start text-base font-bold text-blue-900">{t('registerApplication.collegeTitle')}</p>
+              <p className="mt-0.5 text-start text-sm leading-snug text-blue-700">
+                {t('registerApplication.collegeHint')}
+              </p>
             </div>
           </div>
           <select
@@ -797,11 +811,12 @@ export default function RegisterApplication({ portal = false }) {
               if (error) setError('')
             }}
             disabled={loadingColleges}
-            className="w-full px-4 py-3 border-2 border-blue-300 rounded-lg text-sm font-medium bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            dir={isRTL ? 'rtl' : 'ltr'}
+            className="w-full rounded-lg border-2 border-blue-300 bg-white px-4 py-3 text-start text-sm font-medium focus:border-transparent focus:ring-2 focus:ring-blue-500"
             required
           >
             <option value="">
-              {loadingColleges ? 'Loading colleges...' : '-- Select a College --'}
+              {loadingColleges ? t('registerApplication.loadingColleges') : t('registerApplication.collegePlaceholder')}
             </option>
             {colleges.map(college => (
               <option key={college.id} value={college.id}>
@@ -833,7 +848,7 @@ export default function RegisterApplication({ portal = false }) {
                     <step.icon className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   <div className="mt-2 text-xs font-medium text-gray-600 text-center max-w-[80px] md:max-w-[100px] hidden sm:block">
-                    {step.name}
+                    {t(step.nameKey)}
                   </div>
                 </div>
                 {index < steps.length - 1 && (
@@ -853,46 +868,49 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 1: Personal Information */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Personal Information</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.personal')}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name *
+                    {t('registerApplication.fields.firstName')}
                   </label>
                   <input
                     type="text"
                     name="first_name"
                     value={formData.first_name}
                     onChange={handleChange}
-                    placeholder="Enter first name"
+                    dir="ltr"
+                    placeholder={t('registerApplication.placeholders.firstName')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Middle Name
+                    {t('registerApplication.fields.middleName')}
                   </label>
                   <input
                     type="text"
                     name="middle_name"
                     value={formData.middle_name}
                     onChange={handleChange}
-                    placeholder="Enter middle name (optional)"
+                    dir="ltr"
+                    placeholder={t('registerApplication.placeholders.middleName')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name *
+                    {t('registerApplication.fields.lastName')}
                   </label>
                   <input
                     type="text"
                     name="last_name"
                     value={formData.last_name}
                     onChange={handleChange}
-                    placeholder="Enter last name"
+                    dir="ltr"
+                    placeholder={t('registerApplication.placeholders.lastName')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   />
@@ -902,40 +920,43 @@ export default function RegisterApplication({ portal = false }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name (Arabic)
+                    {t('registerApplication.fields.firstNameAr')}
                   </label>
                   <input
                     type="text"
                     name="first_name_ar"
                     value={formData.first_name_ar}
                     onChange={handleChange}
-                    placeholder="الاسم الأول"
+                    dir="rtl"
+                    placeholder={t('registerApplication.placeholders.firstNameAr')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Middle Name (Arabic)
+                    {t('registerApplication.fields.middleNameAr')}
                   </label>
                   <input
                     type="text"
                     name="middle_name_ar"
                     value={formData.middle_name_ar}
                     onChange={handleChange}
-                    placeholder="الاسم الأوسط"
+                    dir="rtl"
+                    placeholder={t('registerApplication.placeholders.middleNameAr')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name (Arabic)
+                    {t('registerApplication.fields.lastNameAr')}
                   </label>
                   <input
                     type="text"
                     name="last_name_ar"
                     value={formData.last_name_ar}
                     onChange={handleChange}
-                    placeholder="اسم العائلة"
+                    dir="rtl"
+                    placeholder={t('registerApplication.placeholders.lastNameAr')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
@@ -944,14 +965,14 @@ export default function RegisterApplication({ portal = false }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address *
+                    {t('registerApplication.fields.email')}
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="student@example.com"
+                    placeholder={t('registerApplication.placeholders.email')}
                     disabled={portal}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
                     required
@@ -959,20 +980,20 @@ export default function RegisterApplication({ portal = false }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
+                    {t('registerApplication.fields.phone')}
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    placeholder="+1 (555) 123-4567"
+                    placeholder={t('registerApplication.placeholders.phone')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date of Birth *
+                    {t('registerApplication.fields.dateOfBirth')}
                   </label>
                   <input
                     type="date"
@@ -985,7 +1006,7 @@ export default function RegisterApplication({ portal = false }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gender
+                    {t('registerApplication.fields.gender')}
                   </label>
                   <select
                     name="gender"
@@ -993,54 +1014,54 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="">{t('registerApplication.gender.placeholder')}</option>
+                    <option value="male">{t('registerApplication.gender.male')}</option>
+                    <option value="female">{t('registerApplication.gender.female')}</option>
+                    <option value="other">{t('registerApplication.gender.other')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nationality
+                    {t('registerApplication.fields.nationality')}
                   </label>
                   <input
                     type="text"
                     name="nationality"
                     value={formData.nationality}
                     onChange={handleChange}
-                    placeholder="Enter nationality"
+                    placeholder={t('registerApplication.placeholders.nationality')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Religion
+                    {t('registerApplication.fields.religion')}
                   </label>
                   <input
                     type="text"
                     name="religion"
                     value={formData.religion}
                     onChange={handleChange}
-                    placeholder="Enter religion"
+                    placeholder={t('registerApplication.placeholders.religion')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Place of Birth
+                    {t('registerApplication.fields.placeOfBirth')}
                   </label>
                   <input
                     type="text"
                     name="place_of_birth"
                     value={formData.place_of_birth}
                     onChange={handleChange}
-                    placeholder="City, Country"
+                    placeholder={t('registerApplication.placeholders.placeOfBirth')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Marital Status
+                    {t('registerApplication.fields.maritalStatus')}
                   </label>
                   <select
                     name="marital_status"
@@ -1048,16 +1069,16 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Status</option>
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                    <option value="widowed">Widowed</option>
+                    <option value="">{t('common.select')}</option>
+                    <option value="single">{t('registerApplication.fields.maritalSingle')}</option>
+                    <option value="married">{t('registerApplication.fields.maritalMarried')}</option>
+                    <option value="divorced">{t('registerApplication.fields.maritalDivorced')}</option>
+                    <option value="widowed">{t('registerApplication.fields.maritalWidowed')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Blood Type
+                    {t('registerApplication.fields.bloodType')}
                   </label>
                   <select
                     name="blood_type"
@@ -1065,7 +1086,7 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Blood Type</option>
+                    <option value="">{t('registerApplication.fields.bloodPlaceholder')}</option>
                     <option value="A+">A+</option>
                     <option value="A-">A-</option>
                     <option value="B+">B+</option>
@@ -1084,7 +1105,7 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <label className="ml-2 text-sm text-gray-700">International Student</label>
+                  <label className="ms-2 text-sm text-gray-700">{t('registerApplication.fields.international')}</label>
                 </div>
               </div>
             </div>
@@ -1093,84 +1114,84 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 2: Contact Information */}
           {currentStep === 2 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.contact')}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mobile Phone
+                    {t('registerApplication.fields.mobilePhone')}
                   </label>
                   <input
                     type="tel"
                     name="mobile_phone"
                     value={formData.mobile_phone}
                     onChange={handleChange}
-                    placeholder="+1 (555) 123-4567"
+                    placeholder={t('registerApplication.placeholders.mobilePhone')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Street Address
+                    {t('registerApplication.fields.streetAddress')}
                   </label>
                   <input
                     type="text"
                     name="street_address"
                     value={formData.street_address}
                     onChange={handleChange}
-                    placeholder="Enter street address"
+                    placeholder={t('registerApplication.placeholders.streetAddress')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City
+                    {t('registerApplication.fields.city')}
                   </label>
                   <input
                     type="text"
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
-                    placeholder="Enter city"
+                    placeholder={t('registerApplication.placeholders.city')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    State / Province
+                    {t('registerApplication.fields.stateProvince')}
                   </label>
                   <input
                     type="text"
                     name="state_province"
                     value={formData.state_province}
                     onChange={handleChange}
-                    placeholder="Enter state or province"
+                    placeholder={t('registerApplication.placeholders.stateProvince')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Country
+                    {t('registerApplication.fields.country')}
                   </label>
                   <input
                     type="text"
                     name="country"
                     value={formData.country}
                     onChange={handleChange}
-                    placeholder="Enter country"
+                    placeholder={t('registerApplication.placeholders.country')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Postal Code
+                    {t('registerApplication.fields.postalCode')}
                   </label>
                   <input
                     type="text"
                     name="postal_code"
                     value={formData.postal_code}
                     onChange={handleChange}
-                    placeholder="Enter postal code"
+                    placeholder={t('registerApplication.placeholders.postalCode')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
@@ -1181,58 +1202,58 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 3: Emergency Contact */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Emergency Contact</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.emergency')}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contact Name
+                    {t('registerApplication.fields.emergencyName')}
                   </label>
                   <input
                     type="text"
                     name="emergency_contact_name"
                     value={formData.emergency_contact_name}
                     onChange={handleChange}
-                    placeholder="Full name"
+                    placeholder={t('registerApplication.placeholders.emergencyName')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Relationship
+                    {t('registerApplication.fields.emergencyRelation')}
                   </label>
                   <input
                     type="text"
                     name="emergency_contact_relationship"
                     value={formData.emergency_contact_relationship}
                     onChange={handleChange}
-                    placeholder="e.g., Parent, Spouse, Sibling"
+                    placeholder={t('registerApplication.placeholders.emergencyRelation')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
+                    {t('registerApplication.fields.emergencyPhone')}
                   </label>
                   <input
                     type="tel"
                     name="emergency_contact_phone"
                     value={formData.emergency_contact_phone}
                     onChange={handleChange}
-                    placeholder="+1 (555) 123-4567"
+                    placeholder={t('registerApplication.placeholders.emergencyPhone')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
+                    {t('registerApplication.fields.emergencyEmail')}
                   </label>
                   <input
                     type="email"
                     name="emergency_contact_email"
                     value={formData.emergency_contact_email}
                     onChange={handleChange}
-                    placeholder="contact@example.com"
+                    placeholder={t('registerApplication.placeholders.emergencyEmail')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
@@ -1243,12 +1264,12 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 4: Academic Information */}
           {currentStep === 4 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Academic Information</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.academic')}</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Major *
+                    {t('registerApplication.fields.major')}
                   </label>
                   <select
                     name="major_id"
@@ -1257,17 +1278,17 @@ export default function RegisterApplication({ portal = false }) {
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     required
                   >
-                    <option value="">Select Major</option>
-                    {majors.map(major => (
+                    <option value="">{t('registerApplication.fields.selectMajor')}</option>
+                    {majors.map((major) => (
                       <option key={major.id} value={major.id}>
-                        {major.name_en} ({major.code})
+                        {language === 'ar' && major.name_ar ? `${major.name_ar} (${major.code})` : `${major.name_en} (${major.code})`}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Semester
+                    {t('registerApplication.fields.semester')}
                   </label>
                   <select
                     name="semester_id"
@@ -1275,17 +1296,17 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Semester</option>
-                    {semesters.map(semester => (
+                    <option value="">{t('registerApplication.fields.selectSemester')}</option>
+                    {semesters.map((semester) => (
                       <option key={semester.id} value={semester.id}>
-                        {semester.name_en} ({semester.code})
+                        {language === 'ar' && semester.name_ar ? `${semester.name_ar} (${semester.code})` : `${semester.name_en} (${semester.code})`}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Study Type
+                    {t('registerApplication.fields.studyType')}
                   </label>
                   <select
                     name="study_type"
@@ -1293,14 +1314,14 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Study Type</option>
-                    <option value="full_time">Full Time</option>
-                    <option value="part_time">Part Time</option>
+                    <option value="">{t('registerApplication.fields.selectStudyType')}</option>
+                    <option value="full_time">{t('registerApplication.fields.studyTypeFull')}</option>
+                    <option value="part_time">{t('registerApplication.fields.studyTypePart')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Study Load
+                    {t('registerApplication.fields.studyLoad')}
                   </label>
                   <select
                     name="study_load"
@@ -1308,15 +1329,15 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Study Load</option>
-                    <option value="light">Light</option>
-                    <option value="normal">Normal</option>
-                    <option value="heavy">Heavy</option>
+                    <option value="">{t('registerApplication.fields.selectStudyLoad')}</option>
+                    <option value="light">{t('registerApplication.fields.studyLoadLight')}</option>
+                    <option value="normal">{t('registerApplication.fields.studyLoadNormal')}</option>
+                    <option value="heavy">{t('registerApplication.fields.studyLoadHeavy')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Study Approach
+                    {t('registerApplication.fields.studyApproach')}
                   </label>
                   <select
                     name="study_approach"
@@ -1324,28 +1345,28 @@ export default function RegisterApplication({ portal = false }) {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   >
-                    <option value="">Select Study Approach</option>
-                    <option value="on_campus">On Campus</option>
-                    <option value="online">Online</option>
-                    <option value="hybrid">Hybrid</option>
+                    <option value="">{t('registerApplication.fields.selectStudyApproach')}</option>
+                    <option value="on_campus">{t('registerApplication.fields.studyOnCampus')}</option>
+                    <option value="online">{t('registerApplication.fields.studyOnline')}</option>
+                    <option value="hybrid">{t('registerApplication.fields.studyHybrid')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Credit Hours
+                    {t('registerApplication.fields.creditHours')}
                   </label>
                   <input
                     type="number"
                     name="credit_hours"
                     value={formData.credit_hours}
                     onChange={handleChange}
-                    placeholder="Enter credit hours"
+                    placeholder={t('registerApplication.placeholders.creditHours')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Enrollment Date
+                    {t('registerApplication.fields.enrollmentDate')}
                   </label>
                   <input
                     type="date"
@@ -1358,44 +1379,44 @@ export default function RegisterApplication({ portal = false }) {
               </div>
 
               <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Previous Education</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('registerApplication.fields.prevEducation')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      High School Name
+                      {t('registerApplication.fields.highSchoolName')}
                     </label>
                     <input
                       type="text"
                       name="high_school_name"
                       value={formData.high_school_name}
                       onChange={handleChange}
-                      placeholder="Name of high school"
+                      placeholder={t('registerApplication.placeholders.highSchoolName')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      High School Country
+                      {t('registerApplication.fields.highSchoolCountry')}
                     </label>
                     <input
                       type="text"
                       name="high_school_country"
                       value={formData.high_school_country}
                       onChange={handleChange}
-                      placeholder="Country"
+                      placeholder={t('registerApplication.placeholders.highSchoolCountry')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Graduation Year
+                      {t('registerApplication.fields.graduationYear')}
                     </label>
                     <input
                       type="number"
                       name="graduation_year"
                       value={formData.graduation_year}
                       onChange={handleChange}
-                      placeholder="2024"
+                      placeholder={t('registerApplication.placeholders.graduationYear')}
                       min="1950"
                       max="2100"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -1403,14 +1424,14 @@ export default function RegisterApplication({ portal = false }) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      GPA / Grade
+                      {t('registerApplication.fields.gpa')}
                     </label>
                     <input
                       type="number"
                       name="gpa"
                       value={formData.gpa}
                       onChange={handleChange}
-                      placeholder="3.5"
+                      placeholder={t('registerApplication.placeholders.gpa')}
                       min="0"
                       max="4"
                       step="0.01"
@@ -1419,7 +1440,7 @@ export default function RegisterApplication({ portal = false }) {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Certificate Type
+                      {t('registerApplication.fields.certificateType')}
                     </label>
                     {certificateTypeOptions.length > 0 ? (
                       <select
@@ -1441,7 +1462,7 @@ export default function RegisterApplication({ portal = false }) {
                         name="certificate_type"
                         value={formData.certificate_type}
                         onChange={handleChange}
-                        placeholder={t('admissions.createApplication.certificateTypeHint', 'e.g., High School Diploma')}
+                        placeholder={t('registerApplication.placeholders.certificateType')}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                       />
                     )}
@@ -1454,90 +1475,90 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 5: Test Scores */}
           {currentStep === 5 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Test Scores</h2>
-              <p className="text-gray-600 mb-6">Please provide your standardized test scores (if applicable)</p>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.tests')}</h2>
+              <p className="text-gray-600 mb-6">{t('registerApplication.fields.testScoresIntro')}</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    TOEFL Score
+                    {t('registerApplication.fields.toefl')}
                   </label>
                   <input
                     type="number"
                     name="toefl_score"
                     value={formData.toefl_score}
                     onChange={handleChange}
-                    placeholder="0-120"
+                    placeholder={t('registerApplication.placeholders.toefl')}
                     min="0"
                     max="120"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum score: 120</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('registerApplication.fields.max120')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    IELTS Score
+                    {t('registerApplication.fields.ielts')}
                   </label>
                   <input
                     type="number"
                     name="ielts_score"
                     value={formData.ielts_score}
                     onChange={handleChange}
-                    placeholder="0.0-9.0"
+                    placeholder={t('registerApplication.placeholders.ielts')}
                     min="0"
                     max="9"
                     step="0.5"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum score: 9.0</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('registerApplication.fields.max9')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    SAT Score
+                    {t('registerApplication.fields.sat')}
                   </label>
                   <input
                     type="number"
                     name="sat_score"
                     value={formData.sat_score}
                     onChange={handleChange}
-                    placeholder="400-1600"
+                    placeholder={t('registerApplication.placeholders.sat')}
                     min="400"
                     max="1600"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum score: 1600</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('registerApplication.fields.max1600')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    GMAT Score
+                    {t('registerApplication.fields.gmat')}
                   </label>
                   <input
                     type="number"
                     name="gmat_score"
                     value={formData.gmat_score}
                     onChange={handleChange}
-                    placeholder="200-800"
+                    placeholder={t('registerApplication.placeholders.gmat')}
                     min="200"
                     max="800"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum score: 800</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('registerApplication.fields.max800')}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    GRE Score
+                    {t('registerApplication.fields.gre')}
                   </label>
                   <input
                     type="number"
                     name="gre_score"
                     value={formData.gre_score}
                     onChange={handleChange}
-                    placeholder="260-340"
+                    placeholder={t('registerApplication.placeholders.gre')}
                     min="260"
                     max="340"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Maximum score: 340</p>
+                  <p className="text-xs text-gray-500 mt-1">{t('registerApplication.fields.max340')}</p>
                 </div>
               </div>
             </div>
@@ -1546,7 +1567,7 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 6: Transfer Information */}
           {currentStep === 6 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Transfer Information</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.transfer')}</h2>
               
               <div className="flex items-center mb-6">
                 <input
@@ -1556,47 +1577,47 @@ export default function RegisterApplication({ portal = false }) {
                   onChange={handleChange}
                   className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label className="ml-2 text-sm font-medium text-gray-700">I am a transfer student</label>
+                <label className="ms-2 text-sm font-medium text-gray-700">{t('registerApplication.fields.transferStudent')}</label>
               </div>
 
               {formData.is_transfer_student && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Previous University
+                      {t('registerApplication.fields.prevUniversity')}
                     </label>
                     <input
                       type="text"
                       name="previous_university"
                       value={formData.previous_university}
                       onChange={handleChange}
-                      placeholder="Name of previous university"
+                      placeholder={t('registerApplication.placeholders.prevUniversity')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Previous Degree
+                      {t('registerApplication.fields.prevDegree')}
                     </label>
                     <input
                       type="text"
                       name="previous_degree"
                       value={formData.previous_degree}
                       onChange={handleChange}
-                      placeholder="e.g., Bachelor's, Associate's"
+                      placeholder={t('registerApplication.placeholders.prevDegree')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Transfer Credits
+                      {t('registerApplication.fields.transferCredits')}
                     </label>
                     <input
                       type="number"
                       name="transfer_credits"
                       value={formData.transfer_credits}
                       onChange={handleChange}
-                      placeholder="Number of credits"
+                      placeholder={t('registerApplication.placeholders.transferCredits')}
                       min="0"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     />
@@ -1609,110 +1630,62 @@ export default function RegisterApplication({ portal = false }) {
           {/* Step 7: Additional Information */}
           {currentStep === 7 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Additional Information</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">{t('registerApplication.steps.additional')}</h2>
               
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Personal Statement
+                    {t('registerApplication.fields.personalStatement')}
                   </label>
                   <textarea
                     name="personal_statement"
                     value={formData.personal_statement}
                     onChange={handleChange}
                     rows={6}
-                    placeholder="Tell us about yourself, your goals, and why you want to study at this university..."
+                    placeholder={t('registerApplication.fields.personalStatementPh')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                   />
                 </div>
 
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Scholarship Information</h3>
-                  <div className="flex items-center mb-4">
-                    <input
-                      type="checkbox"
-                      name="scholarship_request"
-                      checked={formData.scholarship_request}
-                      onChange={handleChange}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <label className="ml-2 text-sm font-medium text-gray-700">Requesting Scholarship</label>
-                  </div>
-                  
-                  {formData.scholarship_request && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Scholarship Type
-                        </label>
-                        <input
-                          type="text"
-                          name="scholarship_type"
-                          value={formData.scholarship_type}
-                          onChange={handleChange}
-                          placeholder="e.g., Academic, Merit, Need-based"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Scholarship Percentage
-                        </label>
-                        <input
-                          type="number"
-                          name="scholarship_percentage"
-                          value={formData.scholarship_percentage}
-                          onChange={handleChange}
-                          placeholder="0-100"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Information (Optional)</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">{t('registerApplication.fields.medicalTitle')}</h3>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Medical Conditions
+                        {t('registerApplication.fields.medicalConditions')}
                       </label>
                       <textarea
                         name="medical_conditions"
                         value={formData.medical_conditions}
                         onChange={handleChange}
                         rows={3}
-                        placeholder="List any medical conditions..."
+                        placeholder={t('registerApplication.placeholders.medicalConditions')}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Allergies
+                        {t('registerApplication.fields.allergies')}
                       </label>
                       <textarea
                         name="allergies"
                         value={formData.allergies}
                         onChange={handleChange}
                         rows={3}
-                        placeholder="List any allergies..."
+                        placeholder={t('registerApplication.placeholders.allergies')}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Medications
+                        {t('registerApplication.fields.medications')}
                       </label>
                       <textarea
                         name="medications"
                         value={formData.medications}
                         onChange={handleChange}
                         rows={3}
-                        placeholder="List any medications..."
+                        placeholder={t('registerApplication.placeholders.medications')}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                       />
                     </div>
@@ -1722,14 +1695,14 @@ export default function RegisterApplication({ portal = false }) {
                 <div className="border-t pt-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Additional Notes
+                      {t('registerApplication.fields.notes')}
                     </label>
                     <textarea
                       name="notes"
                       value={formData.notes}
                       onChange={handleChange}
                       rows={4}
-                      placeholder="Any additional information you'd like to provide..."
+                      placeholder={t('registerApplication.fields.notesPh')}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
                     />
                   </div>
@@ -1738,20 +1711,118 @@ export default function RegisterApplication({ portal = false }) {
             </div>
           )}
 
-          {/* Step 8: Documents (optional; can upload on track page if not filled here) */}
+          {/* Step 8: Scholarship details */}
           {currentStep === 8 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Documents</h2>
-              <p className="text-sm text-gray-600 mb-6">
-                You can upload these now or later on the track page after submitting.
-              </p>
-              {REGISTER_DOCUMENT_TYPES.map(({ key, label, accept }) => (
+              <h2 className="text-xl font-bold text-gray-900 mb-2">{t('registerApplication.scholarship.title')}</h2>
+              <p className="text-sm text-gray-600 mb-6">{t('registerApplication.scholarship.intro')}</p>
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  name="scholarship_request"
+                  checked={formData.scholarship_request}
+                  onChange={handleChange}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label className="ms-2 text-sm font-medium text-gray-700">{t('registerApplication.scholarship.requestLabel')}</label>
+              </div>
+              {formData.scholarship_request && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('registerApplication.scholarship.typeLabel')}
+                      </label>
+                      <input
+                        type="text"
+                        name="scholarship_type"
+                        value={formData.scholarship_type}
+                        onChange={handleChange}
+                        placeholder={t('registerApplication.scholarship.typePlaceholder')}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t('registerApplication.scholarship.pctLabel')}
+                      </label>
+                      <input
+                        type="number"
+                        name="scholarship_percentage"
+                        value={formData.scholarship_percentage}
+                        onChange={handleChange}
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t('registerApplication.scholarship.detailsLabel')}
+                    </label>
+                    <textarea
+                      name="scholarship_details"
+                      value={formData.scholarship_details}
+                      onChange={handleChange}
+                      rows={5}
+                      placeholder={t('registerApplication.scholarship.detailsPlaceholder')}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 9: Scholarship documents */}
+          {currentStep === 9 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">{t('registerApplication.scholarship.docTitle')}</h2>
+              {!formData.scholarship_request ? (
+                <p className="text-sm text-gray-600">{t('registerApplication.scholarship.skipNoScholarship')}</p>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-6">{t('registerApplication.scholarship.docIntro')}</p>
+                  {SCHOLARSHIP_DOCUMENT_SPECS.map(({ key, accept }) => (
+                    <div key={key} className="border border-gray-200 rounded-xl p-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        {t(`registerApplication.fields.${key === 'scholarship_letter' ? 'scholarshipLetter' : key === 'scholarship_financial' ? 'scholarshipFinancial' : 'scholarshipRecommendation'}`)}
+                      </label>
+                      <input
+                        type="file"
+                        accept={accept}
+                        className="text-sm text-gray-600 file:me-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary-100 file:text-primary-700"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0]
+                          setDocumentFiles((prev) => ({ ...prev, [key]: f || null }))
+                        }}
+                      />
+                      {documentFiles[key] && (
+                        <p className="text-sm text-green-600 mt-1">{documentFiles[key].name}</p>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Step 10: General documents */}
+          {currentStep === 10 && (
+            <div className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">{t('registerApplication.documents.title')}</h2>
+              <p className="text-sm text-gray-600 mb-6">{t('registerApplication.documents.intro')}</p>
+              {CORE_DOCUMENT_SPECS.map(({ key, accept }) => (
                 <div key={key} className="border border-gray-200 rounded-xl p-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {key === 'id_photo' ? t('registerApplication.documents.idPhoto') : t('registerApplication.documents.transcript')}
+                  </label>
                   <input
                     type="file"
                     accept={accept}
-                    className="text-sm text-gray-600 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary-100 file:text-primary-700"
+                    className="text-sm text-gray-600 file:me-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary-100 file:text-primary-700"
                     onChange={(e) => {
                       const f = e.target.files?.[0]
                       setDocumentFiles((prev) => ({ ...prev, [key]: f || null }))
@@ -1774,7 +1845,7 @@ export default function RegisterApplication({ portal = false }) {
             className="flex items-center space-x-2 px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back</span>
+            <span>{t('registerApplication.navBack')}</span>
           </button>
           {currentStep < steps.length ? (
             <button
@@ -1782,7 +1853,7 @@ export default function RegisterApplication({ portal = false }) {
               disabled={!selectedCollegeId}
               className="flex items-center space-x-2 px-6 py-2 bg-primary-gradient text-white rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span>Next</span>
+              <span>{t('registerApplication.navNext')}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
@@ -1794,12 +1865,12 @@ export default function RegisterApplication({ portal = false }) {
               {loading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Submitting...</span>
+                  <span>{t('registerApplication.navSubmitting')}</span>
                 </>
               ) : (
                 <>
                   <Save className="w-5 h-5" />
-                  <span>Submit Application</span>
+                  <span>{t('registerApplication.navSubmit')}</span>
                 </>
               )}
             </button>

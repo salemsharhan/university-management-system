@@ -782,9 +782,6 @@ export default function InstructorSubjectView() {
                     >
                       {t('instructorPortal.subjectHome.editSettings')}
                     </button>
-                    <button type="button" className="btn btn-gh" onClick={() => navigate('/instructor/templates')}>
-                      {t('instructorPortal.templates')}
-                    </button>
                   </div>
                 </div>
               )}

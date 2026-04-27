@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { checkFinancePermission, getStudentSemesterMilestone } from '../../utils/financePermissions'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import { 
   ArrowLeft, BookOpen, FileText, Video, Download, Upload, CheckCircle, 
   XCircle, Clock, AlertCircle, GraduationCap, Eye, MessageSquare, 
@@ -33,6 +34,7 @@ export default function StudentSubjectView() {
   const [teamsMeetings, setTeamsMeetings] = useState([])
   const [activeTab, setActiveTab] = useState('overview')
   const [availableActions, setAvailableActions] = useState([])
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -54,6 +56,8 @@ export default function StudentSubjectView() {
 
       if (studentError) throw studentError
       setStudent(studentData)
+      const pe = await getPaymentsEnabled(studentData.college_id).catch(() => true)
+      setPaymentsEnabled(pe)
 
       // Fetch subject
       const { data: subjectData, error: subjectError } = await supabase
@@ -128,7 +132,7 @@ export default function StudentSubjectView() {
         ])
 
         // Calculate available actions based on permissions (per-semester milestone)
-        await calculateAvailableActions(subjectData, studentData, semesterId)
+        await calculateAvailableActions(subjectData, studentData, semesterId, pe)
       } else {
         setError('You are not enrolled in this subject')
       }
@@ -436,7 +440,7 @@ export default function StudentSubjectView() {
     }
   }
 
-  const calculateAvailableActions = async (subjectData, studentData, semesterId) => {
+  const calculateAvailableActions = async (subjectData, studentData, semesterId, pe = paymentsEnabled) => {
     const actions = []
     const studentStatus = studentData.current_status_code || 'ENAC'
     let financialHold = studentData.financial_hold_reason_code || null
@@ -463,7 +467,8 @@ export default function StudentSubjectView() {
         actionCode,
         financeMilestone,
         financialHold,
-        actionCode === 'SS_GRAD' || actionCode === 'SS_EXVR' ? gradesVisibility : null
+        actionCode === 'SS_GRAD' || actionCode === 'SS_EXVR' ? gradesVisibility : null,
+        pe
       )
       actions.push({
         code: actionCode,

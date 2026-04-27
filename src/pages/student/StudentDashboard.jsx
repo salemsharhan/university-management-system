@@ -219,7 +219,7 @@ export default function StudentDashboard() {
             type="button"
             className="h-9 w-9 rounded-full border border-slate-200 bg-white flex items-center justify-center"
             title={tx('بحث', 'Search')}
-            onClick={() => navigate('/student/coming-soon')}
+            onClick={() => navigate('/student/course-catalog')}
           >
             <Search className="w-4 h-4 text-slate-700" />
           </button>
@@ -227,7 +227,7 @@ export default function StudentDashboard() {
             type="button"
             className="relative h-9 w-9 rounded-full border border-slate-200 bg-white flex items-center justify-center"
             title={tx('الإشعارات', 'Notifications')}
-            onClick={() => navigate('/student/coming-soon')}
+            onClick={() => navigate('/student/requests')}
           >
             <Bell className="w-4 h-4 text-slate-700" />
             {activeHoldCount > 0 && <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-600" />}
@@ -478,9 +478,7 @@ export default function StudentDashboard() {
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
             <div className="flex items-start justify-between gap-3 mb-5">
               <div className="text-lg font-extrabold" style={{ color: STUDENT_PORTAL_BG }}>{tx('آخر الإشعارات', 'Latest notifications')}</div>
-              <button type="button" className="text-sm font-bold text-slate-600 hover:text-slate-900" onClick={() => navigate('/student/coming-soon')}>
-                {tx('الكل', 'All')}
-              </button>
+              <div className="text-xs text-slate-400 font-bold">{tx('تحديثات', 'Updates')}</div>
             </div>
             <div className="space-y-4">
               {hasFinancialHold && (
@@ -523,7 +521,7 @@ export default function StudentDashboard() {
                 <span className="text-base">📹</span>
                 {tx('بوابة التعلم الإلكتروني — جلسات Teams', 'e-Learning — Teams sessions')}
               </button>
-              <button type="button" onClick={() => navigate('/student/coming-soon')} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2">
+              <button type="button" onClick={() => navigate('/student/requests')} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2">
                 <ClipboardList className="w-4 h-4" />
                 {tx('تقديم طلب خدمة', 'Submit service request')}
               </button>
@@ -531,13 +529,9 @@ export default function StudentDashboard() {
                 <Receipt className="w-4 h-4" />
                 {tx('السجل الأكاديمي', 'Transcript')}
               </button>
-              <button type="button" onClick={() => navigate('/student/coming-soon')} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2">
-                <GraduationCap className="w-4 h-4" />
-                {tx('موعد إرشاد أكاديمي', 'Academic advising')}
-              </button>
-              <button type="button" onClick={() => navigate('/student/coming-soon')} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2">
+              <button type="button" onClick={() => navigate('/student/holds')} className="w-full px-4 py-2 rounded-lg border border-slate-200 bg-slate-50 font-bold text-slate-800 flex items-center justify-center gap-2">
                 <HelpCircle className="w-4 h-4" />
-                {tx('مركز المساعدة', 'Help center')}
+                {tx('عرض التعليقات والحجب', 'View holds & blocks')}
               </button>
             </div>
           </div>

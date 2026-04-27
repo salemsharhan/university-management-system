@@ -256,6 +256,9 @@ export default function CreateCollege() {
         // Load Financial settings
         if (data.financial_settings) {
           const financial = data.financial_settings
+          if (typeof financial.payments_enabled === 'boolean') {
+            setFormData(prev => ({ ...prev, payments_enabled: financial.payments_enabled }))
+          }
           if (financial.paymentGateway) {
             setFormData(prev => ({
               ...prev,
@@ -637,6 +640,9 @@ export default function CreateCollege() {
       // Auto-fill Financial settings
       if (universitySettings.financial_settings) {
         const financial = universitySettings.financial_settings
+        if (typeof financial.payments_enabled === 'boolean') {
+          newData.payments_enabled = financial.payments_enabled
+        }
         if (financial.paymentGateway) {
           newData.tap_api_key = financial.paymentGateway.tapApiKey || newData.tap_api_key
           newData.tap_secret_key = financial.paymentGateway.tapSecretKey || newData.tap_secret_key
@@ -905,6 +911,7 @@ export default function CreateCollege() {
     add_drop_period_days: 14,
 
     // Financial
+    payments_enabled: true,
     tap_api_key: '',
     tap_secret_key: '',
     test_mode: true,
@@ -1135,6 +1142,7 @@ export default function CreateCollege() {
       }
 
       const financialSettings = {
+        payments_enabled: formData.payments_enabled,
         paymentGateway: {
           tapApiKey: formData.tap_api_key,
           tapSecretKey: formData.tap_secret_key,

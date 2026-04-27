@@ -53,6 +53,9 @@ const TABS = [
 const STUDENT_DOCUMENT_LABELS = {
   id_photo: 'viewStudent.documents.idPhoto',
   transcript: 'viewStudent.documents.transcript',
+  scholarship_letter: 'viewStudent.documents.scholarshipLetter',
+  scholarship_financial: 'viewStudent.documents.scholarshipFinancial',
+  scholarship_recommendation: 'viewStudent.documents.scholarshipRecommendation',
 }
 
 function getInitials(student, isRTL) {
@@ -1271,6 +1274,12 @@ export default function ViewStudent() {
                   <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.type')}</p><p className="font-medium">{student?.scholarship_type || '—'}</p></div>
                   <div className="rounded-xl bg-gray-50 p-4"><p className="text-xs text-gray-500 uppercase">{t('viewStudent.percentage')}</p><p className="font-medium">{student?.scholarship_percentage != null ? `${student.scholarship_percentage}%` : '—'}</p></div>
                 </div>
+                {student?.scholarship_details && (
+                  <div className="rounded-xl bg-gray-50 p-4 border border-gray-100">
+                    <p className="text-xs font-medium text-gray-500 uppercase">{t('viewStudent.scholarshipDetails')}</p>
+                    <p className="mt-2 text-gray-900 whitespace-pre-wrap">{student.scholarship_details}</p>
+                  </div>
+                )}
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500 uppercase mb-2">{t('viewStudent.medical')}</h3>

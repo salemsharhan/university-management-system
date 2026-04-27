@@ -75,6 +75,7 @@ import UniversitySettings from './pages/admin/UniversitySettings'
 import AdminCurriculumMap from './pages/admin/AdminCurriculumMap'
 import AdminBuildLesson from './pages/admin/AdminBuildLesson'
 import AdminRubricBuilder from './pages/admin/AdminRubricBuilder'
+import AdminELibrary from './pages/admin/AdminELibrary'
 import GradeManagement from './pages/grading/GradeManagement'
 import ClassGrades from './pages/grading/ClassGrades'
 import StudentGrades from './pages/grading/StudentGrades'
@@ -104,6 +105,9 @@ import StudentLessonViewer from './pages/student/StudentLessonViewer'
 import StudentELearningExams from './pages/student/StudentELearningExams'
 import StudentExamRoom from './pages/student/StudentExamRoom'
 import StudentExamSubmitted from './pages/student/StudentExamSubmitted'
+import StudentELibrary from './pages/student/StudentELibrary'
+import StudentLearningProgress from './pages/student/StudentLearningProgress'
+import StudentStudyPlanner from './pages/student/StudentStudyPlanner'
 import InstructorSubjectView from './pages/instructor/InstructorSubjectView'
 import InstructorDashboard from './pages/instructor/InstructorDashboard'
 import InstructorMyCourses from './pages/instructor/InstructorMyCourses'
@@ -522,6 +526,16 @@ function App() {
               <ProtectedRoute allowedRoles={['admin', 'user']}>
                 <RoleBasedLayout>
                   <AdminRubricBuilder />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/elibrary"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'user']}>
+                <RoleBasedLayout>
+                  <AdminELibrary />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }
@@ -1128,11 +1142,31 @@ function App() {
             }
           />
           <Route
-            path="/student/elearning/coming-soon"
+            path="/student/elearning/elibrary"
             element={
               <ProtectedRoute allowedRoles={['student']}>
                 <RoleBasedLayout>
-                  <StudentComingSoon />
+                  <StudentELibrary />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/progress"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentLearningProgress />
+                </RoleBasedLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/elearning/study-planner"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <RoleBasedLayout>
+                  <StudentStudyPlanner />
                 </RoleBasedLayout>
               </ProtectedRoute>
             }

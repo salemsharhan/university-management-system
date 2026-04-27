@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { ChevronDown, Menu, X } from 'lucide-react'
+import { getPaymentsEnabled } from '../utils/getPaymentsEnabled'
 
 const UI = {
   p: '#1a3a6b',
@@ -29,7 +30,6 @@ const NAV = [
     items: [
       { href: '/student/course-catalog', label: { ar: 'دليل المقررات', en: 'Course catalog' }, icon: '📚' },
       { href: '/student/enroll', label: { ar: 'تسجيل المقررات', en: 'Course registration' }, icon: '✏️' },
-      { href: '/student/coming-soon', label: { ar: 'قائمة الانتظار', en: 'Waitlist' }, icon: '⏳' },
       { href: '/student/schedule', label: { ar: 'الجدول الدراسي', en: 'Timetable' }, icon: '📅' },
     ],
   },
@@ -37,7 +37,6 @@ const NAV = [
     label: { ar: 'السجل الأكاديمي', en: 'Academic record' },
     items: [
       { href: '/student/grades', label: { ar: 'الدرجات والنتائج', en: 'Grades & results' }, icon: '📊' },
-      { href: '/student/grades', label: { ar: 'السجل الأكاديمي', en: 'Transcript' }, icon: '📜' },
       { href: '/student/graduation-path', label: { ar: 'مسار التخرج', en: 'Degree audit' }, icon: '🎯' },
     ],
   },
@@ -46,24 +45,18 @@ const NAV = [
     items: [
       { href: '/student/payments', label: { ar: 'الفواتير والرسوم', en: 'Invoices & fees' }, icon: '🧾' },
       { href: '/student/payments', label: { ar: 'الدفع الإلكتروني', en: 'Online payment' }, icon: '💳' },
-      { href: '/student/coming-soon', label: { ar: 'المنح والخصومات', en: 'Scholarships & discounts' }, icon: '🏆' },
     ],
   },
   {
     label: { ar: 'الخدمات الطلابية', en: 'Student services' },
     items: [
       { href: '/student/requests', label: { ar: 'مركز الطلبات', en: 'Requests center' }, icon: '📋' },
-      { href: '/student/coming-soon', label: { ar: 'الإرشاد الأكاديمي', en: 'Academic advising' }, icon: '🧑‍🏫' },
     ],
   },
   {
     label: { ar: 'التواصل والدعم', en: 'Support & communication' },
     items: [
-      { href: '/student/coming-soon', label: { ar: 'الإشعارات', en: 'Notifications' }, icon: '🔔' },
-      { href: '/student/coming-soon', label: { ar: 'الإعلانات', en: 'Announcements' }, icon: '📢' },
-      { href: '/student/coming-soon', label: { ar: 'مركز المساعدة', en: 'Help center' }, icon: '❓' },
-      { href: '/student/coming-soon', label: { ar: 'البحث', en: 'Search' }, icon: '🔍' },
-      { href: '/student/coming-soon', label: { ar: 'سجل النشاط', en: 'Activity log' }, icon: '📜' },
+      // Coming-soon items removed from sidebar per request.
     ],
   },
 ]
@@ -72,9 +65,15 @@ export default function StudentLayout({ children }) {
   const { isRTL, language, changeLanguage } = useLanguage()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [langMenuOpen, setLangMenuOpen] = useState(false)
-  const { user, signOut } = useAuth()
+  const { user, signOut, collegeId } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
+
+  useEffect(() => {
+    if (!collegeId) return
+    getPaymentsEnabled(collegeId).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
+  }, [collegeId])
 
   const handleSignOut = async () => {
     await signOut()
@@ -99,6 +98,10 @@ export default function StudentLayout({ children }) {
   const avatarLetter = useMemo(() => (displayName || 'م').charAt(0).toUpperCase(), [displayName])
   const isArabic = language === 'ar' || isRTL
   const tx = (val) => (typeof val === 'string' ? val : (isArabic ? val?.ar : val?.en) || val?.ar || val?.en || '')
+  const navSections = useMemo(() => {
+    if (paymentsEnabled) return NAV
+    return NAV.filter((s) => s?.label?.en !== 'Financial affairs')
+  }, [paymentsEnabled])
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: UI.bg }} dir={isRTL ? 'rtl' : 'ltr'}>
@@ -126,7 +129,7 @@ export default function StudentLayout({ children }) {
           </div>
 
           <nav className="px-2 py-3 flex-1">
-            {NAV.map((section) => (
+            {navSections.map((section) => (
               <div key={tx(section.label)} className="mb-3">
                 <div className="px-3 pt-3 pb-1 text-[10px] font-extrabold tracking-wider uppercase text-white/35">{tx(section.label)}</div>
                 <ul className="space-y-1">
@@ -238,7 +241,7 @@ export default function StudentLayout({ children }) {
             </Link>
 
             <Link
-              to="/student/coming-soon"
+              to="/student/course-catalog"
               className="h-9 w-9 rounded-full border flex items-center justify-center text-[16px]"
               style={{ backgroundColor: UI.bg, borderColor: UI.bdr }}
               aria-label="بحث"
@@ -247,7 +250,7 @@ export default function StudentLayout({ children }) {
               🔍
             </Link>
             <Link
-              to="/student/coming-soon"
+              to="/student/requests"
               className="h-9 w-9 rounded-full border flex items-center justify-center text-[16px] relative"
               style={{ backgroundColor: UI.bg, borderColor: UI.bdr }}
               aria-label="الإشعارات"

@@ -169,20 +169,37 @@ export default function StudentLessonViewer() {
 
         // Ensure started marker
         if (!p) {
-          await supabase.from('class_lesson_progress').insert({
+          const startedIso = new Date().toISOString()
+          const { data: created, error: insErr } = await supabase
+            .from('class_lesson_progress')
+            .insert({
             lesson_id: lid,
             student_id: student.id,
             class_id: Number(classId),
             status: 'in_progress',
             progress_percent: 1,
-            started_at: new Date().toISOString(),
-            last_activity_at: new Date().toISOString(),
-          })
+              started_at: startedIso,
+              last_activity_at: startedIso,
+            })
+            .select('id, status, progress_percent, started_at, completed_at, last_activity_at')
+            .single()
+          if (insErr) throw insErr
+          setProgress(created || null)
+          setProgressMap((m) => ({ ...(m || {}), [String(lid)]: { ...(m?.[String(lid)] || {}), ...(created || {}), lesson_id: lid } }))
         } else if (String(p.status) === 'not_started') {
-          await supabase
+          const { data: updated, error: upErr } = await supabase
             .from('class_lesson_progress')
-            .update({ status: 'in_progress', started_at: p.started_at || new Date().toISOString(), last_activity_at: new Date().toISOString() })
+            .update({
+              status: 'in_progress',
+              started_at: p.started_at || new Date().toISOString(),
+              last_activity_at: new Date().toISOString(),
+            })
             .eq('id', p.id)
+            .select('id, status, progress_percent, started_at, completed_at, last_activity_at')
+            .single()
+          if (upErr) throw upErr
+          setProgress(updated || p)
+          setProgressMap((m) => ({ ...(m || {}), [String(lid)]: { ...(m?.[String(lid)] || {}), ...(updated || {}), lesson_id: lid } }))
         }
       } catch (e) {
         console.error('StudentLessonViewer loadLesson error:', e)
@@ -221,28 +238,26 @@ export default function StudentLessonViewer() {
     if (!student?.id || !lesson?.id) return
     try {
       const nowIso = new Date().toISOString()
-      const payload = {
+      const upsertRow = {
+        lesson_id: lesson.id,
+        student_id: student.id,
+        class_id: Number(classId),
         status: 'completed',
         progress_percent: 100,
+        started_at: progress?.started_at || nowIso,
         completed_at: nowIso,
         last_activity_at: nowIso,
       }
-      if (progress?.id) {
-        await supabase.from('class_lesson_progress').update(payload).eq('id', progress.id)
-      } else {
-        await supabase.from('class_lesson_progress').insert({
-          lesson_id: lesson.id,
-          student_id: student.id,
-          class_id: Number(classId),
-          status: 'completed',
-          progress_percent: 100,
-          started_at: nowIso,
-          completed_at: nowIso,
-          last_activity_at: nowIso,
-        })
-      }
-      setProgress((p) => ({ ...(p || {}), ...payload }))
-      setProgressMap((m) => ({ ...(m || {}), [String(lesson.id)]: { ...(m?.[String(lesson.id)] || {}), ...payload, lesson_id: lesson.id } }))
+
+      const { data: saved, error: saveErr } = await supabase
+        .from('class_lesson_progress')
+        .upsert(upsertRow, { onConflict: 'lesson_id,student_id' })
+        .select('id, lesson_id, status, progress_percent, started_at, completed_at, last_activity_at')
+        .single()
+      if (saveErr) throw saveErr
+
+      setProgress(saved || null)
+      setProgressMap((m) => ({ ...(m || {}), [String(lesson.id)]: { ...(m?.[String(lesson.id)] || {}), ...(saved || {}), lesson_id: lesson.id } }))
 
       // go next
       const idx = lessons.findIndex((x) => x.id === lesson.id)

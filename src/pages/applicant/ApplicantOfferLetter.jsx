@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { Loader2, Printer, CheckCircle, XCircle } from 'lucide-react'
 import { getLocalizedName } from '../../utils/localizedName'
 import PaymentModal from '../../components/payment/PaymentModal'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 
 export default function ApplicantOfferLetter() {
   const { t } = useTranslation()
@@ -20,6 +21,7 @@ export default function ApplicantOfferLetter() {
   const [application, setApplication] = useState(null)
   const [accepting, setAccepting] = useState(false)
   const [showTuitionPayment, setShowTuitionPayment] = useState(false)
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -54,6 +56,7 @@ export default function ApplicantOfferLetter() {
         if (!uidOk && !emailOk) throw new Error(t('track.portalAccessDenied', 'You do not have access to this application.'))
 
         if (!cancelled) setApplication(data)
+        getPaymentsEnabled(data.college_id).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load offer letter')
       } finally {
@@ -89,8 +92,8 @@ export default function ApplicantOfferLetter() {
 
   const deadline = application?.offer_deadline || application?.created_at
   const deadlineText = deadline ? new Date(deadline).toLocaleDateString(isRTL ? 'ar' : undefined) : '—'
-  const hasPaidRegistration = !!application?.registration_fee_paid_at
-  const hasPaidTuition = !!application?.tuition_fee_paid_at
+  const hasPaidRegistration = paymentsEnabled ? !!application?.registration_fee_paid_at : true
+  const hasPaidTuition = paymentsEnabled ? !!application?.tuition_fee_paid_at : true
   const tuitionAmount = useMemo(() => Number(application?.tuition_fee_amount || 0), [application?.tuition_fee_amount])
 
   const handlePrint = () => window.print()
@@ -131,18 +134,19 @@ export default function ApplicantOfferLetter() {
 
   return (
     <div className="max-w-6xl mx-auto w-full min-w-0 text-start print:max-w-none" dir={isRTL ? 'rtl' : 'ltr'}>
-      <PaymentModal
-        isOpen={showTuitionPayment}
-        onClose={() => setShowTuitionPayment(false)}
-        application={application}
-        purpose="tuition"
-        onPaymentSuccess={async () => {
-          // Refresh application state after payment
-          const { data } = await supabase.from('applications').select('*').eq('id', applicationId).single()
-          if (data) setApplication(data)
-          setShowTuitionPayment(false)
-        }}
-      />
+      {paymentsEnabled && (
+        <PaymentModal
+          isOpen={showTuitionPayment}
+          onClose={() => setShowTuitionPayment(false)}
+          application={application}
+          purpose="tuition"
+          onPaymentSuccess={async () => {
+            const { data } = await supabase.from('applications').select('*').eq('id', applicationId).single()
+            if (data) setApplication(data)
+            setShowTuitionPayment(false)
+          }}
+        />
+      )}
 
       <nav className="flex flex-wrap items-center gap-1.5 text-sm text-[#6b7a99] mb-5 print:hidden" aria-label="breadcrumb">
         <Link to="/" className="hover:text-[#1a3a6b] no-underline">
@@ -183,9 +187,11 @@ export default function ApplicantOfferLetter() {
             {hasPaidRegistration ? <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" /> : <XCircle className="w-5 h-5 shrink-0 mt-0.5" />}
             <div className="min-w-0">
               <div className="font-bold">
-                {hasPaidRegistration
-                  ? t('offerLetter.paidOk', 'Registration fee received. You can accept the offer.')
-                  : t('offerLetter.payFirst', 'Please pay the registration fee before accepting the offer.')}
+                {!paymentsEnabled
+                  ? t('offerLetter.ready', 'Your offer is ready.')
+                  : hasPaidRegistration
+                    ? t('offerLetter.paidOk', 'Registration fee received. You can accept the offer.')
+                    : t('offerLetter.payFirst', 'Please pay the registration fee before accepting the offer.')}
               </div>
               <div className="text-xs mt-1 opacity-90">
                 {t('offerLetter.applicationNumber', 'Application #')}: <span className="font-mono font-bold">{application.application_number}</span>
@@ -242,24 +248,35 @@ export default function ApplicantOfferLetter() {
                 <div className="font-bold text-[#1a3a6b] mb-3">{t('offerLetter.nextSteps', 'Next steps')}</div>
                 <ol className="space-y-3 text-sm text-[#1e2a3a]">
                   <li><span className="font-bold">1)</span> {t('offerLetter.stepAccept', 'Accept the offer')}</li>
-                  <li><span className="font-bold">2)</span> {t('offerLetter.stepPayTuition', 'Pay the tuition fee')}</li>
-                  <li><span className="font-bold">3)</span> {t('offerLetter.stepStudentId', 'Your student record will be created automatically')}</li>
+                  {paymentsEnabled && (
+                    <li><span className="font-bold">2)</span> {t('offerLetter.stepPayTuition', 'Pay the tuition fee')}</li>
+                  )}
+                  <li>
+                    <span className="font-bold">{paymentsEnabled ? '3)' : '2)'}</span>{' '}
+                    {t('offerLetter.stepStudentId', 'Your student record will be created automatically')}
+                  </li>
                 </ol>
                 <div className="mt-4 grid grid-cols-1 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowTuitionPayment(true)}
-                    disabled={!hasPaidRegistration || hasPaidTuition || !Number.isFinite(tuitionAmount) || tuitionAmount <= 0}
-                    className="w-full py-2.5 px-4 rounded-md border border-[#dde3ef] bg-white hover:bg-[#f4f6fb] font-extrabold text-[#1e2a3a] disabled:opacity-60"
-                  >
-                    {hasPaidTuition
-                      ? t('offerLetter.tuitionPaid', 'Tuition paid')
-                      : t('offerLetter.payTuition', 'Pay tuition fee')}
-                  </button>
+                  {paymentsEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTuitionPayment(true)}
+                      disabled={!hasPaidRegistration || hasPaidTuition || !Number.isFinite(tuitionAmount) || tuitionAmount <= 0}
+                      className="w-full py-2.5 px-4 rounded-md border border-[#dde3ef] bg-white hover:bg-[#f4f6fb] font-extrabold text-[#1e2a3a] disabled:opacity-60"
+                    >
+                      {hasPaidTuition
+                        ? t('offerLetter.tuitionPaid', 'Tuition paid')
+                        : t('offerLetter.payTuition', 'Pay tuition fee')}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={handleAcceptOffer}
-                    disabled={!hasPaidRegistration || !hasPaidTuition || accepting || isFinalAccepted}
+                    disabled={
+                      accepting ||
+                      isFinalAccepted ||
+                      (paymentsEnabled && (!hasPaidRegistration || !hasPaidTuition))
+                    }
                     className="w-full py-2.5 px-4 rounded-md bg-[#1a7a4a] hover:bg-[#16663f] text-white font-extrabold disabled:opacity-60"
                   >
                     {isFinalAccepted

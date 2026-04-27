@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useAuth } from '../contexts/AuthContext'
-import { Shield, Mail, Lock, Eye, EyeOff, ArrowLeft, Sparkles } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, ArrowLeft, AlertCircle } from 'lucide-react'
 
 export default function LoginAdmin() {
   const { t } = useTranslation()
@@ -26,10 +26,10 @@ export default function LoginAdmin() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-300 border-t-slate-700 mx-auto" />
+          <p className="mt-4 text-slate-600 font-medium">Loading…</p>
         </div>
       </div>
     )
@@ -52,146 +52,157 @@ export default function LoginAdmin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-primary-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
-        <div className="absolute bottom-20 right-20 w-72 h-72 bg-accent-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100" dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="relative min-h-screen">
+        <Link
+          to="/"
+          className={`absolute top-6 ${isRTL ? 'right-6' : 'left-6'} z-20 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur hover:bg-white transition ${
+            isRTL ? 'flex-row-reverse' : ''
+          }`}
+        >
+          <ArrowLeft className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
+          {t('login.backToRoles')}
+        </Link>
 
-      {/* Back button */}
-      <Link
-        to="/"
-        className={`absolute top-6 ${isRTL ? 'right-6' : 'left-6'} z-20 flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : ''} space-x-2 text-gray-700 hover:text-primary-600 transition-colors`}
-      >
-        <ArrowLeft className={`w-5 h-5 ${isRTL ? 'rotate-180' : ''}`} />
-        <span className="font-medium">{t('login.backToRoles')}</span>
-      </Link>
-
-      <div className="w-full max-w-md relative z-10">
-        <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-200">
-          {/* Logo and Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <img 
-                src="/assets/IBU Logo.png" 
-                alt="IBU Logo" 
-                className="h-20 w-auto object-contain"
+        <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-2">
+          {/* Left: Brand/Visual */}
+          <div className="relative hidden lg:flex flex-col justify-between p-10">
+            <div className="absolute inset-0">
+              <div className="absolute -top-24 -left-24 h-80 w-80 rounded-full bg-indigo-200 blur-3xl opacity-70" />
+              <div className="absolute bottom-10 right-0 h-80 w-80 rounded-full bg-sky-200 blur-3xl opacity-70" />
+              <div
+                className="absolute inset-0 opacity-[0.05]"
+                style={{
+                  backgroundImage:
+                    "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230f172a' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+                }}
               />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">{t('login.superAdmin')}</h1>
-            <p className="text-gray-600">{t('login.superAdminDesc')}</p>
+
+            <div className="relative">
+              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-16 w-auto object-contain" />
+              <div className="mt-10 max-w-md">
+                <div className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200">
+                  {t('login.superAdmin')}
+                </div>
+                <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-900">{t('login.superAdminDesc')}</h1>
+                <p className="mt-3 text-slate-600">{t('login.superAdminAccess')}</p>
+              </div>
+            </div>
+
+            <div className="relative text-sm text-slate-500">University Management System • Imam Bukhari University (IBU)</div>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('login.emailAddress')}
-              </label>
-              <div className="relative">
-                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className={`block w-full ${isRTL ? 'pr-10 pl-3' : 'pl-10 pr-3'} py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white`}
-                  placeholder="admin@university.edu"
-                />
+          {/* Right: Form */}
+          <div className="flex items-center justify-center p-6 lg:p-10">
+            <div className="w-full max-w-md">
+              <div className="lg:hidden mb-8 text-center">
+                <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-14 w-auto object-contain mx-auto" />
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                {t('login.password')}
-              </label>
-              <div className="relative">
-                <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
-                  <Lock className="h-5 w-5 text-gray-400" />
+              <div className="rounded-3xl bg-white shadow-xl ring-1 ring-slate-200 p-7 lg:p-8">
+                <div className={`flex items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <div className={isRTL ? 'text-right' : ''}>
+                    <h2 className="text-2xl font-black text-slate-900">{t('login.superAdmin')}</h2>
+                    <p className="mt-1 text-sm text-slate-600">{t('login.superAdminDesc')}</p>
+                  </div>
+                  <div className="hidden sm:flex items-center rounded-full bg-slate-50 px-3 py-1 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200">
+                    Admin
+                  </div>
                 </div>
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className={`block w-full ${isRTL ? 'pr-10 pl-12' : 'pl-10 pr-12'} py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white`}
-                  placeholder={t('login.password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className={`absolute inset-y-0 ${isRTL ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center`}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
-                </button>
+
+                {error && (
+                  <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <AlertCircle className="h-5 w-5 mt-0.5" />
+                      <div className="leading-5">{error}</div>
+                    </div>
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+                  <div>
+                    <label htmlFor="email" className={`block text-sm font-bold text-slate-700 mb-2 ${isRTL ? 'text-right' : ''}`}>
+                      {t('login.emailAddress')}
+                    </label>
+                    <div className="relative">
+                      <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
+                        <Mail className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        autoComplete="email"
+                        className={`block w-full rounded-2xl border border-slate-200 bg-white py-3 text-slate-900 placeholder-slate-400 shadow-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 ${
+                          isRTL ? 'pr-10 pl-3 text-right' : 'pl-10 pr-3'
+                        }`}
+                        placeholder="admin@university.edu"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="password" className={`block text-sm font-bold text-slate-700 mb-2 ${isRTL ? 'text-right' : ''}`}>
+                      {t('login.password')}
+                    </label>
+                    <div className="relative">
+                      <div className={`absolute inset-y-0 ${isRTL ? 'right-0 pr-3' : 'left-0 pl-3'} flex items-center pointer-events-none`}>
+                        <Lock className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        autoComplete="current-password"
+                        className={`block w-full rounded-2xl border border-slate-200 bg-white py-3 text-slate-900 placeholder-slate-400 shadow-sm outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100 ${
+                          isRTL ? 'pr-10 pl-12 text-right' : 'pl-10 pr-12'
+                        }`}
+                        placeholder={t('login.password')}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className={`absolute inset-y-0 ${isRTL ? 'left-0 pl-3' : 'right-0 pr-3'} flex items-center text-slate-400 hover:text-slate-700`}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={`flex items-center justify-end ${isRTL ? 'flex-row-reverse' : ''}`}>
+                    <Link to="/forgot-password" className="text-sm font-bold text-slate-700 hover:text-slate-900">
+                      {t('login.forgotPassword')}
+                    </Link>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-2xl bg-slate-900 text-white py-3.5 font-extrabold shadow-lg shadow-slate-900/10 transition hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <span className={`flex items-center justify-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <span className="h-5 w-5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+                        {t('login.signingIn')}
+                      </span>
+                    ) : (
+                      t('login.signInAsAdmin')
+                    )}
+                  </button>
+                </form>
               </div>
-            </div>
 
-            <div className={`flex items-center ${isRTL ? 'flex-row-reverse justify-between' : 'justify-between'}`}>
-              <label className={`flex items-center ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <input type="checkbox" className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
-                <span className={`${isRTL ? 'mr-2' : 'ml-2'} text-sm text-gray-600`}>{t('login.rememberMe')}</span>
-              </label>
-              <Link to="/forgot-password" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-                {t('login.forgotPassword')}
-              </Link>
+              <p className="mt-6 text-center text-xs text-slate-500 lg:hidden">{t('login.superAdminAccess')}</p>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary-gradient text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            >
-              {loading ? (
-                <span className={`flex items-center ${isRTL ? 'flex-row-reverse' : 'justify-center'}`}>
-                  <svg className={`animate-spin h-5 w-5 text-white ${isRTL ? 'mr-3' : '-ml-1 mr-3'}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {t('login.signingIn')}
-                </span>
-              ) : (
-                t('login.signInAsAdmin')
-              )}
-            </button>
-          </form>
+          </div>
         </div>
-
-        {/* Footer */}
-        <p className="text-center mt-6 text-gray-600 text-sm">
-          {t('login.superAdminAccess')}
-        </p>
       </div>
-
-      <style>{`
-        @keyframes blob {
-          0%, 100% { transform: translate(0, 0) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-      `}</style>
     </div>
   )
 }

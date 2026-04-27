@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
+import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2 } from 'lucide-react'
 
 export default function CreateApplication() {
@@ -33,6 +34,7 @@ export default function CreateApplication() {
   const { userRole, collegeId: authCollegeId } = useAuth()
   const { selectedCollegeId, requiresCollegeSelection, colleges, setSelectedCollegeId, loading: collegesLoading } = useCollege()
   const collegeId = userRole === 'admin' ? selectedCollegeId : authCollegeId
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -107,6 +109,7 @@ export default function CreateApplication() {
     if (collegeId) {
       fetchMajors()
       fetchSemesters()
+      getPaymentsEnabled(collegeId).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
       // Clear selected major and semester when college changes
       setFormData(prev => ({
         ...prev,
@@ -221,7 +224,7 @@ export default function CreateApplication() {
       if (majorError) throw majorError
       if (!major?.validation_rules || Object.keys(major.validation_rules).length === 0) {
         // No validation rules set, application passes
-        return { isValid: true, errors: [], requiresFee: !!major?.registration_fee }
+        return { isValid: true, errors: [], requiresFee: paymentsEnabled ? !!major?.registration_fee : false }
       }
 
       const rules = major.validation_rules
@@ -257,7 +260,7 @@ export default function CreateApplication() {
       return {
         isValid: errors.length === 0,
         errors,
-        requiresFee: !!major?.registration_fee,
+        requiresFee: paymentsEnabled ? !!major?.registration_fee : false,
         requiresInterview: rules.requires_interview || false,
         requiresEntranceExam: rules.requires_entrance_exam || false,
       }
@@ -304,7 +307,7 @@ export default function CreateApplication() {
           finalStatusCode = 'APIV'
           triggerCode = 'TRVF' // Auto validation failed
           legacyStatus = 'rejected'
-        } else if (validationResult.requiresFee) {
+        } else if (validationResult.requiresFee && paymentsEnabled) {
           // Validation passed and fee required - move to APPN (Application Payment Pending)
           finalStatusCode = 'APPN'
           triggerCode = 'TRPW' // Payment required

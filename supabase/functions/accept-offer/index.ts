@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import nodemailer from 'npm:nodemailer@6.9.16'
+import { buildBrandedEmailHtml, buildPlainTextEmail } from './email.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -93,48 +94,31 @@ async function sendSmtpMessage(cfg: SmtpShape, to: string, subject: string, text
         ? { user: effective.username, pass: effective.password }
         : undefined,
     ignoreTLS: plainNoTls,
-    tls: plainNoTls ? { rejectUnauthorized: false } : undefined,
+    tls: plainNoTls ? { rejectUnauthorized: false } : { minVersion: 'TLSv1.2' as const },
   })
 
-  await transporter.sendMail({
-    from: effective.fromName ? `"${effective.fromName}" <${effective.fromEmail}>` : effective.fromEmail,
-    to,
-    subject,
-    text,
-    html,
-  })
+  const fromAddr =
+    effective.fromName && effective.fromEmail
+      ? `"${String(effective.fromName).replace(/"/g, '\\"')}" <${effective.fromEmail}>`
+      : effective.fromEmail || effective.username
+
+  try {
+    await transporter.sendMail({
+      from: fromAddr,
+      to,
+      subject,
+      text,
+      html,
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Auto-Response-Suppress': 'OOF, AutoReply',
+      },
+    })
+  } finally {
+    transporter.close()
+  }
 }
 
-function escapeHtml(s: string) {
-  return s
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
-function buildEmailHtml(subject: string, message: string, appNo: string) {
-  const msg = escapeHtml(message).replaceAll('\n', '<br/>')
-  const safeNo = escapeHtml(appNo)
-  return `<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${escapeHtml(
-    subject,
-  )}</title></head><body style="margin:0;padding:0;background:#f4f6fb;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#1e2a3a;">
-  <div style="max-width:640px;margin:0 auto;padding:28px 16px;">
-    <div style="background:#fff;border:1px solid #dde3ef;border-radius:12px;padding:22px;">
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
-        <div style="width:40px;height:40px;border-radius:10px;background:#1a3a6b;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;">IBU</div>
-        <div>
-          <div style="font-size:18px;font-weight:800;color:#1a3a6b;">${escapeHtml(subject)}</div>
-          <div style="font-size:13px;color:#6b7a99;margin-top:4px;">Application: <span style="display:inline-block;padding:3px 10px;border-radius:999px;background:#e6f7ef;color:#1a7a4a;font-weight:700;">${safeNo}</span></div>
-        </div>
-      </div>
-      <div style="font-size:14px;line-height:1.7;">${msg}</div>
-      <div style="margin-top:16px;font-size:12px;color:#6b7a99;">Please do not reply to this email.</div>
-    </div>
-  </div>
-  </body></html>`
-}
 
 async function generateStudentId(supabaseAdmin: any, collegeId: number) {
   const { data: college } = await supabaseAdmin
@@ -228,6 +212,33 @@ serve(async (req) => {
       .single()
     if (appErr || !app) throw appErr
 
+    const collegeIdForPayments = Number(app.college_id || 0) || null
+    let paymentsEnabled = true
+    try {
+      if (collegeIdForPayments) {
+        const { data: collegeRow } = await supabaseAdmin
+          .from('colleges')
+          .select('financial_settings')
+          .eq('id', collegeIdForPayments)
+          .maybeSingle()
+        const collegeFlag = (collegeRow as any)?.financial_settings?.payments_enabled
+        if (typeof collegeFlag === 'boolean') {
+          paymentsEnabled = collegeFlag
+        } else {
+          const { data: uniRow } = await supabaseAdmin
+            .from('university_settings')
+            .select('financial_settings')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          const uniFlag = (uniRow as any)?.financial_settings?.payments_enabled
+          if (typeof uniFlag === 'boolean') paymentsEnabled = uniFlag
+        }
+      }
+    } catch {
+      paymentsEnabled = true
+    }
+
     if (String(app.applicant_user_id || '') !== String(authUser.id)) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
@@ -249,18 +260,20 @@ serve(async (req) => {
     const safeNameEn = (computedNameEn || `${app.first_name || ''} ${app.last_name || ''}`.trim() || app.email || '').trim()
     const safeNameAr = (computedNameAr || safeNameEn).trim()
 
-    if (!app.registration_fee_paid_at) {
-      return new Response(JSON.stringify({ error: 'Registration fee must be paid before accepting the offer.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    if (paymentsEnabled) {
+      if (!app.registration_fee_paid_at) {
+        return new Response(JSON.stringify({ error: 'Registration fee must be paid before accepting the offer.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
-    if (!app.tuition_fee_paid_at) {
-      return new Response(JSON.stringify({ error: 'Tuition fee must be paid before final acceptance.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      if (!app.tuition_fee_paid_at) {
+        return new Response(JSON.stringify({ error: 'Tuition fee must be paid before final acceptance.' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
 
     // Resolve public.users id linked to this auth user
@@ -410,7 +423,7 @@ serve(async (req) => {
     // Create semester tuition invoice + apply the 10% onboarding payment (so PM10/PM30 gates have a real base)
     // Best-effort: do not fail offer acceptance if finance sync fails.
     try {
-      if (createdStudent?.id) {
+      if (paymentsEnabled && createdStudent?.id) {
         let semesterId: number | null = Number(app.semester_id || 0) || null
         if (!semesterId) {
           const { data: sem } = await supabaseAdmin
@@ -785,15 +798,31 @@ serve(async (req) => {
       if (smtp?.host && smtp.fromEmail) {
         const subject = 'Offer accepted'
         const message = 'Your offer has been accepted successfully. You can now log in as a student using the same email and password.'
-        const html = buildEmailHtml(subject, message, String(app.application_number || app.id))
-        const text = `${subject}\n\n${message}\n\nApplication: ${app.application_number || app.id}`
+        const appNo = String(app.application_number || app.id)
+        const html = buildBrandedEmailHtml({
+          brandName: smtp.fromName,
+          brandEmail: smtp.fromEmail,
+          subject,
+          message,
+          metaLabel: 'Application',
+          metaValue: appNo,
+        })
+        const text = buildPlainTextEmail({ subject, message, metaLine: `Application: ${appNo}` })
         await sendSmtpMessage(smtp, String(app.email), subject, text, html)
 
         const subject2 = 'Welcome — student onboarding'
         const message2 =
           'Welcome to the Student Portal.\n\nNext steps:\n- Log in using the same email and password you used during application registration.\n- Open Student Portal → Invoices & fees to complete the remaining semester payments (30% unlocks registration).\n- Upload/verify any missing documents from Student Portal → Documents.\n\nIf you have any questions, contact the admissions/finance office.'
-        const html2 = buildEmailHtml(subject2, message2, String(app.application_number || app.id))
-        const text2 = `${subject2}\n\n${message2}\n\nApplication: ${app.application_number || app.id}`
+        const appNo2 = String(app.application_number || app.id)
+        const html2 = buildBrandedEmailHtml({
+          brandName: smtp.fromName,
+          brandEmail: smtp.fromEmail,
+          subject: subject2,
+          message: message2,
+          metaLabel: 'Application',
+          metaValue: appNo2,
+        })
+        const text2 = buildPlainTextEmail({ subject: subject2, message: message2, metaLine: `Application: ${appNo2}` })
         await sendSmtpMessage(smtp, String(app.email), subject2, text2, html2)
       }
     } catch {
