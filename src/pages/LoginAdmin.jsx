@@ -80,13 +80,28 @@ export default function LoginAdmin() {
             </div>
 
             <div className="relative">
-              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-16 w-auto object-contain" />
-              <div className="mt-10 max-w-md">
+              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-20 w-auto object-contain" />
+              <div className="mt-10 max-w-lg">
                 <div className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200">
                   {t('login.superAdmin')}
                 </div>
                 <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-900">{t('login.superAdminDesc')}</h1>
                 <p className="mt-3 text-slate-600">{t('login.superAdminAccess')}</p>
+
+                <div className="mt-7 grid grid-cols-1 gap-3">
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">{t('login.superAdmin', 'Admin')}</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">{t('login.superAdminDesc')}</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Governance</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Manage colleges & system settings</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Insights</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Reports, KPIs, and approvals</div>
+                  </div>
+                </div>
               </div>
             </div>
 

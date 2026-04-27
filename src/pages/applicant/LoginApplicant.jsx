@@ -77,7 +77,7 @@ export default function LoginApplicant() {
             </div>
 
             <div className="relative">
-              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-16 w-auto object-contain" />
+              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-20 w-auto object-contain" />
               <div className="mt-10 max-w-md">
                 <div className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200">
                   {t('applicantLogin.title', 'Applicant Portal')}
@@ -88,6 +88,21 @@ export default function LoginApplicant() {
                 <p className="mt-3 text-slate-600">
                   {t('applicantLogin.subtitle2', 'Sign in to view your status, documents, and offer details.')}
                 </p>
+
+                <div className="mt-7 grid grid-cols-1 gap-3">
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Application</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Track steps and required documents</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Updates</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">See status changes instantly</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Offer letter</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Review and accept online</div>
+                  </div>
+                </div>
               </div>
             </div>
 

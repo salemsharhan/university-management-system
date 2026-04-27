@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
-import { GraduationCap, Shield, User, BookOpen, ArrowLeft } from 'lucide-react'
+import { GraduationCap, Shield, User, BookOpen } from 'lucide-react'
 
 export default function RoleSelection() {
   const { t } = useTranslation()
@@ -59,17 +59,6 @@ export default function RoleSelection() {
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className={`absolute top-6 ${isRTL ? 'right-6' : 'left-6'} z-20 inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur hover:bg-white transition ${
-            isRTL ? 'flex-row-reverse' : ''
-          }`}
-        >
-          <ArrowLeft className={`w-4 h-4 ${isRTL ? 'rotate-180' : ''}`} />
-          {t('login.backToRoles', 'Back to roles')}
-        </button>
-
         <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-14 lg:py-16">
           {/* Header */}
           <div className={`mx-auto w-full max-w-3xl text-center ${isRTL ? 'text-right' : ''}`}>
@@ -93,8 +82,7 @@ export default function RoleSelection() {
 
           {/* Cards */}
           <div className="mx-auto mt-10 w-full max-w-5xl">
-            <div className="rounded-[28px] bg-white/80 backdrop-blur shadow-xl ring-1 ring-slate-200 p-4 sm:p-6 lg:p-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 lg:gap-6">
                 {roles.map((role) => {
                   const Icon = role.icon
                   return (
@@ -102,25 +90,26 @@ export default function RoleSelection() {
                       key={role.id}
                       type="button"
                       onClick={() => navigate(role.route)}
-                      className={`group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:shadow-md hover:border-slate-300 focus:outline-none focus:ring-4 focus:ring-slate-100 ${
+                      className={`group relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 backdrop-blur p-7 text-left shadow-sm transition hover:shadow-xl hover:shadow-slate-900/10 hover:-translate-y-0.5 focus:outline-none focus:ring-4 focus:ring-slate-100 ${
                         isRTL ? 'text-right' : ''
                       }`}
                     >
+                      {/* Accent */}
                       <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${role.accent}`} />
-                      <div className={`flex items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <div className={`absolute -right-24 -top-24 h-56 w-56 rounded-full bg-gradient-to-br ${role.accent} opacity-[0.10] blur-2xl`} />
+
+                      <div className={`relative flex items-start justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
                         <div className="flex items-start gap-4">
-                          <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${role.accent} p-[1px] shadow-sm`}>
-                            <div className="h-full w-full rounded-[1rem] bg-white flex items-center justify-center">
-                              <Icon className="h-6 w-6 text-slate-900" />
-                            </div>
+                          <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${role.accent} flex items-center justify-center shadow-md shadow-slate-900/10`}>
+                            <Icon className="h-7 w-7 text-white" />
                           </div>
                           <div>
-                            <div className="text-lg font-black text-slate-900">{role.name}</div>
-                            <div className="mt-1 text-sm text-slate-600 leading-6">{role.description}</div>
+                            <div className="text-xl font-black text-slate-900 tracking-tight">{role.name}</div>
+                            <div className="mt-1 text-sm text-slate-600 leading-6 max-w-[34ch]">{role.description}</div>
                           </div>
                         </div>
 
-                        <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-200 text-slate-700 transition group-hover:bg-white">
+                        <div className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full bg-white/70 ring-1 ring-slate-200 text-slate-800 transition group-hover:bg-white">
                           <svg
                             className={`h-5 w-5 ${isRTL ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'} transition-transform`}
                             fill="none"
@@ -132,10 +121,12 @@ export default function RoleSelection() {
                         </div>
                       </div>
 
-                      <div className={`mt-5 flex items-center text-sm font-extrabold text-slate-800 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                        <span>{t('roleSelection.continue')}</span>
+                      <div className={`relative mt-6 inline-flex items-center gap-2 text-sm font-extrabold text-slate-900 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <span className="underline underline-offset-4 decoration-slate-300 group-hover:decoration-slate-900/40">
+                          {t('roleSelection.continue')}
+                        </span>
                         <svg
-                          className={`w-5 h-5 ${isRTL ? 'mr-2 group-hover:-translate-x-0.5 rotate-180' : 'ml-2 group-hover:translate-x-0.5'} transition-transform`}
+                          className={`w-5 h-5 ${isRTL ? 'rotate-180 group-hover:-translate-x-0.5' : 'group-hover:translate-x-0.5'} transition-transform`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -146,9 +137,10 @@ export default function RoleSelection() {
                     </button>
                   )
                 })}
-              </div>
+            </div>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between pt-6 border-t border-slate-200">
+            <div className="mx-auto mt-8 w-full max-w-5xl">
+              <div className="rounded-3xl bg-white/80 backdrop-blur shadow-sm ring-1 ring-slate-200 px-5 py-4 sm:px-6 sm:py-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                 <button
                   type="button"
                   onClick={() => navigate('/register')}

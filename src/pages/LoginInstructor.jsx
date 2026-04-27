@@ -74,13 +74,28 @@ export default function LoginInstructor() {
             </div>
 
             <div className="relative">
-              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-16 w-auto object-contain" />
-              <div className="mt-10 max-w-md">
+              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-20 w-auto object-contain" />
+              <div className="mt-10 max-w-lg">
                 <div className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200">
                   Instructor Portal
                 </div>
                 <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-900">Manage courses and lessons.</h1>
                 <p className="mt-3 text-slate-600">Sign in to access your teaching dashboard and courseware tools.</p>
+
+                <div className="mt-7 grid grid-cols-1 gap-3">
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Teaching</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Courses, content, sessions</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Assessments</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Quizzes, exams, grading</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Analytics</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Track class performance</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -91,7 +106,7 @@ export default function LoginInstructor() {
           <div className="flex items-center justify-center p-6 lg:p-10">
             <div className="w-full max-w-md">
               <div className="lg:hidden mb-8">
-                <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-14 w-auto object-contain" />
+                <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-16 w-auto object-contain" />
               </div>
 
               <div className="rounded-3xl bg-white shadow-xl ring-1 ring-slate-200 p-7 lg:p-8">

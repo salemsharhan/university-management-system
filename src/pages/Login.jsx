@@ -55,13 +55,28 @@ export default function Login() {
             </div>
 
             <div className="relative">
-              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-16 w-auto object-contain" />
+              <img src="/assets/IBU Logo.png" alt="IBU Logo" className="h-20 w-auto object-contain" />
               <div className="mt-10 max-w-md">
                 <div className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-extrabold text-slate-700 ring-1 ring-slate-200">
                   University Portal
                 </div>
                 <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-900">Welcome back.</h1>
                 <p className="mt-3 text-slate-600">Sign in to continue to your dashboard.</p>
+
+                <div className="mt-7 grid grid-cols-1 gap-3">
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Secure access</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Role-based portal login</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Unified system</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Academics, finance, exams</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 px-4 py-3">
+                    <div className="text-xs font-extrabold text-slate-500">Support</div>
+                    <div className="mt-1 text-sm font-extrabold text-slate-900">Use “Forgot password” anytime</div>
+                  </div>
+                </div>
               </div>
             </div>
 
