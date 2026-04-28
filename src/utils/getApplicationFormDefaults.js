@@ -1,0 +1,54 @@
+import { supabase } from '../lib/supabase'
+
+/**
+ * Global defaults for the applicant application form.
+ * Stored in university_settings.onboarding_settings.application_form_defaults.
+ *
+ * Shape:
+ * {
+ *   enabled: boolean,
+ *   lock_fields: boolean,
+ *   college_id: number|null,
+ *   major_id: number|null,
+ *   semester_id: number|null
+ *   academic_year_id: number|null
+ * }
+ */
+
+export async function getApplicationFormDefaults() {
+  try {
+    const { data, error } = await supabase
+      .from('university_settings')
+      .select('onboarding_settings')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) throw error
+
+    const raw = data?.onboarding_settings?.application_form_defaults
+    const enabled = Boolean(raw?.enabled)
+    if (!enabled) {
+      return { enabled: false }
+    }
+
+    const toNumOrNull = (v) => {
+      if (v == null || v === '') return null
+      const n = typeof v === 'number' ? v : parseInt(String(v), 10)
+      return Number.isFinite(n) ? n : null
+    }
+
+    return {
+      enabled: true,
+      lock_fields: raw?.lock_fields !== false, // default true
+      college_id: toNumOrNull(raw?.college_id),
+      major_id: toNumOrNull(raw?.major_id),
+      semester_id: toNumOrNull(raw?.semester_id),
+      academic_year_id: toNumOrNull(raw?.academic_year_id),
+    }
+  } catch (e) {
+    console.warn('getApplicationFormDefaults failed:', e?.message || e)
+    return { enabled: false }
+  }
+}
+

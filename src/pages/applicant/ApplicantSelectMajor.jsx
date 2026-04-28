@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { supabase } from '../../lib/supabase'
 import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
 import { getLocalizedName } from '../../utils/localizedName'
+import { getApplicationFormDefaults } from '../../utils/getApplicationFormDefaults'
 import { GraduationCap, ArrowRight, Loader2, Building2, Info } from 'lucide-react'
 
 export default function ApplicantSelectMajor() {
@@ -12,11 +13,36 @@ export default function ApplicantSelectMajor() {
   const { isRTL } = useLanguage()
   const navigate = useNavigate()
 
+  const [checkingDefaults, setCheckingDefaults] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [colleges, setColleges] = useState([])
   const [selectedCollegeId, setSelectedCollegeId] = useState('')
   const [majors, setMajors] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    async function maybeSkipSelection() {
+      setCheckingDefaults(true)
+      try {
+        const cfg = await getApplicationFormDefaults()
+        if (cancelled) return
+        if (cfg?.enabled && cfg.college_id && cfg.major_id) {
+          navigate('/portal/apply/new', { replace: true })
+          return
+        }
+      } catch {
+        // ignore, proceed normally
+      } finally {
+        if (!cancelled) setCheckingDefaults(false)
+      }
+    }
+    maybeSkipSelection()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -80,6 +106,14 @@ export default function ApplicantSelectMajor() {
 
   const handleChoose = (majorId) => {
     navigate(`/portal/apply/new?collegeId=${encodeURIComponent(selectedCollegeId)}&majorId=${encodeURIComponent(String(majorId))}`)
+  }
+
+  if (checkingDefaults) {
+    return (
+      <div className="flex justify-center py-16" dir={isRTL ? 'rtl' : 'ltr'}>
+        <Loader2 className="w-10 h-10 text-[#1a3a6b] animate-spin" />
+      </div>
+    )
   }
 
   return (

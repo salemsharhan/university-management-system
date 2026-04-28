@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
 import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
+import { getApplicationFormDefaults } from '../../utils/getApplicationFormDefaults'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload, Award } from 'lucide-react'
 
 const CORE_DOCUMENT_SPECS = [
@@ -43,9 +44,11 @@ export default function RegisterApplication({ portal = false }) {
   const { user, userRole, loading: authLoading } = useAuth()
   const [colleges, setColleges] = useState([])
   const [selectedCollegeId, setSelectedCollegeId] = useState('')
+  const [forcedProgram, setForcedProgram] = useState(null) // { enabled, lock_fields, college_id, major_id, semester_id }
   const [paymentsEnabled, setPaymentsEnabled] = useState(true)
   const [majors, setMajors] = useState([])
   const [semesters, setSemesters] = useState([])
+  const [academicYears, setAcademicYears] = useState([])
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [loadingColleges, setLoadingColleges] = useState(true)
@@ -96,6 +99,7 @@ export default function RegisterApplication({ portal = false }) {
     // Academic Information
     major_id: '',
     semester_id: '',
+    academic_year_id: '',
     study_type: '',
     study_load: '',
     study_approach: '',
@@ -158,6 +162,32 @@ export default function RegisterApplication({ portal = false }) {
     fetchColleges()
   }, [])
 
+  // Load optional global defaults for application form
+  useEffect(() => {
+    let alive = true
+    getApplicationFormDefaults()
+      .then((cfg) => {
+        if (!alive) return
+        if (cfg?.enabled && cfg.college_id && cfg.major_id) {
+          setForcedProgram(cfg)
+          setSelectedCollegeId(String(cfg.college_id))
+          setFormData((prev) => ({
+            ...prev,
+            major_id: String(cfg.major_id),
+            semester_id: cfg.semester_id ? String(cfg.semester_id) : prev.semester_id,
+            academic_year_id: cfg.academic_year_id ? String(cfg.academic_year_id) : prev.academic_year_id,
+          }))
+          setCurrentStep(1)
+        } else {
+          setForcedProgram({ enabled: false })
+        }
+      })
+      .catch(() => setForcedProgram({ enabled: false }))
+    return () => {
+      alive = false
+    }
+  }, [])
+
   useEffect(() => {
     if (!selectedCollegeId) return
     getPaymentsEnabled(parseInt(selectedCollegeId)).then(setPaymentsEnabled).catch(() => setPaymentsEnabled(true))
@@ -166,6 +196,12 @@ export default function RegisterApplication({ portal = false }) {
   // Applicant portal: require selecting program first (from /portal/apply). We pass it in the URL.
   useEffect(() => {
     if (!portal) return
+    // Wait until defaults are loaded before deciding to redirect.
+    if (forcedProgram == null) return
+    if (forcedProgram?.enabled && forcedProgram?.college_id && forcedProgram?.major_id) {
+      // Defaults override portal URL params
+      return
+    }
     const sp = new URLSearchParams(location.search || '')
     const cid = sp.get('collegeId')
     const mid = sp.get('majorId')
@@ -178,7 +214,7 @@ export default function RegisterApplication({ portal = false }) {
     // keep step at the beginning of the application, but lock program/college context
     setCurrentStep(1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [portal])
+  }, [portal, forcedProgram?.enabled])
 
   useEffect(() => {
     if (!portal) return
@@ -197,17 +233,20 @@ export default function RegisterApplication({ portal = false }) {
     if (selectedCollegeId) {
       fetchMajors()
       fetchSemesters()
+      fetchAcademicYears()
       // In applicant portal, major is pre-selected from the program selection screen
       setFormData((prev) => ({
         ...prev,
-        ...(portal ? {} : { major_id: '' }),
-        semester_id: '',
+        ...(portal || forcedProgram?.enabled ? {} : { major_id: '' }),
+        ...(forcedProgram?.enabled ? {} : { semester_id: '' }),
+        ...(forcedProgram?.enabled ? {} : { academic_year_id: '' }),
       }))
     } else {
       setMajors([])
       setSemesters([])
+      setAcademicYears([])
     }
-  }, [selectedCollegeId])
+  }, [selectedCollegeId, portal, forcedProgram?.enabled])
 
   const fetchColleges = async () => {
     setLoadingColleges(true)
@@ -271,7 +310,7 @@ export default function RegisterApplication({ portal = false }) {
     try {
       const { data, error } = await supabase
         .from('semesters')
-        .select('id, name_en, name_ar, code, start_date, end_date')
+        .select('id, name_en, name_ar, code, start_date, end_date, academic_year_id')
         .or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
         .order('start_date', { ascending: false })
 
@@ -281,6 +320,31 @@ export default function RegisterApplication({ portal = false }) {
       console.error('Error fetching semesters:', err)
     }
   }
+
+  const fetchAcademicYears = async () => {
+    if (!selectedCollegeId) return
+    try {
+      const { data, error } = await supabase
+        .from('academic_years')
+        .select('id, name_en, name_ar, code, start_date, end_date, status, is_current')
+        .or(`college_id.eq.${selectedCollegeId},is_university_wide.eq.true`)
+        .order('start_date', { ascending: false })
+      if (error) throw error
+      setAcademicYears(data || [])
+    } catch (err) {
+      console.error('Error fetching academic years:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (!formData.semester_id) return
+    if (forcedProgram?.enabled && forcedProgram?.academic_year_id) return
+    const sem = semesters.find((s) => String(s.id) === String(formData.semester_id))
+    if (sem?.academic_year_id && !formData.academic_year_id) {
+      setFormData((prev) => ({ ...prev, academic_year_id: String(sem.academic_year_id) }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.semester_id, semesters])
 
   const parseDecimalField = (raw, { scale, min = null, max = null }) => {
     if (raw == null || String(raw).trim() === '') return { value: null, error: null }
@@ -415,6 +479,7 @@ export default function RegisterApplication({ portal = false }) {
           emergency_contact_email: formData.emergency_contact_email?.trim() || null,
           major_id: formData.major_id ? parseInt(formData.major_id) : null,
           semester_id: formData.semester_id ? parseInt(formData.semester_id) : null,
+          academic_year_id: formData.academic_year_id ? parseInt(formData.academic_year_id) : null,
           high_school_name: formData.high_school_name?.trim() || null,
           high_school_country: formData.high_school_country?.trim() || null,
           graduation_year: formData.graduation_year ? parseInt(formData.graduation_year) : null,
@@ -729,7 +794,7 @@ export default function RegisterApplication({ portal = false }) {
               setSelectedCollegeId(e.target.value)
               if (error) setError('')
             }}
-            disabled={loadingColleges}
+            disabled={loadingColleges || (forcedProgram?.enabled && forcedProgram?.lock_fields !== false)}
             dir={isRTL ? 'rtl' : 'ltr'}
             className="w-full rounded-lg border-2 border-blue-300 bg-white px-4 py-3 text-start text-sm font-medium focus:border-transparent focus:ring-2 focus:ring-blue-500"
             required
@@ -1195,6 +1260,7 @@ export default function RegisterApplication({ portal = false }) {
                     value={formData.major_id}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={portal || (forcedProgram?.enabled && forcedProgram?.lock_fields !== false)}
                     required
                   >
                     <option value="">{t('registerApplication.fields.selectMajor')}</option>
@@ -1214,11 +1280,31 @@ export default function RegisterApplication({ portal = false }) {
                     value={formData.semester_id}
                     onChange={handleChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={forcedProgram?.enabled && forcedProgram?.lock_fields !== false}
                   >
                     <option value="">{t('registerApplication.fields.selectSemester')}</option>
                     {semesters.map((semester) => (
                       <option key={semester.id} value={semester.id}>
                         {language === 'ar' && semester.name_ar ? `${semester.name_ar} (${semester.code})` : `${semester.name_en} (${semester.code})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {t('registerApplication.fields.academicYear', 'Academic Year')}
+                  </label>
+                  <select
+                    name="academic_year_id"
+                    value={formData.academic_year_id}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    disabled={forcedProgram?.enabled && forcedProgram?.lock_fields !== false}
+                  >
+                    <option value="">{t('registerApplication.fields.selectAcademicYear', 'Select academic year')}</option>
+                    {academicYears.map((ay) => (
+                      <option key={ay.id} value={ay.id}>
+                        {language === 'ar' && ay.name_ar ? `${ay.name_ar} (${ay.code})` : `${ay.name_en} (${ay.code})`}
                       </option>
                     ))}
                   </select>

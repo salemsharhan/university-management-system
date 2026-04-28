@@ -51,6 +51,24 @@ export default function Applications() {
     rejected: 0,
   })
 
+  // Admin setting: default program for new applications (global)
+  const [programDefaultsLoading, setProgramDefaultsLoading] = useState(false)
+  const [programDefaultsError, setProgramDefaultsError] = useState('')
+  const [programDefaultsSaved, setProgramDefaultsSaved] = useState(false)
+  const [programDefaults, setProgramDefaults] = useState({
+    enabled: false,
+    lock_fields: true,
+    college_id: '',
+    major_id: '',
+    semester_id: '',
+    academic_year_id: '',
+  })
+  const [settingsMeta, setSettingsMeta] = useState({ id: null, onboarding_settings: null })
+  const [settingsColleges, setSettingsColleges] = useState([])
+  const [settingsMajors, setSettingsMajors] = useState([])
+  const [settingsSemesters, setSettingsSemesters] = useState([])
+  const [settingsAcademicYears, setSettingsAcademicYears] = useState([])
+
   const fetchApplications = useCallback(async () => {
     if (authLoading || userRole === null || userRole === undefined) {
       return
@@ -136,9 +154,153 @@ export default function Applications() {
     }
   }, [selectedCollegeId, userRole, authCollegeId, authLoading])
 
+  const fetchProgramDefaults = useCallback(async () => {
+    if (userRole !== 'admin') return
+    setProgramDefaultsLoading(true)
+    setProgramDefaultsError('')
+    try {
+      const { data, error } = await supabase
+        .from('university_settings')
+        .select('id, onboarding_settings')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+
+      const raw = data?.onboarding_settings?.application_form_defaults || {}
+      setSettingsMeta({ id: data?.id ?? null, onboarding_settings: data?.onboarding_settings ?? null })
+      setProgramDefaults({
+        enabled: Boolean(raw.enabled),
+        lock_fields: raw.lock_fields !== false,
+        college_id: raw.college_id != null ? String(raw.college_id) : '',
+        major_id: raw.major_id != null ? String(raw.major_id) : '',
+        semester_id: raw.semester_id != null ? String(raw.semester_id) : '',
+        academic_year_id: raw.academic_year_id != null ? String(raw.academic_year_id) : '',
+      })
+    } catch (e) {
+      setProgramDefaultsError(e?.message || 'Failed to load application defaults')
+    } finally {
+      setProgramDefaultsLoading(false)
+    }
+  }, [userRole])
+
+  const fetchSettingsLists = useCallback(async () => {
+    if (userRole !== 'admin') return
+    try {
+      const { data: colleges, error } = await supabase
+        .from('colleges')
+        .select('id, name_en, name_ar, code, abbreviation, status')
+        .eq('status', 'active')
+        .order('name_en')
+      if (!error) setSettingsColleges(colleges || [])
+    } catch {
+      // ignore
+    }
+  }, [userRole])
+
+  const fetchSettingsMajorsAndSemesters = useCallback(async (collegeIdValue) => {
+    const cid = parseInt(String(collegeIdValue || ''), 10)
+    if (!Number.isFinite(cid)) {
+      setSettingsMajors([])
+      setSettingsSemesters([])
+      setSettingsAcademicYears([])
+      return
+    }
+    try {
+      const [{ data: majors }, { data: semesters }, { data: academicYears }] = await Promise.all([
+        supabase
+          .from('majors')
+          .select('id, name_en, name_ar, code, major_status, college_id, is_university_wide')
+          .or(`college_id.eq.${cid},is_university_wide.eq.true`)
+          .order('name_en'),
+        supabase
+          .from('semesters')
+          .select('id, name_en, name_ar, code, start_date, college_id, is_university_wide')
+          .or(`college_id.eq.${cid},is_university_wide.eq.true`)
+          .order('start_date', { ascending: false }),
+        supabase
+          .from('academic_years')
+          .select('id, name_en, name_ar, code, start_date, end_date, status, is_current, college_id, is_university_wide')
+          .or(`college_id.eq.${cid},is_university_wide.eq.true`)
+          .order('start_date', { ascending: false }),
+      ])
+      setSettingsMajors(majors || [])
+      setSettingsSemesters(semesters || [])
+      setSettingsAcademicYears(academicYears || [])
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const saveProgramDefaults = useCallback(async () => {
+    if (userRole !== 'admin') return
+    setProgramDefaultsLoading(true)
+    setProgramDefaultsError('')
+    setProgramDefaultsSaved(false)
+    try {
+      const currentOnboarding = settingsMeta.onboarding_settings && typeof settingsMeta.onboarding_settings === 'object'
+        ? settingsMeta.onboarding_settings
+        : {}
+      const payload = {
+        ...currentOnboarding,
+        application_form_defaults: {
+          enabled: Boolean(programDefaults.enabled),
+          lock_fields: programDefaults.lock_fields !== false,
+          college_id: programDefaults.college_id ? parseInt(programDefaults.college_id, 10) : null,
+          major_id: programDefaults.major_id ? parseInt(programDefaults.major_id, 10) : null,
+          semester_id: programDefaults.semester_id ? parseInt(programDefaults.semester_id, 10) : null,
+          academic_year_id: programDefaults.academic_year_id ? parseInt(programDefaults.academic_year_id, 10) : null,
+        },
+      }
+
+      // Ensure minimum required fields when enabled
+      if (payload.application_form_defaults.enabled) {
+        if (!payload.application_form_defaults.college_id || !payload.application_form_defaults.major_id) {
+          throw new Error('Select at least College and Major when enabling defaults.')
+        }
+      }
+
+      let res
+      if (settingsMeta.id) {
+        res = await supabase
+          .from('university_settings')
+          .update({ onboarding_settings: payload, updated_at: new Date().toISOString() })
+          .eq('id', settingsMeta.id)
+          .select('id, onboarding_settings')
+          .limit(1)
+          .maybeSingle()
+      } else {
+        res = await supabase
+          .from('university_settings')
+          .insert({ onboarding_settings: payload })
+          .select('id, onboarding_settings')
+          .limit(1)
+          .maybeSingle()
+      }
+      if (res.error) throw res.error
+      setSettingsMeta({ id: res.data?.id ?? settingsMeta.id ?? null, onboarding_settings: res.data?.onboarding_settings ?? payload })
+      setProgramDefaultsSaved(true)
+      setTimeout(() => setProgramDefaultsSaved(false), 2000)
+    } catch (e) {
+      setProgramDefaultsError(e?.message || 'Failed to save defaults')
+    } finally {
+      setProgramDefaultsLoading(false)
+    }
+  }, [userRole, programDefaults, settingsMeta])
+
   useEffect(() => {
     fetchApplications()
   }, [fetchApplications])
+
+  useEffect(() => {
+    fetchProgramDefaults()
+    fetchSettingsLists()
+  }, [fetchProgramDefaults, fetchSettingsLists])
+
+  useEffect(() => {
+    if (userRole !== 'admin') return
+    fetchSettingsMajorsAndSemesters(programDefaults.college_id)
+  }, [userRole, programDefaults.college_id, fetchSettingsMajorsAndSemesters])
 
   useEffect(() => {
     filterApplications()
@@ -248,6 +410,157 @@ export default function Applications() {
           <span>{t('admissions.applicationsPage.newApplication')}</span>
         </button>
       </div>
+
+      {userRole === 'admin' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <div className={`flex flex-col gap-4 ${alignStart}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-gray-900">Default program for new applications</h2>
+                <p className="text-sm text-gray-600">
+                  When enabled, the applicant application form auto-fills College/Major/Semester for all new applications.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={saveProgramDefaults}
+                disabled={programDefaultsLoading}
+                className="shrink-0 bg-primary-gradient text-white px-5 py-2.5 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {programDefaultsLoading ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+
+            {(programDefaultsError || programDefaultsSaved) && (
+              <div
+                className={`rounded-lg border p-3 text-sm ${
+                  programDefaultsError
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-green-50 border-green-200 text-green-700'
+                }`}
+              >
+                {programDefaultsError || 'Saved.'}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <label className="flex items-center gap-2 md:col-span-1">
+                <input
+                  type="checkbox"
+                  checked={Boolean(programDefaults.enabled)}
+                  onChange={(e) =>
+                    setProgramDefaults((p) => ({
+                      ...p,
+                      enabled: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="text-sm font-medium text-gray-800">Enable</span>
+              </label>
+
+              <label className="flex items-center gap-2 md:col-span-1">
+                <input
+                  type="checkbox"
+                  checked={programDefaults.lock_fields !== false}
+                  onChange={(e) =>
+                    setProgramDefaults((p) => ({
+                      ...p,
+                      lock_fields: e.target.checked,
+                    }))
+                  }
+                />
+                <span className="text-sm font-medium text-gray-800">Lock fields</span>
+              </label>
+
+              <div className="md:col-span-2 text-sm text-gray-600">
+                {programDefaults.enabled
+                  ? 'Applicants will see those fields pre-filled (and locked if enabled).'
+                  : 'Disabled: applicants choose their college/major/semester normally.'}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">College</label>
+                <select
+                  value={programDefaults.college_id}
+                  onChange={(e) =>
+                    setProgramDefaults((p) => ({
+                      ...p,
+                      college_id: e.target.value,
+                      major_id: '',
+                      semester_id: '',
+                    }))
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
+                  <option value="">Select college…</option>
+                  {settingsColleges.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {getLocalizedName(c, isArabicLayout) || c.name_en} ({c.abbreviation || c.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Major</label>
+                <select
+                  value={programDefaults.major_id}
+                  onChange={(e) => setProgramDefaults((p) => ({ ...p, major_id: e.target.value }))}
+                  disabled={!programDefaults.college_id}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
+                  <option value="">Select major…</option>
+                  {settingsMajors.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {getLocalizedName(m, isArabicLayout) || m.name_en} ({m.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Semester (optional)</label>
+                <select
+                  value={programDefaults.semester_id}
+                  onChange={(e) => setProgramDefaults((p) => ({ ...p, semester_id: e.target.value }))}
+                  disabled={!programDefaults.college_id}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
+                  <option value="">(none)</option>
+                  {settingsSemesters.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {getLocalizedName(s, isArabicLayout) || s.name_en} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year (optional)</label>
+                <select
+                  value={programDefaults.academic_year_id}
+                  onChange={(e) => setProgramDefaults((p) => ({ ...p, academic_year_id: e.target.value }))}
+                  disabled={!programDefaults.college_id}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-600"
+                  dir={isArabicLayout ? 'rtl' : 'ltr'}
+                >
+                  <option value="">(none)</option>
+                  {settingsAcademicYears.map((ay) => (
+                    <option key={ay.id} value={ay.id}>
+                      {getLocalizedName(ay, isArabicLayout) || ay.name_en} ({ay.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
