@@ -73,6 +73,8 @@ export default function CreatePortalAccountModal({
         role,
         college_id: collegeId ?? null,
         name: (displayName || email).trim(),
+        kind,
+        record_id: recordId,
       })
 
       const body = authResult?.data ?? authResult
@@ -87,10 +89,14 @@ export default function CreatePortalAccountModal({
         return
       }
 
-      const { error: updErr } = await supabase.from(table).update({ user_id: usersTableId }).eq('id', recordId)
-      if (updErr) {
-        setLocalError(updErr.message)
-        return
+      // The Edge Function links the record when possible (service role).
+      // Keep client-side update as a fallback in case the function was not updated.
+      if (!body?.linked) {
+        const { error: updErr } = await supabase.from(table).update({ user_id: usersTableId }).eq('id', recordId)
+        if (updErr) {
+          setLocalError(updErr.message)
+          return
+        }
       }
 
       onLinked?.()

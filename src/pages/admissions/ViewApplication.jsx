@@ -1359,15 +1359,6 @@ export default function ViewApplication() {
 
   const handleSendOfferLetter = async () => {
     if (!applicationId || !application) return
-    if (!offerLetterDocumentsReady) {
-      setError(
-        t(
-          'admissions.viewApplication.sendOfferLetterBlockedDocuments',
-          'Verify the ID photo, transcript, and every other uploaded document before sending the offer letter.',
-        ),
-      )
-      return
-    }
     setSendingOffer(true)
     setError('')
     try {
@@ -1383,7 +1374,9 @@ export default function ViewApplication() {
       const { error: updErr } = await supabase
         .from('applications')
         .update({
-          status_code: 'DCCA',
+          // Sending an offer letter from admin is treated as final acceptance:
+          // the applicant does not need to accept from the portal.
+          status_code: 'DCFA',
           status: 'accepted',
           status_changed_at: now,
           offer_sent_at: now,
@@ -1397,7 +1390,7 @@ export default function ViewApplication() {
         entity_type: 'application',
         entity_id: applicationId,
         from_status_code: application?.status_code || null,
-        to_status_code: 'DCCA',
+        to_status_code: 'DCFA',
         transition_reason_code: null,
         trigger_code: 'TROF',
         notes: paymentsEnabled
@@ -1405,17 +1398,31 @@ export default function ViewApplication() {
           : 'Offer letter sent.',
       })
 
+      // Create student immediately (best effort; do not block offer letter sending if this fails).
+      try {
+        const { data: fullApplication, error: fetchError } = await supabase
+          .from('applications')
+          .select('*')
+          .eq('id', applicationId)
+          .single()
+        if (!fetchError && fullApplication) {
+          await createStudentFromApplication(fullApplication, null)
+        }
+      } catch (e) {
+        console.error('Send offer letter: create student failed:', e)
+      }
+
       setApplication((prev) =>
         prev
           ? {
               ...prev,
-              status_code: 'DCCA',
+              status_code: 'DCFA',
               status: 'accepted',
               offer_sent_at: now,
               offer_deadline: deadlineIso,
               tuition_fee_amount: amountNum,
             }
-          : prev
+          : prev,
       )
 
       // Email applicant (best effort)
@@ -1914,16 +1921,9 @@ export default function ViewApplication() {
               })()
               setShowOfferModal(true)
             }}
-            disabled={updating || sendingOffer || !offerLetterDocumentsReady}
+            disabled={updating || sendingOffer}
             className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            title={
-              !updating && !sendingOffer && !offerLetterDocumentsReady
-                ? t(
-                    'admissions.viewApplication.sendOfferLetterBlockedDocuments',
-                    'Verify the ID photo, transcript, and every other uploaded document before sending the offer letter.',
-                  )
-                : undefined
-            }
+            title={undefined}
           >
             <Mail className="w-4 h-4" />
             <span>{t('admissions.viewApplication.sendOfferLetter', 'Send offer letter')}</span>

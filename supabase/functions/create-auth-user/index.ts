@@ -53,6 +53,8 @@ serve(async (req) => {
       role?: string
       college_id?: number | null
       name?: string
+      kind?: 'student' | 'instructor'
+      record_id?: number | string
     }
     try {
       requestData = await req.json()
@@ -63,7 +65,7 @@ serve(async (req) => {
       })
     }
 
-    const { email, password, role, college_id, name } = requestData
+    const { email, password, role, college_id, name, kind, record_id } = requestData
 
     if (!email || !password || !role) {
       return new Response(JSON.stringify({ error: 'Missing required fields: email, password, role' }), {
@@ -87,6 +89,16 @@ serve(async (req) => {
     })
 
     const emailTrim = email.trim()
+
+    async function linkUserToRecord(userId: number) {
+      if (!kind || record_id == null) return { linked: false }
+      const idNum = typeof record_id === 'number' ? record_id : Number(record_id)
+      if (!Number.isFinite(idNum)) return { linked: false }
+      const table = kind === 'instructor' ? 'instructors' : 'students'
+      const { error: linkErr } = await supabaseAdmin.from(table).update({ user_id: userId }).eq('id', idNum)
+      if (linkErr) return { linked: false, link_error: linkErr.message }
+      return { linked: true }
+    }
 
     // 1) Existing row in public.users (same email) → update password + sync profile fields
     let existingByEmail: Record<string, unknown> | null = null
@@ -133,12 +145,14 @@ serve(async (req) => {
         })
       }
 
+      const linkResult = await linkUserToRecord(Number(updatedRow.id))
       return new Response(
         JSON.stringify({
           success: true,
           user: updatedRow,
           auth_user_id: openId,
           reused: true,
+          ...linkResult,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -181,12 +195,14 @@ serve(async (req) => {
           })
         }
 
+        const linkResult = await linkUserToRecord(Number(updatedRow.id))
         return new Response(
           JSON.stringify({
             success: true,
             user: updatedRow,
             auth_user_id: authId,
             reused: true,
+            ...linkResult,
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
@@ -257,12 +273,14 @@ serve(async (req) => {
           })
         }
 
+        const linkResult = await linkUserToRecord(Number(updatedRow.id))
         return new Response(
           JSON.stringify({
             success: true,
             user: updatedRow,
             auth_user_id: authUserId,
             reused: true,
+            ...linkResult,
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
@@ -288,12 +306,14 @@ serve(async (req) => {
         })
       }
 
+      const linkResult = await linkUserToRecord(Number(insertedUser.id))
       return new Response(
         JSON.stringify({
           success: true,
           user: insertedUser,
           auth_user_id: authUserId,
           reused: true,
+          ...linkResult,
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -320,12 +340,14 @@ serve(async (req) => {
       })
     }
 
+    const linkResult = await linkUserToRecord(Number(userData.id))
     return new Response(
       JSON.stringify({
         success: true,
         user: userData,
         auth_user_id: authData.user.id,
         reused: false,
+        ...linkResult,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
