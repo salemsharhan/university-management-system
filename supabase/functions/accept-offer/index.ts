@@ -216,23 +216,28 @@ serve(async (req) => {
     let paymentsEnabled = true
     try {
       if (collegeIdForPayments) {
-        const { data: collegeRow } = await supabaseAdmin
-          .from('colleges')
+        // Global kill switch: if university disables payments, bypass all payment gating.
+        const { data: uniRow } = await supabaseAdmin
+          .from('university_settings')
           .select('financial_settings')
-          .eq('id', collegeIdForPayments)
+          .order('updated_at', { ascending: false })
+          .limit(1)
           .maybeSingle()
-        const collegeFlag = (collegeRow as any)?.financial_settings?.payments_enabled
-        if (typeof collegeFlag === 'boolean') {
-          paymentsEnabled = collegeFlag
+        const uniFlag = (uniRow as any)?.financial_settings?.payments_enabled
+        if (uniFlag === false) {
+          paymentsEnabled = false
         } else {
-          const { data: uniRow } = await supabaseAdmin
-            .from('university_settings')
+          const { data: collegeRow } = await supabaseAdmin
+            .from('colleges')
             .select('financial_settings')
-            .order('updated_at', { ascending: false })
-            .limit(1)
+            .eq('id', collegeIdForPayments)
             .maybeSingle()
-          const uniFlag = (uniRow as any)?.financial_settings?.payments_enabled
-          if (typeof uniFlag === 'boolean') paymentsEnabled = uniFlag
+          const collegeFlag = (collegeRow as any)?.financial_settings?.payments_enabled
+          if (typeof collegeFlag === 'boolean') {
+            paymentsEnabled = collegeFlag
+          } else if (typeof uniFlag === 'boolean') {
+            paymentsEnabled = uniFlag
+          }
         }
       }
     } catch {

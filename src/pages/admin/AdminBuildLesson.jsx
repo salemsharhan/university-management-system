@@ -1,6 +1,6 @@
-import InstructorBuildLesson from '../instructor/InstructorBuildLesson'
+import AdminSubjectLessonBuilder from './AdminSubjectLessonBuilder'
 
-/** Full lesson creation & metadata — admin only at /academic/classes/build-lessons. Instructors use /instructor/build-lessons (elements only). */
+/** Admin builds subject-level lesson templates. Instructors build session-wise lessons at /instructor/build-lessons. */
 export default function AdminBuildLesson() {
-  return <InstructorBuildLesson variant="admin" />
+  return <AdminSubjectLessonBuilder />
 }

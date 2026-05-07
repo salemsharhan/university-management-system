@@ -95,10 +95,13 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
   const [elements, setElements] = useState([])
   const [lessonMediaUploadKey, setLessonMediaUploadKey] = useState(null)
   const [tableHeadersDraft, setTableHeadersDraft] = useState({})
+  const [sessionTemplateLock, setSessionTemplateLock] = useState(null) // { locked: boolean, templateId?: number }
   /** Instructors need `can_add_materials` on their row to use the lesson builder (same flag as “lesson content” in admin). Admins always allowed. */
   const [canAddLessonContent, setCanAddLessonContent] = useState(isAdmin)
 
-  const lessonEditBlocked = elementsOnly && !canAddLessonContent
+  const permissionBlocked = elementsOnly && !canAddLessonContent
+  const templateLocked = elementsOnly && sessionTemplateLock?.locked
+  const lessonEditBlocked = permissionBlocked || templateLocked
 
   const filteredMajors = useMemo(() => {
     if (!isAdmin) return majors
@@ -426,16 +429,93 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
 
   const loadLesson = async (lessonId) => {
     try {
+      // Enforce subject template lock when configured by admin.
+      // If a subject lesson template exists for this subject+unit+lesson and has force_use_in_sessions=true,
+      // link the class lesson to it and sync elements/CLOs.
+      const { data: baseLesson, error: baseErr } = await supabase
+        .from('class_lessons')
+        .select('id, class_id, subject_id, unit_number, lesson_number, subject_lesson_id')
+        .eq('id', lessonId)
+        .maybeSingle()
+
+      if (!baseErr && baseLesson?.subject_id && baseLesson?.unit_number != null && baseLesson?.lesson_number != null) {
+        try {
+          const templateIdFromLesson = baseLesson.subject_lesson_id
+          const templateQuery = templateIdFromLesson
+            ? supabase
+                .from('subject_lessons')
+                .select('id, force_use_in_sessions')
+                .eq('id', templateIdFromLesson)
+                .maybeSingle()
+            : supabase
+                .from('subject_lessons')
+                .select('id, force_use_in_sessions')
+                .eq('subject_id', baseLesson.subject_id)
+                .eq('unit_number', baseLesson.unit_number)
+                .eq('lesson_number', baseLesson.lesson_number)
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
+
+          const { data: tpl } = await templateQuery
+          if (tpl?.id && tpl.force_use_in_sessions) {
+            setSessionTemplateLock({ locked: true, templateId: tpl.id })
+
+            // Link lesson -> template if not already linked
+            if (!templateIdFromLesson || Number(templateIdFromLesson) !== Number(tpl.id)) {
+              await supabase
+                .from('class_lessons')
+                .update({ subject_lesson_id: tpl.id, updated_at: new Date().toISOString() })
+                .eq('id', lessonId)
+            }
+
+            // Sync CLO mapping
+            const [{ data: tplClos }, { data: tplEls }] = await Promise.all([
+              supabase.from('subject_lesson_clos').select('clo_id').eq('subject_lesson_id', tpl.id),
+              supabase
+                .from('subject_lesson_elements')
+                .select('element_type, title, content, display_order')
+                .eq('subject_lesson_id', tpl.id)
+                .order('display_order', { ascending: true }),
+            ])
+
+            await supabase.from('class_lesson_clos').delete().eq('lesson_id', lessonId)
+            if ((tplClos || []).length) {
+              await supabase
+                .from('class_lesson_clos')
+                .insert((tplClos || []).map((r) => ({ lesson_id: lessonId, clo_id: r.clo_id })))
+            }
+
+            await supabase.from('class_lesson_elements').delete().eq('lesson_id', lessonId)
+            if ((tplEls || []).length) {
+              await supabase.from('class_lesson_elements').insert(
+                (tplEls || []).map((r, idx) => ({
+                  lesson_id: lessonId,
+                  element_type: r.element_type,
+                  title: r.title || null,
+                  content: r.content || {},
+                  display_order: idx,
+                })),
+              )
+            }
+          } else {
+            setSessionTemplateLock({ locked: false })
+          }
+        } catch (e) {
+          console.warn('Template enforcement skipped:', e?.message || e)
+          setSessionTemplateLock({ locked: false })
+        }
+      } else {
+        setSessionTemplateLock({ locked: false })
+      }
+
       const [{ data: lessonData }, { data: mapData }, { data: elementData }] = await Promise.all([
         supabase
           .from('class_lessons')
           .select('id, title, unit_number, lesson_number, estimated_minutes, summary, prerequisite_lesson_id, release_mode, release_at, release_condition, status')
           .eq('id', lessonId)
           .single(),
-        supabase
-          .from('class_lesson_clos')
-          .select('clo_id')
-          .eq('lesson_id', lessonId),
+        supabase.from('class_lesson_clos').select('clo_id').eq('lesson_id', lessonId),
         supabase
           .from('class_lesson_elements')
           .select('id, element_type, title, content, display_order')
@@ -645,7 +725,15 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
 
   return (
     <div className={portalClass} dir={isRTL ? 'rtl' : 'ltr'}>
-      {lessonEditBlocked && (
+      {elementsOnly && sessionTemplateLock?.locked && (
+        <div className="alert alert-warn" style={{ marginBottom: 16 }}>
+          {t(
+            'instructorPortal.templateLocked',
+            'This lesson is locked to the admin subject template. You can preview it, but cannot edit the content.',
+          )}
+        </div>
+      )}
+      {permissionBlocked && (
         <div className="alert alert-warn" style={{ marginBottom: 16 }}>
           {t('instructorPortal.lessonContentPermissionDenied')}
         </div>
