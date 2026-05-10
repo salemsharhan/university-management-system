@@ -6194,5 +6194,31 @@
       "scholarshipFinancial": "إثبات مالي أو بيان دخل",
       "scholarshipRecommendation": "خطاب توصية (اختياري)"
     }
+  },
+  "instructorLogin": {
+    "loading": "جارٍ التحميل…",
+    "back": "رجوع",
+    "portalBadge": "بوابة المدرسين",
+    "heroTitle": "إدارة المقررات والدروس.",
+    "heroSubtitle": "سجّل الدخول للوصول إلى لوحة التدريس وأدوات المحتوى.",
+    "cards": {
+      "teaching": { "title": "التدريس", "value": "المقررات، المحتوى، الجلسات" },
+      "assessments": { "title": "التقييمات", "value": "الاختبارات، الامتحانات، الرصد" },
+      "analytics": { "title": "التحليلات", "value": "متابعة أداء الصف" }
+    },
+    "footer": "نظام إدارة الجامعة • جامعة الإمام البخاري (IBU)",
+    "title": "مرحباً بعودتك",
+    "subtitle": "سجّل الدخول بحساب المدرس الخاص بك.",
+    "rolePill": "مدرس",
+    "emailAddress": "عنوان البريد الإلكتروني",
+    "emailPlaceholder": "instructor@university.edu",
+    "password": "كلمة المرور",
+    "enterPassword": "أدخل كلمة المرور",
+    "showPassword": "إظهار كلمة المرور",
+    "hidePassword": "إخفاء كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "signingIn": "جاري تسجيل الدخول…",
+    "signIn": "تسجيل الدخول",
+    "failedToSignIn": "تعذر تسجيل الدخول"
   }
 }

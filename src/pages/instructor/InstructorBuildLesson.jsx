@@ -398,13 +398,57 @@ export default function InstructorBuildLesson({ embedded = false, embedClassId =
           .order('lesson_number', { ascending: true }),
       ])
 
+      // If the class has no session lessons yet, auto-seed from subject lesson templates
+      // so instructors can start adding content immediately.
+      let effectiveLessons = lessonsData || []
+      if (
+        currentClass?.subject_id &&
+        Array.isArray(effectiveLessons) &&
+        effectiveLessons.length === 0
+      ) {
+        const { data: templates, error: tplErr } = await supabase
+          .from('subject_lessons')
+          .select('id, title, unit_number, lesson_number, status')
+          .eq('subject_id', currentClass.subject_id)
+          .order('unit_number', { ascending: true })
+          .order('lesson_number', { ascending: true })
+
+        if (!tplErr && Array.isArray(templates) && templates.length > 0) {
+          // Best-effort insert; ignore failures (RLS/constraints) and fall back to refetch.
+          try {
+            await supabase.from('class_lessons').insert(
+              templates.map((t) => ({
+                class_id: classId,
+                subject_id: currentClass.subject_id,
+                title: t.title || `Unit ${t.unit_number} - Lesson ${t.lesson_number}`,
+                unit_number: t.unit_number,
+                lesson_number: t.lesson_number,
+                status: t.status || 'draft',
+                subject_lesson_id: t.id,
+              })),
+            )
+          } catch (e) {
+            console.warn('Seed class_lessons from subject_lessons failed:', e?.message || e)
+          }
+
+          const { data: seededLessons } = await supabase
+            .from('class_lessons')
+            .select('id, title, unit_number, lesson_number, status')
+            .eq('class_id', classId)
+            .order('unit_number', { ascending: true })
+            .order('lesson_number', { ascending: true })
+          effectiveLessons = seededLessons || []
+        }
+      }
+
       setClos(closData || [])
-      setLessons(lessonsData || [])
+      setLessons(effectiveLessons || [])
 
       const rawLesson = searchParams.get('lessonId')
       const lessonIdFromQuery =
         rawLesson != null && rawLesson !== '' && !Number.isNaN(Number(rawLesson)) ? Number(rawLesson) : null
-      const nextLesson = lessonIdFromQuery != null ? (lessonsData || []).find((l) => l.id === lessonIdFromQuery) : null
+      const nextLesson =
+        lessonIdFromQuery != null ? (effectiveLessons || []).find((l) => l.id === lessonIdFromQuery) : null
       setSelectedLessonId(nextLesson?.id ?? null)
 
       if (lessonIdFromQuery != null && !nextLesson && !embedded) {

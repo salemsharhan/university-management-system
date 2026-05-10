@@ -6379,5 +6379,31 @@
       "scholarshipFinancial": "Financial statement or income proof",
       "scholarshipRecommendation": "Recommendation letter (optional)"
     }
+  },
+  "instructorLogin": {
+    "loading": "Loading…",
+    "back": "Back",
+    "portalBadge": "Instructor Portal",
+    "heroTitle": "Manage courses and lessons.",
+    "heroSubtitle": "Sign in to access your teaching dashboard and courseware tools.",
+    "cards": {
+      "teaching": { "title": "Teaching", "value": "Courses, content, sessions" },
+      "assessments": { "title": "Assessments", "value": "Quizzes, exams, grading" },
+      "analytics": { "title": "Analytics", "value": "Track class performance" }
+    },
+    "footer": "University Management System • Imam Bukhari University (IBU)",
+    "title": "Welcome back",
+    "subtitle": "Sign in with your instructor account.",
+    "rolePill": "Instructor",
+    "emailAddress": "Email address",
+    "emailPlaceholder": "instructor@university.edu",
+    "password": "Password",
+    "enterPassword": "Enter your password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "forgotPassword": "Forgot password?",
+    "signingIn": "Signing in…",
+    "signIn": "Sign in",
+    "failedToSignIn": "Failed to sign in"
   }
 }

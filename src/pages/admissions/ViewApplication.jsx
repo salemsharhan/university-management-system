@@ -1374,9 +1374,8 @@ export default function ViewApplication() {
       const { error: updErr } = await supabase
         .from('applications')
         .update({
-          // Sending an offer letter from admin is treated as final acceptance:
-          // the applicant does not need to accept from the portal.
-          status_code: 'DCFA',
+          // Offer becomes available to accept. We immediately finalize via accept-offer below.
+          status_code: 'DCCA',
           status: 'accepted',
           status_changed_at: now,
           offer_sent_at: now,
@@ -1390,7 +1389,7 @@ export default function ViewApplication() {
         entity_type: 'application',
         entity_id: applicationId,
         from_status_code: application?.status_code || null,
-        to_status_code: 'DCFA',
+        to_status_code: 'DCCA',
         transition_reason_code: null,
         trigger_code: 'TROF',
         notes: paymentsEnabled
@@ -1398,25 +1397,22 @@ export default function ViewApplication() {
           : 'Offer letter sent.',
       })
 
-      // Create student immediately (best effort; do not block offer letter sending if this fails).
+      // Finalize immediately: create student + move to DCFA via Edge Function flow.
+      // This matches the applicant-accept logic but is triggered by admin.
       try {
-        const { data: fullApplication, error: fetchError } = await supabase
-          .from('applications')
-          .select('*')
-          .eq('id', applicationId)
-          .single()
-        if (!fetchError && fullApplication) {
-          await createStudentFromApplication(fullApplication, null)
-        }
+        await supabase.functions.invoke('accept-offer', {
+          body: { applicationId, forceFinalize: true },
+        })
       } catch (e) {
-        console.error('Send offer letter: create student failed:', e)
+        console.error('Send offer letter: accept-offer failed:', e)
       }
 
       setApplication((prev) =>
         prev
           ? {
               ...prev,
-              status_code: 'DCFA',
+              // UI will refresh from DB; temporarily show offer-sent state.
+              status_code: 'DCCA',
               status: 'accepted',
               offer_sent_at: now,
               offer_deadline: deadlineIso,

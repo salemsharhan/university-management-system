@@ -198,6 +198,7 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>))
     const applicationId = Number(body.applicationId)
+    const forceFinalize = Boolean((body as any)?.forceFinalize)
     if (!Number.isFinite(applicationId)) {
       return new Response(JSON.stringify({ error: 'applicationId is required' }), {
         status: 400,
@@ -244,7 +245,16 @@ serve(async (req) => {
       paymentsEnabled = true
     }
 
-    if (String(app.applicant_user_id || '') !== String(authUser.id)) {
+    // Allow applicant OR admin/user staff to finalize.
+    const { data: callerRow } = await supabaseAdmin
+      .from('users')
+      .select('id, role, college_id, email')
+      .eq('openId', authUser.id)
+      .maybeSingle()
+    const callerRole = String((callerRow as any)?.role || '').toLowerCase()
+    const isStaffCaller = callerRole === 'admin' || callerRole === 'user'
+
+    if (String(app.applicant_user_id || '') !== String(authUser.id) && !isStaffCaller) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -265,7 +275,7 @@ serve(async (req) => {
     const safeNameEn = (computedNameEn || `${app.first_name || ''} ${app.last_name || ''}`.trim() || app.email || '').trim()
     const safeNameAr = (computedNameAr || safeNameEn).trim()
 
-    if (paymentsEnabled) {
+    if (paymentsEnabled && !forceFinalize) {
       if (!app.registration_fee_paid_at) {
         return new Response(JSON.stringify({ error: 'Registration fee must be paid before accepting the offer.' }), {
           status: 400,
@@ -281,13 +291,7 @@ serve(async (req) => {
       }
     }
 
-    // Resolve public.users id linked to this auth user
-    const { data: urow } = await supabaseAdmin
-      .from('users')
-      .select('id, role, college_id, email')
-      .eq('openId', authUser.id)
-      .maybeSingle()
-    const userId = urow?.id ?? null
+    const userId = (callerRow as any)?.id ?? null
 
     // Create student record if missing
     const { data: existingStudent } = await supabaseAdmin
@@ -815,9 +819,11 @@ serve(async (req) => {
         const text = buildPlainTextEmail({ subject, message, metaLine: `Application: ${appNo}` })
         await sendSmtpMessage(smtp, String(app.email), subject, text, html)
 
+        const loginUrl = 'https://qalam.nuzum.tech/login/student'
         const subject2 = 'Welcome — student onboarding'
-        const message2 =
-          'Welcome to the Student Portal.\n\nNext steps:\n- Log in using the same email and password you used during application registration.\n- Open Student Portal → Invoices & fees to complete the remaining semester payments (30% unlocks registration).\n- Upload/verify any missing documents from Student Portal → Documents.\n\nIf you have any questions, contact the admissions/finance office.'
+        const message2 = paymentsEnabled
+          ? `Welcome to the Student Portal.\n\nLog in here:\n${loginUrl}\n\nNext steps:\n- Log in using the same email and password you used during application registration.\n- Open Student Portal → Invoices & fees to complete the remaining semester payments (30% unlocks registration).\n- Upload/verify any missing documents from Student Portal → Documents.\n\nIf you have any questions, contact the admissions/finance office.`
+          : `Welcome to the Student Portal.\n\nLog in here:\n${loginUrl}\n\nNext steps:\n- Log in using the same email and password you used during application registration.\n- Upload/verify any missing documents from Student Portal → Documents.\n\nIf you have any questions, contact the admissions office.`
         const appNo2 = String(app.application_number || app.id)
         const html2 = buildBrandedEmailHtml({
           brandName: smtp.fromName,
