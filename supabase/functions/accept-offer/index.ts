@@ -291,7 +291,34 @@ serve(async (req) => {
       }
     }
 
-    const userId = (callerRow as any)?.id ?? null
+    // `public.users` row for the enrolling person — must NOT be the staff caller's id when
+    // an admin/college user finalizes acceptance (otherwise their role becomes `student`).
+    let enrollmentUserId: number | null = null
+    const applicantAuthId = app.applicant_user_id != null ? String(app.applicant_user_id) : ''
+    if (applicantAuthId) {
+      const { data: applicantUserRow } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .eq('openId', applicantAuthId)
+        .maybeSingle()
+      enrollmentUserId = applicantUserRow?.id ?? null
+    }
+    if (enrollmentUserId == null && applicantAuthId && String(authUser.id) === applicantAuthId) {
+      enrollmentUserId = (callerRow as any)?.id ?? null
+    }
+    if (enrollmentUserId == null && typeof app.email === 'string' && app.email.trim()) {
+      const { data: byAppEmail } = await supabaseAdmin
+        .from('users')
+        .select('id')
+        .ilike('email', app.email.trim())
+        .maybeSingle()
+      enrollmentUserId = byAppEmail?.id ?? null
+    }
+    if (enrollmentUserId == null && !isStaffCaller) {
+      enrollmentUserId = (callerRow as any)?.id ?? null
+    }
+
+    const userId = enrollmentUserId
 
     // Create student record if missing
     const { data: existingStudent } = await supabaseAdmin

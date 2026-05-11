@@ -2337,6 +2337,8 @@
       "statsAccepted": "مقبول",
       "statsRejected": "مرفوض",
       "searchPlaceholder": "ابحث بالاسم أو البريد أو الهاتف…",
+      "filterNationalityAll": "كل الجنسيات",
+      "filterNationalityNotSpecified": "الجنسية غير محددة",
       "filterAll": "كل الحالات",
       "filterPending": "قيد الانتظار",
       "filterAccepted": "مقبول",

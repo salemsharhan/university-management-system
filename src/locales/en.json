@@ -1331,6 +1331,8 @@
       "statsAccepted": "Accepted",
       "statsRejected": "Rejected",
       "searchPlaceholder": "Search by name, email, or phone…",
+      "filterNationalityAll": "All nationalities",
+      "filterNationalityNotSpecified": "Nationality not specified",
       "filterAll": "All statuses",
       "filterPending": "Pending",
       "filterAccepted": "Accepted",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../../contexts/LanguageContext'
@@ -43,6 +43,7 @@ export default function Applications() {
   const [filteredApplications, setFilteredApplications] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all')
+  const [nationalityFilter, setNationalityFilter] = useState('all')
   const [pendingApplicantRequestMap, setPendingApplicantRequestMap] = useState({})
   const [stats, setStats] = useState({
     total: 0,
@@ -92,6 +93,7 @@ export default function Applications() {
           email,
           phone,
           date_of_birth,
+          nationality,
           status_code,
           application_number,
           created_at,
@@ -302,12 +304,30 @@ export default function Applications() {
     fetchSettingsMajorsAndSemesters(programDefaults.college_id)
   }, [userRole, programDefaults.college_id, fetchSettingsMajorsAndSemesters])
 
-  useEffect(() => {
-    filterApplications()
-  }, [applications, searchQuery, statusFilter, pendingApplicantRequestMap])
+  const nationalityOptions = useMemo(() => {
+    const set = new Set()
+    let hasEmpty = false
+    for (const a of applications) {
+      const n = String(a.nationality ?? '').trim()
+      if (n) set.add(n)
+      else hasEmpty = true
+    }
+    const sorted = [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    return { values: sorted, hasEmpty }
+  }, [applications])
 
-  const filterApplications = () => {
+  const filterApplications = useCallback(() => {
     let filtered = [...applications]
+
+    if (nationalityFilter !== 'all') {
+      if (nationalityFilter === '__empty__') {
+        filtered = filtered.filter((app) => !String(app.nationality ?? '').trim())
+      } else {
+        filtered = filtered.filter(
+          (app) => String(app.nationality ?? '').trim() === nationalityFilter
+        )
+      }
+    }
 
     if (statusFilter !== 'all') {
       if (statusFilter === 'pending') {
@@ -337,7 +357,11 @@ export default function Applications() {
     }
 
     setFilteredApplications(filtered)
-  }
+  }, [applications, nationalityFilter, statusFilter, searchQuery, pendingApplicantRequestMap])
+
+  useEffect(() => {
+    filterApplications()
+  }, [filterApplications])
 
   const getStatusColor = (statusCode) => {
     const statusMap = {
@@ -612,7 +636,7 @@ export default function Applications() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className={`flex flex-col md:flex-row gap-4 ${isArabicLayout ? 'md:flex-row-reverse' : ''}`}>
+        <div className={`flex flex-col lg:flex-row gap-4 ${isArabicLayout ? 'lg:flex-row-reverse' : ''}`}>
           <div className="flex-1 relative min-w-0">
             <Search
               className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none ${
@@ -629,19 +653,37 @@ export default function Applications() {
               }`}
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent md:min-w-[200px] ${alignStart}`}
-            dir={isArabicLayout ? 'rtl' : 'ltr'}
-          >
-            <option value="all">{t('admissions.applicationsPage.filterAll')}</option>
-            <option value="pending">{t('admissions.applicationsPage.filterPending')}</option>
-            <option value="accepted">{t('admissions.applicationsPage.filterAccepted')}</option>
-            <option value="rejected">{t('admissions.applicationsPage.filterRejected')}</option>
-            <option value="waitlisted">{t('admissions.applicationsPage.filterWaitlisted')}</option>
-            <option value="pending_requests">{t('admissions.applicationsPage.filterPendingRequests', 'Pending applicant requests')}</option>
-          </select>
+          <div className={`flex flex-col sm:flex-row gap-3 shrink-0 ${isArabicLayout ? 'sm:flex-row-reverse' : ''}`}>
+            <select
+              value={nationalityFilter}
+              onChange={(e) => setNationalityFilter(e.target.value)}
+              className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:min-w-[200px] ${alignStart}`}
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <option value="all">{t('admissions.applicationsPage.filterNationalityAll')}</option>
+              {nationalityOptions.hasEmpty && (
+                <option value="__empty__">{t('admissions.applicationsPage.filterNationalityNotSpecified')}</option>
+              )}
+              {nationalityOptions.values.map((nat) => (
+                <option key={nat} value={nat}>
+                  {nat}
+                </option>
+              ))}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:min-w-[200px] ${alignStart}`}
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <option value="all">{t('admissions.applicationsPage.filterAll')}</option>
+              <option value="pending">{t('admissions.applicationsPage.filterPending')}</option>
+              <option value="accepted">{t('admissions.applicationsPage.filterAccepted')}</option>
+              <option value="rejected">{t('admissions.applicationsPage.filterRejected')}</option>
+              <option value="waitlisted">{t('admissions.applicationsPage.filterWaitlisted')}</option>
+              <option value="pending_requests">{t('admissions.applicationsPage.filterPendingRequests', 'Pending applicant requests')}</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -757,7 +799,7 @@ export default function Applications() {
           <Calendar className={`w-16 h-16 mb-4 text-gray-400 ${isArabicLayout ? 'ms-auto' : 'mx-auto'}`} />
           <h3 className="text-xl font-bold text-gray-900 mb-2">{t('admissions.applicationsPage.emptyTitle')}</h3>
           <p className="text-gray-600">
-            {searchQuery || statusFilter !== 'all'
+            {searchQuery || statusFilter !== 'all' || nationalityFilter !== 'all'
               ? t('admissions.applicationsPage.emptyFiltered')
               : t('admissions.applicationsPage.emptyNone')}
           </p>
