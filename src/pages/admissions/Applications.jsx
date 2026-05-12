@@ -18,6 +18,13 @@ function getApplicationStatusLabel(t, code) {
   return code
 }
 
+function formatGenderFilterLabel(t, raw) {
+  const v = String(raw ?? '').trim().toLowerCase()
+  if (v === 'male') return t('admissions.viewApplication.detail.genderMale')
+  if (v === 'female') return t('admissions.viewApplication.detail.genderFemale')
+  return String(raw ?? '').trim() || raw
+}
+
 export default function Applications() {
   const { i18n } = useTranslation()
   const { isRTL, language } = useLanguage()
@@ -44,6 +51,7 @@ export default function Applications() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all')
   const [nationalityFilter, setNationalityFilter] = useState('all')
+  const [genderFilter, setGenderFilter] = useState('all')
   const [pendingApplicantRequestMap, setPendingApplicantRequestMap] = useState({})
   const [stats, setStats] = useState({
     total: 0,
@@ -94,6 +102,7 @@ export default function Applications() {
           phone,
           date_of_birth,
           nationality,
+          gender,
           status_code,
           application_number,
           created_at,
@@ -316,6 +325,29 @@ export default function Applications() {
     return { values: sorted, hasEmpty }
   }, [applications])
 
+  const genderOptions = useMemo(() => {
+    const set = new Set()
+    let hasEmpty = false
+    for (const a of applications) {
+      const g = String(a.gender ?? '').trim()
+      if (g) set.add(g)
+      else hasEmpty = true
+    }
+    const rank = (x) => {
+      const l = x.toLowerCase()
+      if (l === 'male') return 0
+      if (l === 'female') return 1
+      return 2
+    }
+    const sorted = [...set].sort((a, b) => {
+      const ra = rank(a)
+      const rb = rank(b)
+      if (ra !== rb) return ra - rb
+      return a.localeCompare(b, undefined, { sensitivity: 'base' })
+    })
+    return { values: sorted, hasEmpty }
+  }, [applications])
+
   const filterApplications = useCallback(() => {
     let filtered = [...applications]
 
@@ -326,6 +358,14 @@ export default function Applications() {
         filtered = filtered.filter(
           (app) => String(app.nationality ?? '').trim() === nationalityFilter
         )
+      }
+    }
+
+    if (genderFilter !== 'all') {
+      if (genderFilter === '__empty__') {
+        filtered = filtered.filter((app) => !String(app.gender ?? '').trim())
+      } else {
+        filtered = filtered.filter((app) => String(app.gender ?? '').trim() === genderFilter)
       }
     }
 
@@ -357,7 +397,7 @@ export default function Applications() {
     }
 
     setFilteredApplications(filtered)
-  }, [applications, nationalityFilter, statusFilter, searchQuery, pendingApplicantRequestMap])
+  }, [applications, nationalityFilter, genderFilter, statusFilter, searchQuery, pendingApplicantRequestMap])
 
   useEffect(() => {
     filterApplications()
@@ -671,6 +711,22 @@ export default function Applications() {
               ))}
             </select>
             <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:min-w-[180px] ${alignStart}`}
+              dir={isArabicLayout ? 'rtl' : 'ltr'}
+            >
+              <option value="all">{t('admissions.applicationsPage.filterGenderAll')}</option>
+              {genderOptions.hasEmpty && (
+                <option value="__empty__">{t('admissions.applicationsPage.filterGenderNotSpecified')}</option>
+              )}
+              {genderOptions.values.map((g) => (
+                <option key={g} value={g}>
+                  {formatGenderFilterLabel(t, g)}
+                </option>
+              ))}
+            </select>
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:min-w-[200px] ${alignStart}`}
@@ -799,7 +855,7 @@ export default function Applications() {
           <Calendar className={`w-16 h-16 mb-4 text-gray-400 ${isArabicLayout ? 'ms-auto' : 'mx-auto'}`} />
           <h3 className="text-xl font-bold text-gray-900 mb-2">{t('admissions.applicationsPage.emptyTitle')}</h3>
           <p className="text-gray-600">
-            {searchQuery || statusFilter !== 'all' || nationalityFilter !== 'all'
+            {searchQuery || statusFilter !== 'all' || nationalityFilter !== 'all' || genderFilter !== 'all'
               ? t('admissions.applicationsPage.emptyFiltered')
               : t('admissions.applicationsPage.emptyNone')}
           </p>

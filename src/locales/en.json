@@ -561,7 +561,12 @@
     "resetPassword": "Reset password",
     "confirmDeactivate": "Deactivate this student? They will be hidden from the default list and cannot sign in.",
     "confirmReactivate": "Reactivate this student?",
-    "createPortalLogin": "Create portal login"
+    "createPortalLogin": "Create portal login",
+    "filterNationalityAll": "All nationalities",
+    "filterNationalityNotSpecified": "Nationality not specified",
+    "filterGenderAll": "All genders",
+    "filterGenderNotSpecified": "Gender not specified",
+    "emptyFiltered": "Try adjusting your search or filters."
   },
   "adminAccount": {
     "resetPasswordTitle": "Reset portal password",
@@ -1333,6 +1338,8 @@
       "searchPlaceholder": "Search by name, email, or phone…",
       "filterNationalityAll": "All nationalities",
       "filterNationalityNotSpecified": "Nationality not specified",
+      "filterGenderAll": "All genders",
+      "filterGenderNotSpecified": "Gender not specified",
       "filterAll": "All statuses",
       "filterPending": "Pending",
       "filterAccepted": "Accepted",

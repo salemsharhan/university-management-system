@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -40,6 +40,13 @@ function getStudentDisplayName(student, isRTL) {
   const ar = [student.first_name_ar, student.middle_name_ar, student.last_name_ar].filter(Boolean).join(' ')
   return isRTL ? (ar || en) : (en || ar) || '—'
 }
+
+function formatGenderFilterLabel(t, raw) {
+  const v = String(raw ?? '').trim().toLowerCase()
+  if (v === 'male') return t('admissions.viewApplication.detail.genderMale')
+  if (v === 'female') return t('admissions.viewApplication.detail.genderFemale')
+  return String(raw ?? '').trim() || raw
+}
 export default function Students() {
   const { t } = useTranslation()
   const { isRTL } = useLanguage()
@@ -48,6 +55,8 @@ export default function Students() {
   const [students, setStudents] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [nationalityFilter, setNationalityFilter] = useState('all')
+  const [genderFilter, setGenderFilter] = useState('all')
   const [showActions, setShowActions] = useState(null)
   const [showInactive, setShowInactive] = useState(false)
   const [pwdModalStudentId, setPwdModalStudentId] = useState(null)
@@ -195,12 +204,73 @@ export default function Students() {
     }
   }
 
-  const filteredStudents = students.filter(student =>
-    (student.first_name && student.first_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (student.last_name && student.last_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (student.email && student.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (student.student_id && student.student_id.toLowerCase().includes(searchQuery.toLowerCase()))
-  )
+  const nationalityOptions = useMemo(() => {
+    const set = new Set()
+    let hasEmpty = false
+    for (const s of students) {
+      const n = String(s.nationality ?? '').trim()
+      if (n) set.add(n)
+      else hasEmpty = true
+    }
+    const sorted = [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    return { values: sorted, hasEmpty }
+  }, [students])
+
+  const genderOptions = useMemo(() => {
+    const set = new Set()
+    let hasEmpty = false
+    for (const s of students) {
+      const g = String(s.gender ?? '').trim()
+      if (g) set.add(g)
+      else hasEmpty = true
+    }
+    const rank = (x) => {
+      const l = x.toLowerCase()
+      if (l === 'male') return 0
+      if (l === 'female') return 1
+      return 2
+    }
+    const sorted = [...set].sort((a, b) => {
+      const ra = rank(a)
+      const rb = rank(b)
+      if (ra !== rb) return ra - rb
+      return a.localeCompare(b, undefined, { sensitivity: 'base' })
+    })
+    return { values: sorted, hasEmpty }
+  }, [students])
+
+  const filteredStudents = useMemo(() => {
+    let list = [...students]
+
+    if (nationalityFilter !== 'all') {
+      if (nationalityFilter === '__empty__') {
+        list = list.filter((s) => !String(s.nationality ?? '').trim())
+      } else {
+        list = list.filter((s) => String(s.nationality ?? '').trim() === nationalityFilter)
+      }
+    }
+
+    if (genderFilter !== 'all') {
+      if (genderFilter === '__empty__') {
+        list = list.filter((s) => !String(s.gender ?? '').trim())
+      } else {
+        list = list.filter((s) => String(s.gender ?? '').trim() === genderFilter)
+      }
+    }
+
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (student) =>
+          (student.first_name && student.first_name.toLowerCase().includes(q)) ||
+          (student.last_name && student.last_name.toLowerCase().includes(q)) ||
+          (student.email && student.email.toLowerCase().includes(q)) ||
+          (student.student_id && student.student_id.toLowerCase().includes(q))
+      )
+    }
+
+    return list
+  }, [students, nationalityFilter, genderFilter, searchQuery])
 
   return (
     <div className="space-y-6">
@@ -233,16 +303,52 @@ export default function Students() {
 
       {/* Search and Filters */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="flex flex-col md:flex-row gap-4 md:items-center">
-          <div className="flex-1 relative">
-            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
-            <input
-              type="text"
-              placeholder={t('students.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
-            />
+        <div className="flex flex-col gap-4">
+          <div className={`flex flex-col lg:flex-row gap-4 ${isRTL ? 'lg:flex-row-reverse' : ''} lg:items-center`}>
+            <div className="flex-1 relative min-w-0">
+              <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400`} />
+              <input
+                type="text"
+                placeholder={t('students.searchPlaceholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent`}
+              />
+            </div>
+            <div className={`flex flex-col sm:flex-row gap-3 shrink-0 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
+              <select
+                value={nationalityFilter}
+                onChange={(e) => setNationalityFilter(e.target.value)}
+                className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:min-w-[200px] ${isRTL ? 'text-right' : 'text-left'}`}
+                dir={isRTL ? 'rtl' : 'ltr'}
+              >
+                <option value="all">{t('students.filterNationalityAll')}</option>
+                {nationalityOptions.hasEmpty && (
+                  <option value="__empty__">{t('students.filterNationalityNotSpecified')}</option>
+                )}
+                {nationalityOptions.values.map((nat) => (
+                  <option key={nat} value={nat}>
+                    {nat}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className={`px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent sm:min-w-[180px] ${isRTL ? 'text-right' : 'text-left'}`}
+                dir={isRTL ? 'rtl' : 'ltr'}
+              >
+                <option value="all">{t('students.filterGenderAll')}</option>
+                {genderOptions.hasEmpty && (
+                  <option value="__empty__">{t('students.filterGenderNotSpecified')}</option>
+                )}
+                {genderOptions.values.map((g) => (
+                  <option key={g} value={g}>
+                    {formatGenderFilterLabel(t, g)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           {canManageAccounts && (
             <label className={`flex items-center gap-2 text-sm text-gray-700 ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -267,6 +373,9 @@ export default function Students() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
           <GraduationCap className="w-14 h-14 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500">{t('students.noStudentsFound')}</p>
+          {(searchQuery.trim() || nationalityFilter !== 'all' || genderFilter !== 'all') && (
+            <p className="text-gray-500 text-sm mt-2">{t('students.emptyFiltered')}</p>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">

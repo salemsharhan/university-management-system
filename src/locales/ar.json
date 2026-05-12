@@ -562,7 +562,12 @@
     "resetPassword": "إعادة تعيين كلمة المرور",
     "confirmDeactivate": "إلغاء تفعيل هذا الطالب؟ سيُخفى من القائمة الافتراضية ولن يتمكن من تسجيل الدخول.",
     "confirmReactivate": "إعادة تفعيل هذا الطالب؟",
-    "createPortalLogin": "إنشاء دخول للبوابة"
+    "createPortalLogin": "إنشاء دخول للبوابة",
+    "filterNationalityAll": "كل الجنسيات",
+    "filterNationalityNotSpecified": "الجنسية غير محددة",
+    "filterGenderAll": "كل الأجناس",
+    "filterGenderNotSpecified": "الجنس غير محدد",
+    "emptyFiltered": "جرّب تعديل البحث أو التصفية."
   },
   "adminAccount": {
     "resetPasswordTitle": "إعادة تعيين كلمة مرور البوابة",
@@ -2339,6 +2344,8 @@
       "searchPlaceholder": "ابحث بالاسم أو البريد أو الهاتف…",
       "filterNationalityAll": "كل الجنسيات",
       "filterNationalityNotSpecified": "الجنسية غير محددة",
+      "filterGenderAll": "كل الأجناس",
+      "filterGenderNotSpecified": "الجنس غير محدد",
       "filterAll": "كل الحالات",
       "filterPending": "قيد الانتظار",
       "filterAccepted": "مقبول",
