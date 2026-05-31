@@ -21,6 +21,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
     meeting_time: '',
     meeting_duration_minutes: 60,
     send_invites: true,
+    external_host_email: '',
     /** 'one_time' | 'recurring_weekly' */
     schedule_type: 'one_time',
     recurrence_day: 'monday',
@@ -113,6 +114,10 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
           })).filter(a => a.email) // Filter out students without email
         : []
 
+      const hostEmails = formData.external_host_email
+        ? [formData.external_host_email.trim()]
+        : undefined
+
       // Create Teams meeting via Microsoft Graph API
       const teamsMeeting = await createTeamsMeeting({
         organizerEmail: instructorEmail,
@@ -123,6 +128,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
         attendees,
         recurrence,
+        hostEmails,
       })
 
       if (!teamsMeeting.joinUrl) {
@@ -170,6 +176,7 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
         meeting_time: '',
         meeting_duration_minutes: 60,
         send_invites: true,
+        external_host_email: '',
         schedule_type: 'one_time',
         recurrence_day: 'monday',
         recurrence_end_date: '',
@@ -475,6 +482,20 @@ export default function TeamsMeetingManager({ classId, subjectId, instructorId, 
                   <option value="90">{t('instructorPortal.teamsDurationOpt90')}</option>
                   <option value="120">{t('instructorPortal.teamsDurationOpt120')}</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('instructorPortal.teamsExternalHostLabel')}
+                </label>
+                <input
+                  type="email"
+                  value={formData.external_host_email}
+                  onChange={(e) => setFormData({ ...formData, external_host_email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={t('instructorPortal.teamsExternalHostPlaceholder')}
+                />
+                <p className="mt-1 text-xs text-gray-500">{t('instructorPortal.teamsExternalHostHint')}</p>
               </div>
 
               <div className="flex items-center space-x-2">

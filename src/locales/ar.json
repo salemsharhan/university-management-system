@@ -3746,7 +3746,16 @@
     "createButton": "إنشاء جلسة",
     "creating": "جاري الإنشاء...",
     "createdSuccess": "تم إنشاء الجلسة بنجاح! سيتم إعادة التوجيه...",
-    "back": "رجوع"
+    "back": "رجوع",
+    "joinTeamsMeeting": "انضم إلى اجتماع Teams",
+    "noTeamsLink": "لا يوجد رابط Teams بعد",
+    "regenerateTeamsLink": "إعادة إنشاء رابط الاجتماع",
+    "regeneratingTeamsLink": "جاري إعادة الإنشاء…",
+    "regenerateTeamsConfirm": "إنشاء رابط Teams جديد لهذا الجدول؟ لن يعمل الرابط القديم للانضمامات الجديدة.",
+    "regenerateTeamsSuccess": "تم تحديث رابط Teams. استخدم رابط الانضمام الجديد لاختبار إعدادات غرفة الانتظار.",
+    "regenerateTeamsFailed": "تعذّر إعادة إنشاء رابط Teams.",
+    "regenerateTeamsNoUrl": "تم إنشاء الاجتماع لكن لم يُرجَع رابط انضمام.",
+    "regenerateTeamsNoSemesterDates": "تواريخ بداية ونهاية الفصل مطلوبة لإنشاء اجتماع Teams."
   },
   "universitySettings": {
     "title": "إعدادات الجامعة",
@@ -5244,6 +5253,9 @@
     "teamsDurationOpt90": "90 دقيقة",
     "teamsDurationOpt120": "120 دقيقة (ساعتان)",
     "teamsSendInvitesLabel": "إرسال دعوات بالبريد إلى الطلاب المسجلين",
+    "teamsExternalHostLabel": "بريد المضيف الخارجي (اختياري)",
+    "teamsExternalHostPlaceholder": "مثال: name@outlook.com",
+    "teamsExternalHostHint": "يتم دعوة البريد الشخصي أو الخارجي ويمكنه تجاوز غرفة الانتظار. رسائل نفس المؤسسة تُضاف كمنظمين مشاركين.",
     "teamsModalCancel": "إلغاء",
     "teamsModalSubmit": "إنشاء الاجتماع",
     "teamsModalSubmitting": "جاري الإنشاء...",

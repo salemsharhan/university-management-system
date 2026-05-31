@@ -133,12 +133,566 @@ async function getAccessToken() {
   }
 }
 
+/** Settings applied when creating/patching onlineMeetings (not valid on calendar event POST). */
+const OPEN_MEETING_ACCESS = {
+  lobbyBypassSettings: {
+    scope: 'everyone',
+    isDialInBypassEnabled: true,
+  },
+  isEntryExitAnnounced: false,
+  autoAdmittedUsers: 'everyone',
+  allowedPresenters: 'everyone',
+}
+
+/** External emails invited on every meeting (testing). Same-org emails become co-organizers instead. */
+const EXTERNAL_MEETING_HOSTS = ['smustafa0201@outlook.com']
+
+function isApplicationAccessPolicyError(status: number, body: string): boolean {
+  return status === 403 && /application access policy/i.test(body)
+}
+
+function applicationAccessPolicyMessage(organizerEmail: string): string {
+  const appId = (MICROSOFT_CONFIG as { clientId?: string }).clientId || 'YOUR_APP_CLIENT_ID'
+  return (
+    `Azure Application Access Policy required: app ${appId} cannot read/patch onlineMeetings for ` +
+    `${organizerEmail}. Create and assign a CsApplicationAccessPolicy (see MICROSOFT_TEAMS_SETUP.md). ` +
+    `Until this is done, meetings are created but lobby stays locked.`
+  )
+}
+
+function throwIfApplicationAccessPolicyBlocked(
+  status: number,
+  body: string,
+  organizerEmail: string,
+): void {
+  if (isApplicationAccessPolicyError(status, body)) {
+    const err = new Error(applicationAccessPolicyMessage(organizerEmail)) as Error & { code?: string }
+    err.code = 'application_access_policy_required'
+    throw err
+  }
+}
+
+function graphAuthHeaders(accessToken: string) {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    Prefer: 'include-unknown-enum-members',
+  }
+}
+
+function graphUserBase(organizerEmail: string) {
+  return `${MICROSOFT_CONFIG.graphApiUrl}/users/${encodeURIComponent(organizerEmail)}`
+}
+
+function graphUserPath(userIdOrEmail: string) {
+  return `${MICROSOFT_CONFIG.graphApiUrl}/users/${encodeURIComponent(userIdOrEmail)}`
+}
+
+function joinUrlFilterCandidates(joinUrl: string): string[] {
+  const candidates = new Set<string>()
+  candidates.add(joinUrl)
+  try {
+    candidates.add(encodeURIComponent(joinUrl))
+  } catch {
+    /* ignore */
+  }
+  try {
+    candidates.add(decodeURIComponent(joinUrl))
+  } catch {
+    /* ignore */
+  }
+  return [...candidates]
+}
+
+function normalizeEmail(email: string): string {
+  return String(email || '').trim().toLowerCase()
+}
+
+function emailDomain(email: string): string {
+  const normalized = normalizeEmail(email)
+  const at = normalized.lastIndexOf('@')
+  return at >= 0 ? normalized.slice(at + 1) : ''
+}
+
+function isSameOrgEmail(email: string, organizerEmail: string): boolean {
+  const a = emailDomain(email)
+  const b = emailDomain(organizerEmail)
+  return !!a && !!b && a === b
+}
+
+function parseEmailList(value: string | string[] | undefined | null): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) {
+    return [...new Set(value.map(normalizeEmail).filter(Boolean))]
+  }
+  return [...new Set(String(value).split(/[,;]/).map(normalizeEmail).filter(Boolean))]
+}
+
+/** External hosts bypass lobby as invited attendees; same-org hosts become co-organizers. */
+function getConfiguredExternalMeetingHosts(): string[] {
+  return [...EXTERNAL_MEETING_HOSTS]
+}
+
+function resolveMeetingHostEmails(
+  organizerEmail: string,
+  options: { hostEmails?: string[]; instructorEmail?: string },
+) {
+  const candidates = parseEmailList([
+    ...(options.hostEmails || []),
+    ...getConfiguredExternalMeetingHosts(),
+    options.instructorEmail || '',
+  ].filter(Boolean).join(','))
+
+  const externalHosts: string[] = []
+  const coOrganizers: string[] = []
+
+  for (const email of candidates) {
+    if (isSameOrgEmail(email, organizerEmail)) {
+      if (!coOrganizers.includes(email)) coOrganizers.push(email)
+    } else if (!externalHosts.includes(email)) {
+      externalHosts.push(email)
+    }
+  }
+
+  return { externalHosts, coOrganizers }
+}
+
+function mergeAttendeeInvite(attendeesFormatted: any[], email: string, name?: string) {
+  const normalized = normalizeEmail(email)
+  if (!normalized) return
+  if (attendeesFormatted.some((a) => normalizeEmail(a.emailAddress?.address) === normalized)) return
+  attendeesFormatted.push({
+    emailAddress: { address: email, name: name || email },
+    type: 'required',
+  })
+}
+
+/** Calendar events use { dateTime, timeZone }; onlineMeetings need a single ISO instant. */
+function toOnlineMeetingIso(dateTime: string, timeZone = 'UTC'): string {
+  const raw = String(dateTime || '').trim()
+  if (!raw) throw new Error('Missing dateTime')
+  if (/[zZ]$/.test(raw) || /[+-]\d{2}:\d{2}$/.test(raw)) return raw
+
+  try {
+    const normalized = raw.length >= 19 ? raw.slice(0, 19) : raw
+    const plain = Temporal.PlainDateTime.from(normalized)
+    return plain.toZonedDateTime(timeZone).toInstant().toString()
+  } catch {
+    return raw.endsWith('Z') ? raw : `${raw}Z`
+  }
+}
+
+async function fetchOnlineMeetingForEvent(
+  accessToken: string,
+  organizerEmail: string,
+  eventId: string,
+) {
+  const res = await fetch(`${graphUserBase(organizerEmail)}/events/${eventId}/onlineMeeting`, {
+    headers: graphAuthHeaders(accessToken),
+  })
+  if (!res.ok) return null
+  return await res.json()
+}
+
+async function lookupOnlineMeetingByJoinUrl(
+  accessToken: string,
+  organizerEmail: string,
+  joinUrl: string,
+) {
+  if (!joinUrl) return null
+  const organizerUserId = await resolveOrganizerUserId(accessToken, organizerEmail)
+  return lookupOnlineMeetingByJoinUrlForUser(accessToken, organizerUserId, joinUrl, organizerEmail)
+}
+
+async function lookupOnlineMeetingByJoinUrlForUser(
+  accessToken: string,
+  organizerUserId: string,
+  joinUrl: string,
+  organizerEmail: string,
+) {
+  if (!joinUrl) return null
+
+  for (const candidate of joinUrlFilterCandidates(joinUrl)) {
+    const escaped = candidate.replace(/'/g, "''")
+    const filter = encodeURIComponent(`JoinWebUrl eq '${escaped}'`)
+    const res = await fetch(`${graphUserPath(organizerUserId)}/onlineMeetings?$filter=${filter}`, {
+      headers: graphAuthHeaders(accessToken),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      if (data.value?.[0]) return data.value[0]
+      continue
+    }
+
+    const errText = await res.text()
+    throwIfApplicationAccessPolicyBlocked(res.status, errText, organizerEmail)
+    console.warn('lookupOnlineMeetingByJoinUrl failed:', res.status, errText, 'candidateLen=', candidate.length)
+  }
+
+  return null
+}
+
+async function lookupOnlineMeetingByConferenceId(
+  accessToken: string,
+  conferenceId: string,
+  organizerEmail: string,
+) {
+  if (!conferenceId) return null
+  const escaped = conferenceId.replace(/'/g, "''")
+  const filter = encodeURIComponent(`VideoTeleconferenceId eq '${escaped}'`)
+  const res = await fetch(`${MICROSOFT_CONFIG.graphApiUrl}/communications/onlineMeetings?$filter=${filter}`, {
+    headers: graphAuthHeaders(accessToken),
+  })
+  if (!res.ok) {
+    const errText = await res.text()
+    throwIfApplicationAccessPolicyBlocked(res.status, errText, organizerEmail)
+    console.warn('lookupOnlineMeetingByConferenceId failed:', res.status, errText)
+    return null
+  }
+  const data = await res.json()
+  return data.value?.[0] || null
+}
+
+async function resolveOnlineMeetingRecord(
+  accessToken: string,
+  organizerEmail: string,
+  organizerUserId: string,
+  eventId: string,
+  calendarEvent?: any,
+) {
+  const fromSubResource = await fetchOnlineMeetingForEvent(accessToken, organizerEmail, eventId)
+  if (fromSubResource?.id) return fromSubResource
+
+  const joinUrl =
+    calendarEvent?.onlineMeeting?.joinUrl ||
+    fromSubResource?.joinUrl ||
+    fromSubResource?.joinWebUrl ||
+    calendarEvent?.onlineMeetingUrl ||
+    null
+
+  const conferenceId =
+    calendarEvent?.onlineMeeting?.conferenceId ||
+    fromSubResource?.conferenceId ||
+    null
+
+  if (joinUrl) {
+    const byUrl = await lookupOnlineMeetingByJoinUrlForUser(
+      accessToken,
+      organizerUserId,
+      joinUrl,
+      organizerEmail,
+    )
+    if (byUrl) return byUrl
+  }
+
+  if (conferenceId) {
+    const byConference = await lookupOnlineMeetingByConferenceId(accessToken, conferenceId, organizerEmail)
+    if (byConference) return byConference
+  }
+
+  return fromSubResource
+}
+
+async function lookupAzureUser(accessToken: string, email: string) {
+  const res = await fetch(
+    `${MICROSOFT_CONFIG.graphApiUrl}/users/${encodeURIComponent(email)}?$select=id,displayName,userPrincipalName`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!res.ok) return null
+  return await res.json()
+}
+
+async function resolveOrganizerUserId(accessToken: string, organizerEmail: string): Promise<string> {
+  const user = await lookupAzureUser(accessToken, organizerEmail)
+  if (user?.id) return user.id
+  console.warn('Could not resolve organizer Azure object id, falling back to email:', organizerEmail)
+  return organizerEmail
+}
+
+async function fetchCalendarEvent(accessToken: string, organizerEmail: string, eventId: string) {
+  const res = await fetch(
+    `${graphUserBase(organizerEmail)}/events/${eventId}?$select=id,subject,onlineMeeting,start,end,webLink`,
+    { headers: graphAuthHeaders(accessToken) },
+  )
+  if (!res.ok) return null
+  return await res.json()
+}
+
+/** Create via /onlineMeetings — supports open lobby at create (calendar events do not). */
+async function createStandaloneOnlineMeeting(
+  accessToken: string,
+  organizerEmail: string,
+  subject: string,
+  startDateTime: string,
+  endDateTime: string,
+  timeZone: string,
+) {
+  const base = {
+    subject,
+    startDateTime: toOnlineMeetingIso(startDateTime, timeZone),
+    endDateTime: toOnlineMeetingIso(endDateTime, timeZone),
+    lobbyBypassSettings: OPEN_MEETING_ACCESS.lobbyBypassSettings,
+    isEntryExitAnnounced: false,
+  }
+
+  const payloads = [
+    { ...base, autoAdmittedUsers: 'everyone', allowedPresenters: 'everyone' },
+    base,
+  ]
+
+  let lastError = ''
+  for (const payload of payloads) {
+    const res = await fetch(`${graphUserBase(organizerEmail)}/onlineMeetings`, {
+      method: 'POST',
+      headers: graphAuthHeaders(accessToken),
+      body: JSON.stringify(payload),
+    })
+
+    if (res.ok) {
+      const meeting = await res.json()
+      const joinUrl = meeting.joinWebUrl || meeting.joinUrl || null
+      return {
+        meeting,
+        meetingId: meeting.id,
+        joinUrl,
+        eventId: meeting.id,
+        subject: meeting.subject,
+        start: { dateTime: meeting.startDateTime, timeZone },
+        end: { dateTime: meeting.endDateTime, timeZone },
+        webLink: joinUrl,
+      }
+    }
+
+    lastError = await res.text()
+    console.warn('onlineMeetings POST attempt failed:', res.status, lastError)
+  }
+
+  console.warn('onlineMeetings unavailable, will fall back to calendar event:', lastError)
+  return null
+}
+
+async function configureMeetingAccess(
+  accessToken: string,
+  organizerEmail: string,
+  organizerUserId: string,
+  eventId: string,
+  calendarEvent: any,
+  hostOptions: { externalHosts: string[]; coOrganizers: string[] },
+): Promise<{ updated: any | null; error?: string; message?: string }> {
+  const { coOrganizers } = hostOptions
+  let lastPatchError = ''
+
+  try {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (attempt > 0) {
+        await new Promise((resolve) => setTimeout(resolve, 1500))
+      }
+
+      const onlineMeeting = await resolveOnlineMeetingRecord(
+        accessToken,
+        organizerEmail,
+        organizerUserId,
+        eventId,
+        calendarEvent,
+      )
+      const onlineMeetingId = onlineMeeting?.id
+      if (!onlineMeetingId) {
+        console.warn('configureMeetingAccess: onlineMeeting id not ready, attempt', attempt + 1)
+        continue
+      }
+
+      const lobbyPatchRes = await fetch(
+        `${graphUserPath(organizerUserId)}/onlineMeetings/${encodeURIComponent(onlineMeetingId)}`,
+        {
+          method: 'PATCH',
+          headers: graphAuthHeaders(accessToken),
+          body: JSON.stringify({
+            lobbyBypassSettings: { scope: 'everyone', isDialInBypassEnabled: true },
+            autoAdmittedUsers: 'everyone',
+            allowedPresenters: 'everyone',
+            isEntryExitAnnounced: false,
+          }),
+        },
+      )
+
+      if (!lobbyPatchRes.ok) {
+        lastPatchError = await lobbyPatchRes.text()
+        throwIfApplicationAccessPolicyBlocked(lobbyPatchRes.status, lastPatchError, organizerEmail)
+        console.warn('configureMeetingAccess lobby PATCH failed:', lobbyPatchRes.status, lastPatchError)
+        continue
+      }
+
+      let updated = await lobbyPatchRes.json().catch(() => onlineMeeting)
+
+      if (coOrganizers.length > 0) {
+        const attendees: any[] = [...(updated.participants?.attendees || onlineMeeting.participants?.attendees || [])]
+        const tenantId = (MICROSOFT_CONFIG as { tenantId?: string }).tenantId
+
+        for (const email of coOrganizers) {
+          const normalized = normalizeEmail(email)
+          const idx = attendees.findIndex((a) => normalizeEmail(a.upn) === normalized)
+          const azureUser = await lookupAzureUser(accessToken, email)
+          const entry: Record<string, unknown> = {
+            upn: email,
+            role: 'coorganizer',
+          }
+          if (azureUser?.id) {
+            entry.identity = {
+              user: {
+                id: azureUser.id,
+                displayName: azureUser.displayName || email,
+                ...(tenantId ? { tenantId } : {}),
+                identityProvider: 'AAD',
+              },
+            }
+          }
+          if (idx >= 0) attendees[idx] = { ...attendees[idx], ...entry }
+          else attendees.push(entry)
+        }
+
+        const coOrgPatchRes = await fetch(
+          `${graphUserPath(organizerUserId)}/onlineMeetings/${encodeURIComponent(onlineMeetingId)}`,
+          {
+            method: 'PATCH',
+            headers: graphAuthHeaders(accessToken),
+            body: JSON.stringify({ participants: { attendees } }),
+          },
+        )
+
+        if (coOrgPatchRes.ok) {
+          updated = await coOrgPatchRes.json().catch(() => updated)
+        } else {
+          const coOrgErr = await coOrgPatchRes.text()
+          throwIfApplicationAccessPolicyBlocked(coOrgPatchRes.status, coOrgErr, organizerEmail)
+          console.warn('configureMeetingAccess co-organizer PATCH failed:', coOrgPatchRes.status, coOrgErr)
+        }
+      }
+
+      console.log(
+        'Meeting access configured',
+        onlineMeetingId,
+        'lobby=',
+        updated?.lobbyBypassSettings?.scope,
+        'coOrganizers=',
+        coOrganizers.length,
+        'externalHosts=',
+        hostOptions.externalHosts.length,
+        'optionsUrl=',
+        updated?.meetingOptionsWebUrl || '',
+      )
+      return { updated }
+    }
+  } catch (error: any) {
+    if (error?.code === 'application_access_policy_required') {
+      console.error(error.message)
+      return { updated: null, error: error.code, message: error.message }
+    }
+    throw error
+  }
+
+  console.warn('configureMeetingAccess: could not update meeting for event', eventId, lastPatchError)
+  return { updated: null, error: 'online_meeting_not_ready', message: lastPatchError || 'Could not resolve onlineMeeting id' }
+}
+
+async function resolveJoinUrl(
+  accessToken: string,
+  organizerEmail: string,
+  eventId: string,
+  meeting: any,
+) {
+  let joinUrl = meeting.onlineMeeting?.joinUrl || null
+
+  if (!joinUrl && eventId) {
+    const onlineMeeting = await fetchOnlineMeetingForEvent(accessToken, organizerEmail, eventId)
+    joinUrl = onlineMeeting?.joinUrl || onlineMeeting?.joinWebUrl || null
+  }
+
+  if (!joinUrl) {
+    joinUrl = meeting.joinUrl || meeting.joinWebUrl || null
+  }
+
+  return joinUrl
+}
+
+async function createCalendarTeamsEvent(
+  accessToken: string,
+  organizerEmail: string,
+  params: {
+    subject: string
+    description?: string
+    startDateTime: string
+    endDateTime: string
+    timeZone: string
+    attendeesFormatted: any[]
+    recurrence?: unknown
+  },
+) {
+  const { subject, description, startDateTime, endDateTime, timeZone, attendeesFormatted, recurrence } = params
+
+  const requestBody: any = {
+    subject,
+    body: {
+      contentType: 'HTML',
+      content: description || `Teams meeting for ${subject}`,
+    },
+    start: { dateTime: startDateTime, timeZone },
+    end: { dateTime: endDateTime, timeZone },
+    isOnlineMeeting: true,
+    onlineMeetingProvider: 'teamsForBusiness',
+  }
+
+  if (attendeesFormatted.length > 0) {
+    requestBody.attendees = attendeesFormatted
+  }
+  if (recurrence && typeof recurrence === 'object') {
+    requestBody.recurrence = recurrence
+  }
+
+  const response = await fetch(`${graphUserBase(organizerEmail)}/events`, {
+    method: 'POST',
+    headers: graphAuthHeaders(accessToken),
+    body: JSON.stringify(requestBody),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Graph API Error:', errorText)
+
+    if (response.status === 403) {
+      throw new Error('Access forbidden. Please ensure the organizer has proper permissions and admin consent is granted.')
+    }
+    if (response.status === 404) {
+      throw new Error(`Organizer email not found: ${organizerEmail}. Please ensure the user exists in Azure AD.`)
+    }
+
+    throw new Error(`Failed to create Teams meeting: ${response.status} ${errorText}`)
+  }
+
+  const meeting = await response.json()
+  return { meeting }
+}
+
 async function createTeamsMeeting(body: any) {
   try {
-    const { organizerEmail, subject, description, startDateTime, endDateTime, timeZone = 'UTC', attendees = [], recurrence } = body
+    const {
+      organizerEmail,
+      subject,
+      description,
+      startDateTime,
+      endDateTime,
+      timeZone = 'UTC',
+      attendees = [],
+      recurrence,
+      hostEmails,
+    } = body
 
     // Use default organizer email (always use the configured default)
     const finalOrganizerEmail = MICROSOFT_CONFIG.defaultOrganizerEmail
+    const hostOptions = resolveMeetingHostEmails(finalOrganizerEmail, {
+      hostEmails: parseEmailList(hostEmails),
+      instructorEmail: organizerEmail,
+    })
 
     if (!subject || !startDateTime || !endDateTime) {
       return new Response(
@@ -153,117 +707,102 @@ async function createTeamsMeeting(body: any) {
       throw new Error('Failed to get access token')
     }
 
-    // Prepare attendees array for Graph API
+    const accessToken = tokenResponse.access_token
+    const organizerUserId = await resolveOrganizerUserId(accessToken, finalOrganizerEmail)
+
     const attendeesFormatted = attendees.map((attendee: any) => ({
       emailAddress: {
         address: attendee.email,
-        name: attendee.name || attendee.email
+        name: attendee.name || attendee.email,
       },
-      type: attendee.type || 'required'
+      type: attendee.type || 'required',
     }))
 
-    const requestBody: any = {
-      subject: subject,
-      body: {
-        contentType: 'HTML',
-        content: description || `Teams meeting for ${subject}`
-      },
-      start: {
-        dateTime: startDateTime,
-        timeZone: timeZone
-      },
-      end: {
-        dateTime: endDateTime,
-        timeZone: timeZone
-      },
-      isOnlineMeeting: true,
-      onlineMeetingProvider: 'teamsForBusiness'
+    for (const email of hostOptions.externalHosts) {
+      mergeAttendeeInvite(attendeesFormatted, email)
     }
 
-    // Add attendees only if provided
-    if (attendeesFormatted.length > 0) {
-      requestBody.attendees = attendeesFormatted
+    // Prefer /onlineMeetings for one-off meetings (open lobby at create). Many tenants return 404
+    // for app-only POST /onlineMeetings — fall back to calendar /events which still works.
+    if (!recurrence) {
+      const standalone = await createStandaloneOnlineMeeting(
+        accessToken,
+        finalOrganizerEmail,
+        subject,
+        startDateTime,
+        endDateTime,
+        timeZone,
+      )
+
+      if (standalone) {
+        return new Response(
+          JSON.stringify({
+            meetingId: standalone.meetingId,
+            joinUrl: standalone.joinUrl,
+            eventId: standalone.eventId,
+            subject: standalone.subject,
+            start: standalone.start,
+            end: standalone.end,
+            organizer: { address: finalOrganizerEmail },
+            webLink: standalone.webLink,
+            creationMethod: 'onlineMeetings',
+          }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        )
+      }
     }
 
-    // Optional recurring series (Microsoft Graph patternedRecurrence)
-    if (recurrence && typeof recurrence === 'object') {
-      requestBody.recurrence = recurrence
-    }
-
-    const graphApiUrl = `${MICROSOFT_CONFIG.graphApiUrl}/users/${encodeURIComponent(finalOrganizerEmail)}/events`
-
-    const response = await fetch(graphApiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${tokenResponse.access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
+    const { meeting: createdMeeting } = await createCalendarTeamsEvent(accessToken, finalOrganizerEmail, {
+      subject,
+      description,
+      startDateTime,
+      endDateTime,
+      timeZone,
+      attendeesFormatted,
+      recurrence,
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Graph API Error:', errorText)
-      
-      if (response.status === 403) {
-        throw new Error('Access forbidden. Please ensure the organizer has proper permissions and admin consent is granted.')
-      } else if (response.status === 404) {
-        throw new Error(`Organizer email not found: ${finalOrganizerEmail}. Please ensure the user exists in Azure AD.`)
-      }
-      
-      throw new Error(`Failed to create Teams meeting: ${response.status} ${errorText}`)
-    }
+    const meeting =
+      (await fetchCalendarEvent(accessToken, finalOrganizerEmail, createdMeeting.id)) || createdMeeting
 
-    const meeting = await response.json()
-
-    // Sometimes joinUrl might not be immediately available, try to fetch it
-    let joinUrl = meeting.onlineMeeting?.joinUrl || null
-    
-    // If joinUrl is missing, try to get the online meeting details separately
-    if (!joinUrl && meeting.id) {
-      try {
-        const onlineMeetingResponse = await fetch(
-          `${MICROSOFT_CONFIG.graphApiUrl}/users/${encodeURIComponent(finalOrganizerEmail)}/events/${meeting.id}/onlineMeeting`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${tokenResponse.access_token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        )
-        
-        if (onlineMeetingResponse.ok) {
-          const onlineMeeting = await onlineMeetingResponse.json()
-          joinUrl = onlineMeeting.joinUrl || null
-        }
-      } catch (e) {
-        console.error('Error fetching online meeting details:', e)
-        // Continue without joinUrl, it might be available later
-      }
-    }
-
-    // If still no joinUrl, check alternative locations in the response
-    if (!joinUrl) {
-      // Sometimes joinUrl is directly in the meeting object
-      joinUrl = meeting.joinUrl || meeting.joinWebUrl || null
-    }
+    const accessResult = await configureMeetingAccess(
+      accessToken,
+      finalOrganizerEmail,
+      organizerUserId,
+      meeting.id,
+      meeting,
+      hostOptions,
+    )
+    const joinUrl = await resolveJoinUrl(accessToken, finalOrganizerEmail, meeting.id, meeting)
 
     return new Response(
       JSON.stringify({
         meetingId: meeting.id,
-        joinUrl: joinUrl,
+        joinUrl,
         eventId: meeting.id,
         subject: meeting.subject,
         start: meeting.start,
         end: meeting.end,
         organizer: { address: finalOrganizerEmail },
-        webLink: meeting.webLink || meeting.onlineMeeting?.joinUrl
+        webLink: meeting.webLink || meeting.onlineMeeting?.joinUrl,
+        creationMethod: 'calendarEvent',
+        externalHosts: hostOptions.externalHosts,
+        coOrganizers: hostOptions.coOrganizers,
+        meetingAccess: {
+          configured: !!accessResult.updated,
+          lobbyScope: accessResult.updated?.lobbyBypassSettings?.scope || null,
+          meetingOptionsWebUrl: accessResult.updated?.meetingOptionsWebUrl || null,
+          error: accessResult.error || null,
+          message: accessResult.message || null,
+        },
       }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
     )
   } catch (error) {
     return new Response(

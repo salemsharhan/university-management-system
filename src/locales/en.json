@@ -2793,7 +2793,16 @@
     "createButton": "Create Session",
     "creating": "Creating...",
     "createdSuccess": "Session created successfully! Redirecting...",
-    "back": "Back"
+    "back": "Back",
+    "joinTeamsMeeting": "Join Teams Meeting",
+    "noTeamsLink": "No Teams link yet",
+    "regenerateTeamsLink": "Regenerate meeting link",
+    "regeneratingTeamsLink": "Regenerating…",
+    "regenerateTeamsConfirm": "Create a new Teams meeting link for this schedule? The old link will stop working for new joins.",
+    "regenerateTeamsSuccess": "Teams meeting link updated. Use the new Join link to test lobby settings.",
+    "regenerateTeamsFailed": "Failed to regenerate Teams meeting link.",
+    "regenerateTeamsNoUrl": "Meeting was created but no join URL was returned.",
+    "regenerateTeamsNoSemesterDates": "Semester start and end dates are required to create a Teams meeting."
   },
   "enrollments": {
     "title": "Enrollment Management",
@@ -5422,6 +5431,9 @@
     "teamsDurationOpt90": "90 minutes",
     "teamsDurationOpt120": "120 minutes (2 hours)",
     "teamsSendInvitesLabel": "Send email invites to enrolled students",
+    "teamsExternalHostLabel": "External host email (optional)",
+    "teamsExternalHostPlaceholder": "e.g. name@outlook.com",
+    "teamsExternalHostHint": "Personal or external emails are invited and can bypass the lobby. Same-organization emails are added as co-organizers instead.",
     "teamsModalCancel": "Cancel",
     "teamsModalSubmit": "Create Meeting",
     "teamsModalSubmitting": "Creating...",
