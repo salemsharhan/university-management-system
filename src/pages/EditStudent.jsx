@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { normalizeNationalityCode } from '../utils/nationalities'
+import NationalitySelect from '../components/common/NationalitySelect'
 import { ArrowLeft, ArrowRight, Save, User, Phone, FileText, GraduationCap, Check } from 'lucide-react'
 
 const steps = [
@@ -165,7 +167,7 @@ export default function EditStudent() {
         last_name_ar: data.last_name_ar || '',
         date_of_birth: data.date_of_birth || '',
         gender: data.gender || '',
-        nationality: data.nationality || '',
+        nationality: normalizeNationalityCode(data.nationality) || data.nationality || '',
         religion: data.religion || '',
         marital_status: data.marital_status || '',
         blood_type: data.blood_type || '',
@@ -306,7 +308,7 @@ export default function EditStudent() {
         mobile_phone: formData.mobile_phone || null,
         date_of_birth: formData.date_of_birth || null,
         gender: formData.gender || null,
-        nationality: formData.nationality || null,
+        nationality: normalizeNationalityCode(formData.nationality) || null,
         religion: formData.religion || null,
         marital_status: formData.marital_status || null,
         blood_type: formData.blood_type || null,
@@ -613,10 +615,9 @@ function EssentialInfoStep({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Nationality</label>
-            <input
-              type="text"
+            <NationalitySelect
               value={formData.nationality}
-              onChange={(e) => handleChange('nationality', e.target.value)}
+              onChange={(code) => handleChange('nationality', code)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>

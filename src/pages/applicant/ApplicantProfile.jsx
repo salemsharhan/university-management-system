@@ -5,6 +5,8 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { syncApplicantProfile } from '../../utils/syncApplicantProfile'
+import { normalizeNationalityCode } from '../../utils/nationalities'
+import NationalitySelect from '../../components/common/NationalitySelect'
 import { Loader2, Save, Camera } from 'lucide-react'
 
 const emptyForm = {
@@ -78,7 +80,7 @@ export default function ApplicantProfile() {
           national_id: prof.national_id ?? '',
           date_of_birth: prof.date_of_birth ? String(prof.date_of_birth).slice(0, 10) : '',
           gender: prof.gender ?? '',
-          nationality: prof.nationality ?? '',
+          nationality: normalizeNationalityCode(prof.nationality) || prof.nationality || '',
           phone: prof.phone ?? '',
           address: prof.address ?? '',
         })
@@ -140,7 +142,7 @@ export default function ApplicantProfile() {
         national_id: form.national_id.trim(),
         date_of_birth: form.date_of_birth,
         gender: form.gender || null,
-        nationality: form.nationality.trim() || null,
+        nationality: normalizeNationalityCode(form.nationality) || null,
         phone: form.phone.trim(),
         address: form.address.trim() || null,
         photo_path: photoPath || null,
@@ -343,7 +345,12 @@ export default function ApplicantProfile() {
                 </div>
                 <div>
                   <label className={labelCls}>{t('applicantProfile.nationality')}</label>
-                  <input className={inputCls} value={form.nationality} onChange={(e) => setField('nationality', e.target.value)} placeholder={t('applicantProfile.nationalityPlaceholder')} />
+                  <NationalitySelect
+                    value={form.nationality}
+                    onChange={(code) => setField('nationality', code)}
+                    className={inputCls}
+                    placeholder={t('applicantProfile.nationalityPlaceholder')}
+                  />
                 </div>
               </div>
             </div>

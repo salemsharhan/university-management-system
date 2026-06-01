@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../contexts/LanguageContext'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Plus, Search, GraduationCap } from 'lucide-react'
+import { exportEnrollmentRecords } from '../utils/exportStudentEnrollments'
+import { Plus, Search, GraduationCap, Download, Loader2 } from 'lucide-react'
 
 export default function Enrollments() {
   const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { isRTL, language } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId, departmentId } = useAuth()
   const [enrollments, setEnrollments] = useState([])
@@ -17,6 +18,8 @@ export default function Enrollments() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [semesterFilter, setSemesterFilter] = useState('all')
   const [semesters, setSemesters] = useState([])
+  const [exporting, setExporting] = useState(false)
+  const [exportToast, setExportToast] = useState('')
 
   useEffect(() => {
     // Only fetch when we have the necessary data based on role
@@ -77,29 +80,42 @@ export default function Enrollments() {
           updated_at,
           students (
             id,
-            first_name,
-            last_name,
             student_id,
-            email
+            first_name,
+            middle_name,
+            last_name,
+            name_en,
+            name_ar,
+            email,
+            phone,
+            mobile_phone,
+            gender,
+            nationality,
+            majors(id, name_en, name_ar, code),
+            colleges(id, name_en, name_ar, code)
           ),
           classes (
             id,
             code,
             section,
-            instructor_id,
+            class_schedules(day_of_week, start_time, end_time, location),
             subjects (
               id,
               name_en,
-              code
+              name_ar,
+              code,
+              credit_hours
             ),
             instructors (
               id,
-              name_en
+              name_en,
+              name_ar
             )
           ),
           semesters (
             id,
             name_en,
+            name_ar,
             code
           )
         `)
@@ -155,6 +171,29 @@ export default function Enrollments() {
     )
   })
 
+  const handleExportEnrollments = async (format) => {
+    const list = searchQuery.trim()
+      ? filteredEnrollments
+      : enrollments
+    if (!list.length) {
+      setExportToast(t('enrollments.exportNone', 'No registrations to export.'))
+      setTimeout(() => setExportToast(''), 4000)
+      return
+    }
+    try {
+      setExporting(true)
+      const count = exportEnrollmentRecords(list, isRTL || language === 'ar', format)
+      setExportToast(t('enrollments.exportSuccess', { count, defaultValue: 'Exported {{count}} registrations.' }))
+      setTimeout(() => setExportToast(''), 4000)
+    } catch (e) {
+      console.error('Export enrollments failed:', e)
+      setExportToast(e?.message || t('enrollments.exportFailed', 'Export failed.'))
+      setTimeout(() => setExportToast(''), 6000)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'enrolled':
@@ -179,14 +218,40 @@ export default function Enrollments() {
           <h1 className="text-3xl font-bold text-gray-900">{t('enrollments.title')}</h1>
           <p className="text-gray-600 mt-1">{t('enrollments.subtitle')}</p>
         </div>
-        <button
-          onClick={() => navigate('/enrollments/create')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
-        >
-          <Plus className="w-5 h-5" />
-          <span>{t('enrollments.create')}</span>
-        </button>
+        <div className={`flex flex-wrap items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            disabled={exporting || enrollments.length === 0}
+            onClick={() => handleExportEnrollments('xlsx')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-3 rounded-xl font-semibold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50`}
+          >
+            {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            <span>{t('enrollments.exportExcel', 'Export Excel')}</span>
+          </button>
+          <button
+            type="button"
+            disabled={exporting || enrollments.length === 0}
+            onClick={() => handleExportEnrollments('csv')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-3 rounded-xl font-semibold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50`}
+          >
+            {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            <span>{t('enrollments.exportCsv', 'Export CSV')}</span>
+          </button>
+          <button
+            onClick={() => navigate('/enrollments/create')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
+          >
+            <Plus className="w-5 h-5" />
+            <span>{t('enrollments.create')}</span>
+          </button>
+        </div>
       </div>
+
+      {exportToast && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {exportToast}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">

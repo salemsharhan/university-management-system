@@ -6,6 +6,7 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
+import { getNationalityFilterOptions, nationalityMatchesFilter } from '../../utils/nationalities'
 import { Search, Plus, Eye, CheckCircle, XCircle, Clock, Calendar, Phone, GraduationCap, FileText, Building2 } from 'lucide-react'
 
 function getApplicationStatusLabel(t, code) {
@@ -313,17 +314,10 @@ export default function Applications() {
     fetchSettingsMajorsAndSemesters(programDefaults.college_id)
   }, [userRole, programDefaults.college_id, fetchSettingsMajorsAndSemesters])
 
-  const nationalityOptions = useMemo(() => {
-    const set = new Set()
-    let hasEmpty = false
-    for (const a of applications) {
-      const n = String(a.nationality ?? '').trim()
-      if (n) set.add(n)
-      else hasEmpty = true
-    }
-    const sorted = [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-    return { values: sorted, hasEmpty }
-  }, [applications])
+  const nationalityOptions = useMemo(
+    () => getNationalityFilterOptions(applications, isArabicLayout),
+    [applications, isArabicLayout],
+  )
 
   const genderOptions = useMemo(() => {
     const set = new Set()
@@ -352,13 +346,7 @@ export default function Applications() {
     let filtered = [...applications]
 
     if (nationalityFilter !== 'all') {
-      if (nationalityFilter === '__empty__') {
-        filtered = filtered.filter((app) => !String(app.nationality ?? '').trim())
-      } else {
-        filtered = filtered.filter(
-          (app) => String(app.nationality ?? '').trim() === nationalityFilter
-        )
-      }
+      filtered = filtered.filter((app) => nationalityMatchesFilter(app.nationality, nationalityFilter))
     }
 
     if (genderFilter !== 'all') {
@@ -705,8 +693,8 @@ export default function Applications() {
                 <option value="__empty__">{t('admissions.applicationsPage.filterNationalityNotSpecified')}</option>
               )}
               {nationalityOptions.values.map((nat) => (
-                <option key={nat} value={nat}>
-                  {nat}
+                <option key={nat.code} value={nat.code}>
+                  {nat.label}
                 </option>
               ))}
             </select>

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { createAuthUser } from '../lib/createAuthUser'
 import { generateStudentId as generateStudentIdImpl } from './collegeIdFormat'
+import { isKuwaitNationality } from './nationalities'
 
 /** @param {number|string} collegeId */
 export async function generateStudentId(collegeId) {
@@ -201,9 +202,7 @@ export async function createStudentFromApplication(application, customPassword =
         religion: application.religion || null,
         marital_status: null, // Not in application
         blood_type: null, // Not in application
-        is_international: application.nationality ? 
-          (application.nationality.toLowerCase() !== 'kuwait' && application.nationality.toLowerCase() !== 'الكويت') 
-          : false,
+        is_international: application.nationality ? !isKuwaitNationality(application.nationality) : false,
         address: application.street_address || application.address || null,
         city: application.city || null,
         state: application.state_province || application.state || null,

@@ -9,6 +9,8 @@ import { getLocalizedName } from '../../utils/localizedName'
 import { resolveOnboardingFeeAmount } from '../../utils/resolveOnboardingFeeAmount'
 import { resolveRegistrationFeeAmount } from '../../utils/resolveRegistrationFeeAmount'
 import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
+import { getNationalityLabel, normalizeNationalityCode } from '../../utils/nationalities'
+import NationalitySelect from '../../components/common/NationalitySelect'
 import { ArrowLeft, CheckCircle, XCircle, Clock, Mail, Phone, MapPin, Calendar, GraduationCap, FileText, User, AlertCircle, BookOpen, Edit, Save, X, ChevronDown, ChevronUp, ArrowRight, Info, Sparkles, Shield, TrendingUp, ArrowDown } from 'lucide-react'
 
 const TIMELINE_TRIGGER_ICONS = {
@@ -193,10 +195,9 @@ function EditApplicationModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nationality</label>
-                  <input
-                    type="text"
+                  <NationalitySelect
                     value={formData.nationality || ''}
-                    onChange={(e) => handleFieldChange('nationality', e.target.value)}
+                    onChange={(code) => handleFieldChange('nationality', code)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>
@@ -1746,7 +1747,7 @@ export default function ViewApplication() {
       phone: application.phone || '',
       date_of_birth: application.date_of_birth || '',
       gender: application.gender || '',
-      nationality: application.nationality || '',
+      nationality: normalizeNationalityCode(application.nationality) || application.nationality || '',
       religion: application.religion || '',
       place_of_birth: application.place_of_birth || '',
       street_address: application.street_address || '',
@@ -1809,6 +1810,8 @@ export default function ViewApplication() {
           updateData[key] = value ? parseFloat(value) : null
         } else if (key === 'is_transfer_student' || key === 'scholarship_request') {
           updateData[key] = value === true || value === 'true'
+        } else if (key === 'nationality') {
+          updateData[key] = normalizeNationalityCode(value) || null
         } else {
           updateData[key] = value || null
         }
@@ -2614,7 +2617,9 @@ export default function ViewApplication() {
                   {t('admissions.viewApplication.detail.nationality')}
                 </label>
                 <p className={`text-gray-900 ${alignStart}`}>
-                  {application?.nationality || t('admissions.viewApplication.detail.notAvailable')}
+                  {application?.nationality
+                    ? getNationalityLabel(application.nationality, isArabicLayout)
+                    : t('admissions.viewApplication.detail.notAvailable')}
                 </p>
               </div>
               <div>

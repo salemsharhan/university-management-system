@@ -56,6 +56,9 @@
     "summerSemester": "Summer Semester",
     "academicYear": "Academic Year"
   },
+  "nationality": {
+    "legacyValue": "please update"
+  },
   "admin": {
     "requests": {
       "open": "Open",
@@ -566,7 +569,15 @@
     "filterNationalityNotSpecified": "Nationality not specified",
     "filterGenderAll": "All genders",
     "filterGenderNotSpecified": "Gender not specified",
-    "emptyFiltered": "Try adjusting your search or filters."
+    "emptyFiltered": "Try adjusting your search or filters.",
+    "exportExcel": "Export Excel",
+    "exportCsv": "Export CSV",
+    "exportNone": "No students to export.",
+    "exportSuccess": "Exported {{count}} students.",
+    "exportFailed": "Export failed.",
+    "exportCourseEnrollments": "Course enrollments",
+    "exportEnrollmentsHint": "One row per course the student is registered in",
+    "exportEnrollmentsSuccess": "Exported {{count}} course registrations."
   },
   "adminAccount": {
     "resetPasswordTitle": "Reset portal password",
@@ -2807,6 +2818,11 @@
   "enrollments": {
     "title": "Enrollment Management",
     "subtitle": "Manage student course enrollments and registrations",
+    "exportExcel": "Export Excel",
+    "exportCsv": "Export CSV",
+    "exportSuccess": "Exported {{count}} registrations.",
+    "exportFailed": "Export failed.",
+    "exportNone": "No registrations to export.",
     "create": "Add New Enrollment",
     "searchPlaceholder": "Student name or ID...",
     "allSemesters": "All Semesters",

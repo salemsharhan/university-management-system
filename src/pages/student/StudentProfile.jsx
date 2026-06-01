@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { supabase } from '../../lib/supabase'
+import { getNationalityLabel } from '../../utils/nationalities'
 
 export default function StudentProfile() {
   const { t } = useTranslation()
@@ -240,7 +241,7 @@ export default function StudentProfile() {
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1">{t('studentPortal.profile.nationality', { defaultValue: 'Nationality' })}</label>
-                <input className="w-full px-3 py-2.5 rounded-md border border-[#dde3ef] bg-white" readOnly value={student.nationality || ''} />
+                <input className="w-full px-3 py-2.5 rounded-md border border-[#dde3ef] bg-white" readOnly value={getNationalityLabel(student.nationality, isArabic) || ''} />
               </div>
             </div>
 

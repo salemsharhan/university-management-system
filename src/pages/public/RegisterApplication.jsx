@@ -7,6 +7,8 @@ import { supabase, SUPABASE_STORAGE_BUCKET } from '../../lib/supabase'
 import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
 import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import { getApplicationFormDefaults } from '../../utils/getApplicationFormDefaults'
+import { normalizeNationalityCode } from '../../utils/nationalities'
+import NationalitySelect from '../../components/common/NationalitySelect'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2, CheckCircle, Copy, Upload, Award } from 'lucide-react'
 
 const CORE_DOCUMENT_SPECS = [
@@ -465,7 +467,7 @@ export default function RegisterApplication({ portal = false }) {
           phone: formData.phone?.trim() || null,
           date_of_birth: formData.date_of_birth,
           gender: formData.gender || null,
-          nationality: formData.nationality?.trim() || null,
+          nationality: normalizeNationalityCode(formData.nationality) || null,
           religion: formData.religion?.trim() || null,
           place_of_birth: formData.place_of_birth?.trim() || null,
           street_address: streetAddress?.trim() || null,
@@ -1008,11 +1010,10 @@ export default function RegisterApplication({ portal = false }) {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {t('registerApplication.fields.nationality')}
                   </label>
-                  <input
-                    type="text"
+                  <NationalitySelect
                     name="nationality"
                     value={formData.nationality}
-                    onChange={handleChange}
+                    onChange={(code) => setFormData((prev) => ({ ...prev, nationality: code }))}
                     placeholder={t('registerApplication.placeholders.nationality')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />

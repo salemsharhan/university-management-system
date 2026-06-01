@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useCollege } from '../../contexts/CollegeContext'
 import { getLocalizedName } from '../../utils/localizedName'
 import { MAJOR_STATUS_FOR_APPLICATION_DROPDOWN } from '../../utils/majorAdmissionStatus'
+import { normalizeNationalityCode } from '../../utils/nationalities'
+import NationalitySelect from '../../components/common/NationalitySelect'
 import { getPaymentsEnabled } from '../../utils/getPaymentsEnabled'
 import { ArrowLeft, ArrowRight, Save, User, Phone, AlertCircle, GraduationCap, FileText, BookOpen, Building2 } from 'lucide-react'
 
@@ -246,7 +248,7 @@ export default function CreateApplication() {
           phone: formData.phone.trim() || null,
           date_of_birth: formData.date_of_birth,
           gender: formData.gender || null,
-          nationality: formData.nationality.trim() || null,
+          nationality: normalizeNationalityCode(formData.nationality) || null,
           religion: formData.religion.trim() || null,
           place_of_birth: formData.place_of_birth.trim() || null,
           street_address: formData.street_address.trim() || null,
@@ -623,12 +625,11 @@ export default function CreateApplication() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nationality
                   </label>
-                  <input
-                    type="text"
+                  <NationalitySelect
                     name="nationality"
                     value={formData.nationality}
-                    onChange={handleChange}
-                    placeholder="e.g., American, Canadian"
+                    onChange={(code) => setFormData((prev) => ({ ...prev, nationality: code }))}
+                    placeholder={t('common.select', 'Select…')}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                 </div>

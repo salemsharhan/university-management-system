@@ -6,8 +6,14 @@ import { getLocalizedName } from '../utils/localizedName'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { invokeAdminPasswordReset } from '../utils/invokeAdminPasswordReset'
+import {
+  getNationalityFilterOptions,
+  nationalityMatchesFilter,
+} from '../utils/nationalities'
 import PasswordResetModal from '../components/admin/PasswordResetModal'
 import CreatePortalAccountModal from '../components/admin/CreatePortalAccountModal'
+import { exportStudentsList } from '../utils/exportStudents'
+import { exportStudentEnrollmentsList } from '../utils/exportStudentEnrollments'
 import {
   Search,
   Plus,
@@ -20,6 +26,8 @@ import {
   UserX,
   UserCheck,
   UserPlus,
+  Download,
+  Loader2,
 } from 'lucide-react'
 
 function getInitials(s, isRTL) {
@@ -49,7 +57,7 @@ function formatGenderFilterLabel(t, raw) {
 }
 export default function Students() {
   const { t } = useTranslation()
-  const { isRTL } = useLanguage()
+  const { isRTL, language } = useLanguage()
   const navigate = useNavigate()
   const { userRole, collegeId, departmentId } = useAuth()
   const [students, setStudents] = useState([])
@@ -64,6 +72,7 @@ export default function Students() {
   const [pwdLoading, setPwdLoading] = useState(false)
   const [pwdError, setPwdError] = useState('')
   const [toast, setToast] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const canManageAccounts = userRole === 'admin' || userRole === 'user'
 
@@ -204,17 +213,10 @@ export default function Students() {
     }
   }
 
-  const nationalityOptions = useMemo(() => {
-    const set = new Set()
-    let hasEmpty = false
-    for (const s of students) {
-      const n = String(s.nationality ?? '').trim()
-      if (n) set.add(n)
-      else hasEmpty = true
-    }
-    const sorted = [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-    return { values: sorted, hasEmpty }
-  }, [students])
+  const nationalityOptions = useMemo(
+    () => getNationalityFilterOptions(students, isRTL || language === 'ar'),
+    [students, isRTL, language],
+  )
 
   const genderOptions = useMemo(() => {
     const set = new Set()
@@ -243,11 +245,7 @@ export default function Students() {
     let list = [...students]
 
     if (nationalityFilter !== 'all') {
-      if (nationalityFilter === '__empty__') {
-        list = list.filter((s) => !String(s.nationality ?? '').trim())
-      } else {
-        list = list.filter((s) => String(s.nationality ?? '').trim() === nationalityFilter)
-      }
+      list = list.filter((s) => nationalityMatchesFilter(s.nationality, nationalityFilter))
     }
 
     if (genderFilter !== 'all') {
@@ -272,6 +270,61 @@ export default function Students() {
     return list
   }, [students, nationalityFilter, genderFilter, searchQuery])
 
+  const handleExport = async (format) => {
+    if (!filteredStudents.length) {
+      setToast(t('students.exportNone', 'No students to export.'))
+      setTimeout(() => setToast(''), 4000)
+      return
+    }
+    try {
+      setExporting(true)
+      const count = await exportStudentsList({
+        studentIds: filteredStudents.map((s) => s.id),
+        isArabic: isRTL || language === 'ar',
+        format,
+      })
+      setToast(t('students.exportSuccess', { count, defaultValue: 'Exported {{count}} students.' }))
+      setTimeout(() => setToast(''), 4000)
+    } catch (e) {
+      console.error('Export students failed:', e)
+      setToast(`ERR::${e?.message || t('students.exportFailed', 'Export failed.')}`)
+      setTimeout(() => setToast(''), 6000)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handleExportEnrollments = async (format) => {
+    if (!filteredStudents.length) {
+      setToast(t('students.exportNone', 'No students to export.'))
+      setTimeout(() => setToast(''), 4000)
+      return
+    }
+    try {
+      setExporting(true)
+      const count = await exportStudentEnrollmentsList({
+        studentIds: filteredStudents.map((s) => s.id),
+        status: 'enrolled',
+        semesterId: 'all',
+        isArabic: isRTL || language === 'ar',
+        format,
+      })
+      setToast(
+        t('students.exportEnrollmentsSuccess', {
+          count,
+          defaultValue: 'Exported {{count}} course registrations.',
+        }),
+      )
+      setTimeout(() => setToast(''), 4000)
+    } catch (e) {
+      console.error('Export enrollments failed:', e)
+      setToast(`ERR::${e?.message || t('students.exportFailed', 'Export failed.')}`)
+      setTimeout(() => setToast(''), 6000)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -280,13 +333,43 @@ export default function Students() {
           <h1 className="text-3xl font-bold text-gray-900">{t('students.title')}</h1>
           <p className="text-gray-600 mt-1">{t('students.subtitle')}</p>
         </div>
-        <button
-          onClick={() => navigate('/students/create')}
-          className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
-        >
-          <Plus className="w-5 h-5" />
-          <span>{t('students.addStudent')}</span>
-        </button>
+        <div className={`flex flex-wrap items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+          <button
+            type="button"
+            disabled={exporting || filteredStudents.length === 0}
+            onClick={() => handleExport('xlsx')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-3 rounded-xl font-semibold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
+          >
+            {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            <span>{t('students.exportExcel', 'Export Excel')}</span>
+          </button>
+          <button
+            type="button"
+            disabled={exporting || filteredStudents.length === 0}
+            onClick={() => handleExport('csv')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-3 rounded-xl font-semibold border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
+          >
+            {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            <span>{t('students.exportCsv', 'Export CSV')}</span>
+          </button>
+          <button
+            type="button"
+            disabled={exporting || filteredStudents.length === 0}
+            onClick={() => handleExportEnrollments('xlsx')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} px-4 py-3 rounded-xl font-semibold border border-indigo-200 bg-indigo-50 text-indigo-900 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
+            title={t('students.exportEnrollmentsHint', 'One row per course the student is registered in')}
+          >
+            {exporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+            <span>{t('students.exportCourseEnrollments', 'Course enrollments')}</span>
+          </button>
+          <button
+            onClick={() => navigate('/students/create')}
+            className={`flex items-center ${isRTL ? 'flex-row-reverse space-x-reverse' : 'space-x-2'} bg-primary-gradient text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all`}
+          >
+            <Plus className="w-5 h-5" />
+            <span>{t('students.addStudent')}</span>
+          </button>
+        </div>
       </div>
 
       {toast && (
@@ -327,8 +410,8 @@ export default function Students() {
                   <option value="__empty__">{t('students.filterNationalityNotSpecified')}</option>
                 )}
                 {nationalityOptions.values.map((nat) => (
-                  <option key={nat} value={nat}>
-                    {nat}
+                  <option key={nat.code} value={nat.code}>
+                    {nat.label}
                   </option>
                 ))}
               </select>

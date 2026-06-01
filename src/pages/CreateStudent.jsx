@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { createAuthUser } from '../lib/createAuthUser'
 import { generateStudentId as generateStudentIdForCollege } from '../utils/collegeIdFormat'
+import { normalizeNationalityCode } from '../utils/nationalities'
+import NationalitySelect from '../components/common/NationalitySelect'
 import { ArrowLeft, ArrowRight, Check, User, Phone, FileText, GraduationCap, Heart, Upload, Eye } from 'lucide-react'
 
 export default function CreateStudent() {
@@ -351,7 +353,7 @@ export default function CreateStudent() {
           mobile_phone: formData.mobile_phone || null,
           date_of_birth: formData.date_of_birth || null,
           gender: formData.gender || null,
-          nationality: formData.nationality || null,
+          nationality: normalizeNationalityCode(formData.nationality) || null,
           religion: formData.religion || null,
           marital_status: formData.marital_status || null,
           blood_type: formData.blood_type || null,
@@ -714,10 +716,9 @@ function EssentialInfoStep({
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('createStudent.nationality')}</label>
-            <input
-              type="text"
+            <NationalitySelect
               value={formData.nationality}
-              onChange={(e) => handleChange('nationality', e.target.value)}
+              onChange={(code) => handleChange('nationality', code)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             />
           </div>

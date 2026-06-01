@@ -8,6 +8,7 @@ import { invokeAdminPasswordReset } from '../utils/invokeAdminPasswordReset'
 import PasswordResetModal from '../components/admin/PasswordResetModal'
 import CreatePortalAccountModal from '../components/admin/CreatePortalAccountModal'
 import { getLocalizedName } from '../utils/localizedName'
+import { getNationalityLabel } from '../utils/nationalities'
 import { getStudentSemesterMilestone, checkFinancePermission, getMilestoneInfo } from '../utils/financePermissions'
 import {
   ArrowLeft,
@@ -925,7 +926,7 @@ export default function ViewStudent() {
                 ['lastName', (isRTL ? [student?.last_name_ar, student?.last_name] : [student?.last_name, student?.last_name_ar]).filter(Boolean).join(' / ') || '—'],
                 ['dateOfBirth', student?.date_of_birth || '—'],
                 ['gender', student?.gender || '—'],
-                ['nationality', student?.nationality || '—'],
+                ['nationality', getNationalityLabel(student?.nationality, isRTL) || '—'],
                 ['religion', student?.religion || '—'],
                 ['maritalStatus', student?.marital_status || '—'],
                 ['bloodType', student?.blood_type || '—'],

@@ -58,6 +58,9 @@
     "summerSemester": "فصل الصيف",
     "academicYear": "السنة الأكاديمية"
   },
+  "nationality": {
+    "legacyValue": "يُرجى التحديث"
+  },
   "admin": {
     "requests": {
       "open": "فتح",
@@ -567,7 +570,15 @@
     "filterNationalityNotSpecified": "الجنسية غير محددة",
     "filterGenderAll": "كل الأجناس",
     "filterGenderNotSpecified": "الجنس غير محدد",
-    "emptyFiltered": "جرّب تعديل البحث أو التصفية."
+    "emptyFiltered": "جرّب تعديل البحث أو التصفية.",
+    "exportExcel": "تصدير Excel",
+    "exportCsv": "تصدير CSV",
+    "exportNone": "لا يوجد طلاب للتصدير.",
+    "exportSuccess": "تم تصدير {{count}} طالب.",
+    "exportFailed": "فشل التصدير.",
+    "exportCourseEnrollments": "تسجيلات المقررات",
+    "exportEnrollmentsHint": "صف لكل مقرر سجّل فيه الطالب",
+    "exportEnrollmentsSuccess": "تم تصدير {{count}} تسجيل مقرر."
   },
   "adminAccount": {
     "resetPasswordTitle": "إعادة تعيين كلمة مرور البوابة",
@@ -975,6 +986,11 @@
  "enrollments": {
   "title": "إدارة التسجيلات",
   "subtitle": "إدارة تسجيل الطلاب في المقررات",
+  "exportExcel": "تصدير Excel",
+  "exportCsv": "تصدير CSV",
+  "exportSuccess": "تم تصدير {{count}} تسجيل.",
+  "exportFailed": "فشل التصدير.",
+  "exportNone": "لا توجد تسجيلات للتصدير.",
   "create": "إضافة تسجيل",
   "searchPlaceholder": "اسم الطالب أو رقمه...",
   "allSemesters": "جميع الفصول الدراسية",
