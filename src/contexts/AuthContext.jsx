@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }) => {
             const { data: instructorData, error: instructorError } = await supabase
               .from('instructors')
               .select('department_id, college_id')
-              .eq('email', matchedEmail)
+              .ilike('email', matchedEmail)
               .eq('college_id', finalCollegeId)
               .limit(1)
             
@@ -144,7 +144,7 @@ export const AuthProvider = ({ children }) => {
               .from('instructors')
               .select('id, college_id, department_id, email')
               .eq('status', 'active')
-              .eq('email', candidate)
+              .ilike('email', candidate)
               .maybeSingle()
             if (res.data) {
               inst = res.data
@@ -426,7 +426,7 @@ export const AuthProvider = ({ children }) => {
                 .from('instructors')
                 .select('id, college_id, department_id, email')
                 .eq('status', 'active')
-                .eq('email', candidate)
+                .ilike('email', candidate)
                 .maybeSingle()
               if (res.data) {
                 inst = res.data
