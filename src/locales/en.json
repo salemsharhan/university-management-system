@@ -2177,7 +2177,14 @@
       "edit": "Edit",
       "curriculumMapTitle": "Curriculum map",
       "curriculumMapDescription": "Define and manage course learning outcomes (CLOs) for this subject.",
-      "openAdminCurriculumMap": "Open full admin curriculum map"
+      "openAdminCurriculumMap": "Open full admin curriculum map",
+      "enrolledStudents": "Enrolled students",
+      "enrolledStudentsHint": "{{count}} students registered in this subject",
+      "exportStudents": "Export students",
+      "exportAllExcel": "Export all subjects (Excel)",
+      "exportAllSuccess": "Downloaded workbook with {{sheets}} sheets and {{students}} students.",
+      "exportAllEmpty": "Downloaded workbook with {{sheets}} sheets (no enrolled students found).",
+      "exportAllNone": "No subjects to export."
     }
   },
   "academicYears": {

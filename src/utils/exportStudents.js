@@ -323,6 +323,22 @@ export function downloadStudentsExcel({ headers, rows, filename = 'students-expo
   XLSX.writeFile(wb, filename)
 }
 
+function excelSheetName(code, usedNames) {
+  let base = String(code || 'Subject')
+    .replace(/[\\/?*[\]:]/g, '_')
+    .trim()
+    .slice(0, 31) || 'Subject'
+  let name = base
+  let i = 2
+  while (usedNames.has(name.toLowerCase())) {
+    const suffix = `_${i}`
+    name = `${base.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`
+    i += 1
+  }
+  usedNames.add(name.toLowerCase())
+  return name
+}
+
 export function downloadStudentsCsv({ headers, rows, filename = 'students-export.csv' }) {
   const escape = (v) => {
     const s = String(v ?? '')
@@ -352,4 +368,107 @@ export async function exportStudentsList({ studentIds, isArabic, format = 'xlsx'
     downloadStudentsExcel({ headers, rows, filename: `${base}.xlsx` })
   }
   return students.length
+}
+
+/** Distinct student IDs with active enrollments in any class for the subject. */
+export async function fetchStudentIdsForSubject(subjectId, { status = 'enrolled', semesterId = 'all' } = {}) {
+  if (!subjectId) return []
+
+  const { data: classes, error: classErr } = await supabase
+    .from('classes')
+    .select('id')
+    .eq('subject_id', subjectId)
+  if (classErr) throw classErr
+
+  const classIds = (classes || []).map((c) => c.id).filter(Boolean)
+  if (!classIds.length) return []
+
+  let query = supabase.from('enrollments').select('student_id').in('class_id', classIds)
+  if (status && status !== 'all') query = query.eq('status', status)
+  if (semesterId && semesterId !== 'all') query = query.eq('semester_id', semesterId)
+
+  const { data, error } = await query
+  if (error) throw error
+
+  return [...new Set((data || []).map((e) => e.student_id).filter(Boolean))]
+}
+
+export async function exportSubjectStudentsList({
+  subjectId,
+  subjectCode,
+  isArabic,
+  format = 'xlsx',
+  status = 'enrolled',
+  semesterId = 'all',
+}) {
+  const studentIds = await fetchStudentIdsForSubject(subjectId, { status, semesterId })
+  if (!studentIds.length) return 0
+
+  const students = await fetchStudentsForExport(studentIds)
+  const emails = students.map((s) => s.email).filter(Boolean)
+  const applicationsByEmail = await fetchApplicationsByEmail(emails)
+  const { headers, rows } = buildStudentExportRows(students, applicationsByEmail, isArabic)
+  const stamp = new Date().toISOString().slice(0, 10)
+  const safeCode = String(subjectCode || subjectId || 'subject').replace(/[^\w-]+/g, '_')
+  const base = `subject-${safeCode}-students-${stamp}`
+  if (format === 'csv') {
+    downloadStudentsCsv({ headers, rows, filename: `${base}.csv` })
+  } else {
+    downloadStudentsExcel({ headers, rows, filename: `${base}.xlsx` })
+  }
+  return students.length
+}
+
+/** One workbook: one sheet per subject with the same student columns as the Students export. */
+export async function exportAllSubjectsStudentsWorkbook({
+  subjects,
+  isArabic,
+  status = 'enrolled',
+  semesterId = 'all',
+  filename,
+}) {
+  const subjectList = (subjects || []).filter((s) => s?.id)
+  if (!subjectList.length) {
+    return { subjectCount: 0, studentCount: 0, sheetCount: 0 }
+  }
+
+  const subjectStudentIds = await Promise.all(
+    subjectList.map(async (subject) => ({
+      subject,
+      studentIds: await fetchStudentIdsForSubject(subject.id, { status, semesterId }),
+    })),
+  )
+
+  const allStudentIds = [...new Set(subjectStudentIds.flatMap((s) => s.studentIds))]
+  const studentsById = {}
+  if (allStudentIds.length) {
+    const students = await fetchStudentsForExport(allStudentIds)
+    for (const s of students) studentsById[s.id] = s
+  }
+
+  const allEmails = [...new Set(Object.values(studentsById).map((s) => s.email).filter(Boolean))]
+  const applicationsByEmail = await fetchApplicationsByEmail(allEmails)
+
+  const { headers } = buildStudentExportRows([], applicationsByEmail, isArabic)
+  const usedSheetNames = new Set()
+  const wb = XLSX.utils.book_new()
+  let totalStudents = 0
+
+  for (const { subject, studentIds } of subjectStudentIds) {
+    const students = studentIds.map((id) => studentsById[id]).filter(Boolean)
+    const { rows } = buildStudentExportRows(students, applicationsByEmail, isArabic)
+    const sheetName = excelSheetName(subject.code, usedSheetNames)
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    XLSX.utils.book_append_sheet(wb, ws, sheetName)
+    totalStudents += students.length
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10)
+  XLSX.writeFile(wb, filename || `subjects-students-${stamp}.xlsx`)
+
+  return {
+    subjectCount: subjectList.length,
+    studentCount: totalStudents,
+    sheetCount: subjectList.length,
+  }
 }

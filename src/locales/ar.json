@@ -3229,7 +3229,14 @@
       "edit": "تعديل",
       "curriculumMapTitle": "خريطة المنهج",
       "curriculumMapDescription": "عرض وإدارة مخرجات تعلم المقرر (CLO) لهذه المادة.",
-      "openAdminCurriculumMap": "فتح خريطة المنهج في لوحة الإدارة"
+      "openAdminCurriculumMap": "فتح خريطة المنهج في لوحة الإدارة",
+      "enrolledStudents": "الطلاب المسجلون",
+      "enrolledStudentsHint": "{{count}} طالب مسجل في هذه المادة",
+      "exportStudents": "تصدير الطلاب",
+      "exportAllExcel": "تصدير جميع المواد (Excel)",
+      "exportAllSuccess": "تم تنزيل ملف Excel يحتوي على {{sheets}} أوراق و{{students}} طالب.",
+      "exportAllEmpty": "تم تنزيل ملف Excel يحتوي على {{sheets}} أوراق (لا يوجد طلاب مسجلون).",
+      "exportAllNone": "لا توجد مواد للتصدير."
     }
   },
   "academicYears": {
