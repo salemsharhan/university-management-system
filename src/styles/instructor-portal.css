@@ -882,6 +882,14 @@
   padding: 12px 16px;
   vertical-align: middle;
 }
+.instructor-portal .tw tbody td .student-name-link {
+  font-weight: 600;
+  color: var(--pl);
+  text-decoration: none;
+}
+.instructor-portal .tw tbody td .student-name-link:hover {
+  text-decoration: underline;
+}
 
 /* Interactive controls inside data tables (release schedule, etc.) */
 .instructor-portal .tw tbody td select.fc,

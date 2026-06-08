@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
+import { getActiveInstructorByEmail } from '../utils/getActiveInstructorByEmail'
+import { formatInstructorDisplayName } from '../utils/academicTitle'
 import { ChevronDown } from 'lucide-react'
 import '../styles/instructor-portal.css'
 
@@ -32,6 +34,21 @@ export default function InstructorLayout({ children }) {
   const { user, signOut } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+  const [instructorProfile, setInstructorProfile] = useState(null)
+
+  useEffect(() => {
+    if (!user?.email) {
+      setInstructorProfile(null)
+      return
+    }
+    let cancelled = false
+    getActiveInstructorByEmail(user.email).then((data) => {
+      if (!cancelled) setInstructorProfile(data)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [user?.email])
 
   const handleLogout = async () => {
     await signOut?.()
@@ -72,8 +89,10 @@ export default function InstructorLayout({ children }) {
     return current ? t(current.translationKey) : t('instructorPortal.dashboard')
   }
 
-  const displayName = t('instructorPortal.instructor')
-  const avatarInitials = displayName.slice(0, 2)
+  const displayName = instructorProfile
+    ? formatInstructorDisplayName(instructorProfile, language === 'ar')
+    : user?.email?.split('@')[0] || t('instructorPortal.instructor')
+  const avatarInitials = displayName.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?'
 
   return (
     <div className="instructor-portal" dir={isRTL ? 'rtl' : 'ltr'}>
