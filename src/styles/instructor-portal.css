@@ -1455,6 +1455,29 @@
   min-height: 0;
   padding: 0;
 }
+.instructor-portal .lb-selector-card .lb-selector-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.instructor-portal .lb-selector-card .lb-selector-row + .lb-selector-row {
+  margin-top: 18px;
+}
+.instructor-portal .lb-selector-card .lb-selector-row .fg {
+  margin-bottom: 0;
+}
+@media (max-width: 768px) {
+  .instructor-portal .lb-selector-card .lb-selector-row {
+    grid-template-columns: 1fr;
+  }
+  .instructor-portal .lb-selector-card .lb-selector-row + .lb-selector-row {
+    margin-top: 0;
+  }
+  .instructor-portal .lb-selector-card .lb-selector-row .fg + .fg {
+    margin-top: 18px;
+  }
+}
 .instructor-portal .lb-element-picker {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
