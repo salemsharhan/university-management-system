@@ -6102,7 +6102,22 @@
     "students": "طلاب",
     "gradesComplete": "درجة مكتملة",
     "gradeDistributionSummary": "ملخص توزيع التقديرات",
-    "gradesSubmittedSuccess": "تم رفع الدرجات بنجاح."
+    "gradesSubmittedSuccess": "تم رفع الدرجات بنجاح.",
+    "saveGrades": "حفظ الدرجات",
+    "uploadGrades": "رفع الدرجات",
+    "unsavedGradeChanges": "تغييرات غير محفوظة",
+    "unsaved": "غير محفوظ",
+    "downloadTemplate": "تنزيل القالب",
+    "chooseFile": "اختيار ملف",
+    "gradeSheetUploadHint": "نزّل القالب، أدخل درجات المكوّنات لكل طالب، ثم ارفع الملف. ستظهر القيم في الجدول — اضغط حفظ الدرجات لتخزينها.",
+    "gradeSheetUploadSuccess": "تم استيراد {{count}} صف/صفوف. احفظ لتطبيق التغييرات.",
+    "gradeSheetUploadNoRows": "لم يتم استيراد أي صفوف درجات.",
+    "saveBeforeSubmit": "احفظ تغييرات الدرجات قبل الرفع النهائي.",
+    "maxScore": "الحد الأقصى",
+    "status": "الحالة",
+    "gradeStatusFinal": "نهائي",
+    "gradeStatusDraft": "مسودة",
+    "noStudentsInClass": "لا يوجد طلاب مسجلون في هذا الصف."
   },
   "registerApplication": {
     "headerTitle": "طلب القبول",

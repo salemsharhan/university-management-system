@@ -17,7 +17,6 @@ const instructorNavigation = [
   { translationKey: 'instructorPortal.questionBank', href: '/instructor/question-bank', icon: '🗃️' },
   { translationKey: 'instructorPortal.createAssessments', href: '/instructor/assessments', icon: '📝' },
   { translationKey: 'instructorPortal.gradebook', href: '/instructor/gradebook', icon: '📊' },
-  { translationKey: 'instructorPortal.submitFinalGrades', href: '/instructor/grade-submission', icon: '✅' },
   { translationKey: 'instructorPortal.analyticsAndEngagement', href: '/instructor/analytics', icon: '📈' },
   { translationKey: 'instructorPortal.communicationNav', href: '/instructor/communication', icon: '💬' },
   { translationKey: 'instructorPortal.integrityCasesNav', href: '/instructor/integrity-cases', icon: '⚖️' },

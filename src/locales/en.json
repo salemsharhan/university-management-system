@@ -6287,7 +6287,22 @@
     "students": "students",
     "gradesComplete": "grades complete",
     "gradeDistributionSummary": "Grade distribution summary",
-    "gradesSubmittedSuccess": "Grades submitted successfully."
+    "gradesSubmittedSuccess": "Grades submitted successfully.",
+    "saveGrades": "Save grades",
+    "uploadGrades": "Upload grades",
+    "unsavedGradeChanges": "Unsaved changes",
+    "unsaved": "Unsaved",
+    "downloadTemplate": "Download template",
+    "chooseFile": "Choose file",
+    "gradeSheetUploadHint": "Download the template, fill in component scores per student, then upload the file. Imported values appear in the table — click Save grades to store them.",
+    "gradeSheetUploadSuccess": "{{count}} student row(s) imported. Save to apply.",
+    "gradeSheetUploadNoRows": "No grade rows were imported.",
+    "saveBeforeSubmit": "Save your grade changes before final submission.",
+    "maxScore": "Max",
+    "status": "Status",
+    "gradeStatusFinal": "Final",
+    "gradeStatusDraft": "Draft",
+    "noStudentsInClass": "No enrolled students in this class."
   },
   "registerApplication": {
     "headerTitle": "Student application",
