@@ -5,6 +5,8 @@ import { useLanguage } from '../../contexts/LanguageContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
+import { mergeAssessmentSettings, RESULT_VISIBILITY, canShowReviewField } from '../../utils/assessmentSettings'
+import { autoGradeExam, studentAnswerIsAnswered } from '../../utils/autoGradeExam'
 
 const UI = {
   p: '#1a3a6b',
@@ -63,6 +65,8 @@ export default function StudentExamRoom() {
   const [optionOrder, setOptionOrder] = useState({})
   const [remainingSec, setRemainingSec] = useState(0)
   const [autosaveState, setAutosaveState] = useState('idle') // idle|saving|saved|err
+  const [showSummary, setShowSummary] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const savingRef = useRef(false)
 
@@ -142,7 +146,7 @@ export default function StudentExamRoom() {
 
         const { data: qs, error: qErr } = await supabase
           .from('subject_exam_questions')
-          .select('id, question_order, question_type, question_text, question_text_ar, options, marks')
+          .select('id, question_order, question_type, question_text, question_text_ar, options, correct_answers, marks')
           .eq('subject_exam_id', ex.id)
           .order('question_order', { ascending: true })
         if (qErr) throw qErr
@@ -335,21 +339,39 @@ export default function StudentExamRoom() {
     setAnswers((m) => ({ ...(m || {}), [String(q.id)]: value }))
   }
 
+  const settings = useMemo(() => mergeAssessmentSettings(exam?.assessment_settings), [exam?.assessment_settings])
+
+  const unansweredCount = useMemo(
+    () => questions.filter((q) => !studentAnswerIsAnswered(q, answers[String(q.id)])).length,
+    [questions, answers],
+  )
+
   const submitFinal = async () => {
-    if (!student?.id || !enrollment?.id || !exam?.id) return
-    if (submission?.status === 'EX_SUB') {
+    if (!student?.id || !enrollment?.id || !exam?.id || submitting) return
+    if (submission?.status === 'EX_SUB' || submission?.status === 'EX_GRD') {
       navigate(`/student/elearning/exams/${exam.id}/submitted`)
       return
     }
+    setSubmitting(true)
     try {
+      const grade = autoGradeExam(questions, answers)
       const nowIso = new Date().toISOString()
-      const payload = { answers, flagged, qIndex, optionOrder, submitted: true }
+      const payload = {
+        answers,
+        flagged,
+        qIndex,
+        optionOrder,
+        submitted: true,
+        autoGrade: grade,
+      }
       const row = {
         exam_id: exam.id,
         student_id: student.id,
         enrollment_id: enrollment.id,
         submission_data: payload,
-        status: 'EX_SUB',
+        status: grade.fullyAutoGraded ? 'EX_GRD' : 'EX_SUB',
+        points_earned: grade.points_earned,
+        grade: exam.total_points ? Math.round((grade.points_earned / exam.total_points) * 1000) / 10 : grade.percent,
         started_at: submission?.started_at || nowIso,
         submitted_at: nowIso,
         updated_at: nowIso,
@@ -361,10 +383,13 @@ export default function StudentExamRoom() {
         const { error } = await supabase.from('exam_submissions').insert(row)
         if (error) throw error
       }
+      setShowSummary(false)
       navigate(`/student/elearning/exams/${exam.id}/submitted`)
     } catch (e) {
       console.error(e)
       setError(e?.message || String(e))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -527,7 +552,7 @@ export default function StudentExamRoom() {
                 {t('studentPortal.elearning.answeredOutOf', { defaultValue: 'Answered {{a}} of {{t}}', a: answeredCount, t: totalQ })}
               </div>
             </div>
-            <button type="button" className="px-6 py-2.5 rounded-md font-extrabold text-white" style={{ background: UI.ok }} onClick={submitFinal}>
+            <button type="button" className="px-6 py-2.5 rounded-md font-extrabold text-white" style={{ background: UI.ok }} onClick={() => setShowSummary(true)}>
               ✅ {t('studentPortal.elearning.submitFinal', 'Submit final')}
             </button>
           </div>
@@ -566,6 +591,38 @@ export default function StudentExamRoom() {
           </div>
         </div>
       </div>
+
+      {showSummary && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}
+          onClick={() => setShowSummary(false)}
+        >
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-lg w-full" style={{ borderColor: UI.bdr }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-extrabold mb-4" style={{ color: UI.p }}>
+              {t('studentPortal.elearning.submitConfirmTitle', 'Submit all your answers and finish?')}
+            </h2>
+            {settings.summary_show_total !== false && (
+              <table className="w-full text-sm mb-4">
+                <tbody>
+                  <tr><td style={{ color: UI.muted }}>{t('studentPortal.elearning.answered', 'Answered')}</td><td className="text-end font-bold">{answeredCount}</td></tr>
+                  <tr><td style={{ color: UI.muted }}>{t('studentPortal.elearning.unanswered', 'Unanswered')}</td><td className="text-end font-bold">{unansweredCount}</td></tr>
+                  <tr><td style={{ color: UI.muted }}>{t('studentPortal.elearning.flagged', 'Flagged')}</td><td className="text-end font-bold">{Object.values(flagged).filter(Boolean).length}</td></tr>
+                </tbody>
+              </table>
+            )}
+            <div className="flex gap-3 justify-end">
+              <button type="button" className="px-4 py-2 rounded-md border font-bold" style={{ borderColor: UI.bdr }} onClick={() => setShowSummary(false)}>
+                {t('common.cancel', 'Cancel')}
+              </button>
+              <button type="button" className="px-4 py-2 rounded-md font-extrabold text-white" style={{ background: UI.ok }} disabled={submitting} onClick={submitFinal}>
+                {submitting ? '…' : t('studentPortal.elearning.submitFinal', 'Submit final')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -342,7 +342,10 @@ export default function StudentELearningExams() {
 
         {list.length === 0 && (
           <div className="bg-white rounded-xl border p-6 text-sm" style={{ borderColor: UI.bdr, color: UI.muted }}>
-            {t('common.noData', 'No data found')}
+            <p>{t('studentPortal.elearning.noExamsYet', 'No published exams for your enrolled courses yet.')}</p>
+            <p style={{ marginTop: 8, fontSize: 12 }}>
+              {t('studentPortal.elearning.noExamsHint', 'Exams appear here after your instructor publishes them (scheduled or open). Draft exams are not visible.')}
+            </p>
           </div>
         )}
       </div>
