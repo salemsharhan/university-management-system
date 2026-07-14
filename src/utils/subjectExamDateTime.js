@@ -134,3 +134,27 @@ export function resolvePublishStatus(start, end, now = new Date()) {
   if (startMs != null && endMs != null && t >= startMs && t <= endMs) return EXAM_STATUS.PUBLISHED
   return EXAM_STATUS.SCHEDULED
 }
+
+/**
+ * True when "now" is inside the exam availability window.
+ * Missing start → treat as already started; missing end → no close yet.
+ */
+export function isExamWithinAvailabilityWindow(exam, now = new Date()) {
+  const { start, end } = resolveExamAvailabilityWindow(exam)
+  const t = now instanceof Date ? now.getTime() : new Date(now).getTime()
+  if (start && t < start.getTime()) return false
+  if (end && t > end.getTime()) return false
+  // No resolvable window → only EX_OPN is considered open (legacy rows)
+  if (!start && !end) return exam?.status === EXAM_STATUS.PUBLISHED
+  return true
+}
+
+/**
+ * Student may enter when status is scheduled/open AND current time is in the availability window.
+ * Scheduled exams open automatically at start time (no manual "Open" required).
+ */
+export function isExamEnterableForStudent(exam, now = new Date()) {
+  if (!exam) return false
+  if (exam.status !== EXAM_STATUS.SCHEDULED && exam.status !== EXAM_STATUS.PUBLISHED) return false
+  return isExamWithinAvailabilityWindow(exam, now)
+}

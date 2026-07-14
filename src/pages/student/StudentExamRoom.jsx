@@ -7,7 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
 import { mergeAssessmentSettings, RESULT_VISIBILITY, canShowReviewField } from '../../utils/assessmentSettings'
 import { autoGradeExam, studentAnswerIsAnswered } from '../../utils/autoGradeExam'
-import { resolveExamAvailabilityWindow } from '../../utils/subjectExamDateTime'
+import { resolveExamAvailabilityWindow, isExamEnterableForStudent } from '../../utils/subjectExamDateTime'
 
 const UI = {
   p: '#1a3a6b',
@@ -79,7 +79,7 @@ export default function StudentExamRoom() {
         if (stErr) throw stErr
         setStudent(st)
 
-        const { data: ex, error: exErr } = await supabase
+        const { data: exRow, error: exErr } = await supabase
           .from('subject_exams')
           .select(
             `
@@ -92,6 +92,17 @@ export default function StudentExamRoom() {
           .eq('id', Number(examId))
           .single()
         if (exErr) throw exErr
+        let ex = exRow
+
+        // Auto-open scheduled exams when availability window has started
+        {
+          const { data: syncedStatus, error: syncErr } = await supabase.rpc('sync_subject_exam_window_status', {
+            p_exam_id: Number(examId),
+          })
+          if (!syncErr && syncedStatus && syncedStatus !== ex.status) {
+            ex = { ...ex, status: syncedStatus }
+          }
+        }
         setExam(ex)
 
         const { data: enr, error: eErr } = await supabase
@@ -125,20 +136,19 @@ export default function StudentExamRoom() {
         const endMs = end?.getTime()
         const startMs = start?.getTime()
 
-        // Window guard (only allow when open)
-        if (ex.status !== 'EX_OPN') {
-          setError(t('studentPortal.elearning.examNotOpen', 'This exam is not open.'))
-          setRemainingSec(0)
-          return
-        }
-        if (startMs && now < startMs) {
-          setError(t('studentPortal.elearning.examNotStarted', 'Exam has not started yet.'))
-          setRemainingSec(Math.max(0, Math.floor((startMs - now) / 1000)))
-          return
-        }
-        if (endMs && now > endMs) {
-          setError(t('studentPortal.elearning.examWindowClosed', 'The exam availability window has closed.'))
-          setRemainingSec(0)
+        // Allow EX_SCH once start time has arrived (auto-open); still block outside window
+        if (!isExamEnterableForStudent(ex, new Date(now))) {
+          if (ex.status !== 'EX_SCH' && ex.status !== 'EX_OPN') {
+            setError(t('studentPortal.elearning.examNotOpen', 'This exam is not open.'))
+          } else if (startMs && now < startMs) {
+            setError(t('studentPortal.elearning.examNotStarted', 'Exam has not started yet.'))
+            setRemainingSec(Math.max(0, Math.floor((startMs - now) / 1000)))
+          } else if (endMs && now > endMs) {
+            setError(t('studentPortal.elearning.examWindowClosed', 'The exam availability window has closed.'))
+          } else {
+            setError(t('studentPortal.elearning.examNotOpen', 'This exam is not open.'))
+          }
+          if (!(startMs && now < startMs)) setRemainingSec(0)
           return
         }
 
@@ -258,7 +268,7 @@ export default function StudentExamRoom() {
   useEffect(() => {
     if (!exam?.id) return
     if (remainingSec !== 0) return
-    if (exam?.status === 'EX_OPN') {
+    if (isExamEnterableForStudent(exam)) {
       // do not spam if already submitted
       if (submission?.status === 'EX_SUB') return
       ;(async () => {
