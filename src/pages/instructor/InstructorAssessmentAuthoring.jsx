@@ -17,6 +17,14 @@ import {
   validatePublishExam,
 } from '../../utils/assessmentSettings'
 import { canAddOption, defaultTrueFalseOptions } from '../../utils/questionValidation'
+import {
+  DEFAULT_AVAILABILITY_HOURS,
+  datetimeLocalsToExamPayload,
+  defaultEndFromStart,
+  examRowToDatetimeLocalValues,
+  EXAM_STATUS,
+  resolvePublishStatus,
+} from '../../utils/subjectExamDateTime'
 
 const defaultExamForm = {
   title: '',
@@ -64,22 +72,6 @@ const ASSESSMENT_TYPES = [
   { value: 'final', key: 'finalExam' },
   { value: 'oral', key: 'oralDiscussion' },
 ]
-
-function toDateParts(start, end) {
-  if (!start) return { date: null, startTime: null, endTime: null }
-  const startDate = new Date(start)
-  const endDate = end ? new Date(end) : null
-  return {
-    date: startDate.toISOString().slice(0, 10),
-    startTime: startDate.toTimeString().slice(0, 8),
-    endTime: endDate ? endDate.toTimeString().slice(0, 8) : null,
-  }
-}
-
-function fromDateParts(date, time) {
-  if (!date || !time) return null
-  return `${date}T${time}`
-}
 
 function parseOptions(text) {
   return text
@@ -326,7 +318,7 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
     try {
       const { data } = await supabase
         .from('subject_exams')
-        .select('id, title, status, created_at, weight_percentage')
+        .select('id, title, status, created_at, weight_percentage, published_at, assessment_settings')
         .eq('class_id', classId)
         .order('created_at', { ascending: false })
 
@@ -362,9 +354,13 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
         return
       }
 
-      const start = fromDateParts(exam.scheduled_date, exam.start_time)
-      const end = fromDateParts(exam.scheduled_date, exam.end_time)
       const settings = exam.assessment_settings || {}
+      const { start, end } = examRowToDatetimeLocalValues(
+        exam.scheduled_date,
+        exam.start_time,
+        exam.end_time,
+        settings,
+      )
 
       setExamForm({
         ...defaultExamForm,
@@ -402,8 +398,9 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
     setSelectedCloIds([])
   }
 
-  const saveAssessment = async () => {
-    if (!selectedClass || !platformUserId || !examForm.title.trim()) return null
+  const saveAssessment = async (formOverrides = {}, { manageSaving = true } = {}) => {
+    const form = { ...examForm, ...formOverrides }
+    if (!selectedClass || !platformUserId || !form.title.trim()) return null
     if (weightValidation.exceeds) {
       alert(
         t('instructorPortal.assessmentWeightExceeded', {
@@ -414,32 +411,44 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
       return null
     }
 
-    setSaving(true)
+    if (manageSaving) setSaving(true)
     try {
-      const start = examForm.start_datetime ? new Date(examForm.start_datetime) : new Date()
-      const end = examForm.end_datetime ? new Date(examForm.end_datetime) : new Date(start.getTime() + 2 * 60 * 60 * 1000)
+      const times = datetimeLocalsToExamPayload(
+        form.start_datetime,
+        form.end_datetime || defaultEndFromStart(form.start_datetime || new Date().toISOString().slice(0, 16)),
+        form.duration_minutes,
+        DEFAULT_AVAILABILITY_HOURS,
+      )
+
+      // Saving content does not force Draft — preserve current status (new exams start as draft).
+      const preserveStatus = selectedExam?.status || EXAM_STATUS.DRAFT
 
       const payload = {
         subject_id: selectedClass.subject_id,
         class_id: selectedClass.id,
-        title: examForm.title.trim(),
-        exam_type: examForm.exam_type,
-        total_points: Number(examForm.total_points || 0),
-        weight_percentage: Number(examForm.weight_percentage || 0),
-        scheduled_date: start.toISOString().slice(0, 10),
-        start_time: start.toTimeString().slice(0, 8),
-        end_time: end.toTimeString().slice(0, 8),
-        duration_minutes: Number(examForm.duration_minutes || 0),
-        instructions: examForm.instructions || null,
-        week_number: examForm.week_number ? Number(examForm.week_number) : null,
-        status: 'EX_DRF',
+        title: form.title.trim(),
+        exam_type: form.exam_type,
+        total_points: Number(form.total_points || 0),
+        weight_percentage: Number(form.weight_percentage || 0),
+        scheduled_date: times.scheduled_date,
+        start_time: times.start_time,
+        end_time: times.end_time,
+        duration_minutes: times.duration_minutes,
+        instructions: form.instructions || null,
+        week_number: form.week_number ? Number(form.week_number) : null,
+        status: selectedExamId ? preserveStatus : EXAM_STATUS.DRAFT,
       }
 
-      let mergedSettings = settingsFromAuthoringForm(examForm)
+      let mergedSettings = settingsFromAuthoringForm(form)
       if (selectedExamId) {
         const { data: existing } = await supabase.from('subject_exams').select('assessment_settings').eq('id', selectedExamId).single()
-        mergedSettings = settingsFromAuthoringForm(examForm, existing?.assessment_settings)
+        mergedSettings = settingsFromAuthoringForm(form, existing?.assessment_settings)
       }
+      mergedSettings = mergeAssessmentSettings(mergedSettings, {
+        availability_hours: times.availability_hours,
+        window_start_at: times.window_start_at,
+        window_end_at: times.window_end_at,
+      })
       payload.assessment_settings = mergedSettings
 
       let examId = selectedExamId
@@ -488,7 +497,7 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
       alert(t('common.error', 'Error'))
       return null
     } finally {
-      setSaving(false)
+      if (manageSaving) setSaving(false)
     }
   }
 
@@ -520,18 +529,42 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
     }
     setSaving(true)
     try {
-      const examId = await saveAssessment()
+      const endForSave =
+        examForm.end_datetime ||
+        defaultEndFromStart(examForm.start_datetime || new Date().toISOString().slice(0, 16))
+      if (!examForm.end_datetime) {
+        setExamForm((p) => ({ ...p, end_datetime: endForSave }))
+      }
+
+      const examId = await saveAssessment({ end_datetime: endForSave }, { manageSaving: false })
       if (!examId) return
 
-      const start = examForm.start_datetime ? new Date(examForm.start_datetime) : new Date()
-      const end = examForm.end_datetime ? new Date(examForm.end_datetime) : new Date(start.getTime() + (Number(examForm.duration_minutes || 90) * 60 * 1000))
-      const now = new Date()
-      const nextStatus = now >= start && now <= end ? 'EX_OPN' : 'EX_SCH'
+      const times = datetimeLocalsToExamPayload(
+        examForm.start_datetime,
+        endForSave,
+        examForm.duration_minutes,
+        DEFAULT_AVAILABILITY_HOURS,
+      )
+      const start = new Date(times.window_start_at)
+      const end = new Date(times.window_end_at)
+      const nextStatus = resolvePublishStatus(start, end)
       const payload = {
+        scheduled_date: times.scheduled_date,
+        start_time: times.start_time,
+        end_time: times.end_time,
+        duration_minutes: times.duration_minutes,
         status: nextStatus,
         published_at: new Date().toISOString(),
-        opened_at: nextStatus === 'EX_OPN' ? new Date().toISOString() : null,
+        opened_at: nextStatus === EXAM_STATUS.PUBLISHED ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
+        assessment_settings: mergeAssessmentSettings(
+          settingsFromAuthoringForm(examForm),
+          {
+            availability_hours: times.availability_hours,
+            window_start_at: times.window_start_at,
+            window_end_at: times.window_end_at,
+          },
+        ),
       }
 
       const { error } = await supabase.from('subject_exams').update(payload).eq('id', examId)
@@ -540,10 +573,76 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
       await loadExams(selectedClass.id)
       await loadExamWithQuestions(examId)
       alert(
-        nextStatus === 'EX_OPN'
-          ? t('instructorPortal.examPublishedOpen', 'Published — exam is now open for students.')
-          : t('instructorPortal.examPublishedScheduled', 'Published — students will see it as scheduled until the start time.'),
+        nextStatus === EXAM_STATUS.PUBLISHED
+          ? t(
+              'instructorPortal.examPublishedOpen',
+              'Published — open for students for the availability window (default 24 hours). Each student gets their own attempt timer once they start.',
+            )
+          : t(
+              'instructorPortal.examPublishedScheduled',
+              'Published as scheduled — students can see it; it opens when the start time arrives. Availability window defaults to 24 hours.',
+            ),
       )
+    } catch (err) {
+      console.error(err)
+      alert(t('common.error', 'Error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const changeExamStatus = async (nextStatus) => {
+    if (!selectedExamId || !selectedClass) return
+    const allowed = [EXAM_STATUS.DRAFT, EXAM_STATUS.SCHEDULED, EXAM_STATUS.PUBLISHED]
+    if (!allowed.includes(nextStatus)) return
+    if (nextStatus !== EXAM_STATUS.DRAFT) {
+      const settings = settingsFromAuthoringForm(examForm)
+      const publishErrors = validatePublishExam(
+        { title: examForm.title, exam_type: examForm.exam_type },
+        settings,
+        examQuestions,
+      )
+      if (publishErrors.length) {
+        const msg = publishErrors.includes('password_required')
+          ? t('instructorPortal.quizPasswordRequired', 'Quiz password is required for midterm/final.')
+          : publishErrors.includes('questions_required')
+            ? t('instructorPortal.questionsRequired', 'Add at least one question.')
+            : t('instructorPortal.publishValidationFailed', 'Cannot publish yet.')
+        alert(msg)
+        return
+      }
+    }
+    setSaving(true)
+    try {
+      const times = datetimeLocalsToExamPayload(
+        examForm.start_datetime,
+        examForm.end_datetime || defaultEndFromStart(examForm.start_datetime),
+        examForm.duration_minutes,
+        DEFAULT_AVAILABILITY_HOURS,
+      )
+      const existingSettings = selectedExam?.assessment_settings || settingsFromAuthoringForm(examForm)
+      const payload = {
+        status: nextStatus,
+        scheduled_date: times.scheduled_date,
+        start_time: times.start_time,
+        end_time: times.end_time,
+        duration_minutes: times.duration_minutes,
+        published_at:
+          nextStatus === EXAM_STATUS.DRAFT
+            ? null
+            : selectedExam?.published_at || new Date().toISOString(),
+        opened_at: nextStatus === EXAM_STATUS.PUBLISHED ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+        assessment_settings: mergeAssessmentSettings(existingSettings, {
+          availability_hours: times.availability_hours,
+          window_start_at: times.window_start_at,
+          window_end_at: times.window_end_at,
+        }),
+      }
+      const { error } = await supabase.from('subject_exams').update(payload).eq('id', selectedExamId)
+      if (error) throw error
+      await loadExams(selectedClass.id)
+      await loadExamWithQuestions(selectedExamId)
     } catch (err) {
       console.error(err)
       alert(t('common.error', 'Error'))
@@ -737,12 +836,27 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                   ))}
                 </select>
               )}
-              <button type="button" className="btn btn-gh" onClick={saveAssessment} disabled={saving || weightValidation.exceeds}>
+              <button type="button" className="btn btn-gh" onClick={() => saveAssessment()} disabled={saving || weightValidation.exceeds}>
                 💾 {t('instructorPortal.saveDraft')}
               </button>
               <button type="button" className="btn btn-ok" onClick={publishAssessment} disabled={saving || !examForm.title.trim() || weightValidation.exceeds}>
                 🚀 {t('instructorPortal.publishLesson', 'Publish')}
               </button>
+              {selectedExamId && (
+                <select
+                  className="fc qb-class-select"
+                  style={{ minWidth: 160 }}
+                  value={examStatus || EXAM_STATUS.DRAFT}
+                  disabled={saving}
+                  onChange={(e) => changeExamStatus(e.target.value)}
+                  aria-label={t('instructorPortal.examStatus', 'Exam status')}
+                  title={t('instructorPortal.examStatusHelp', 'Draft = hidden. Scheduled = visible, not enterable. Published = open for students.')}
+                >
+                  <option value={EXAM_STATUS.DRAFT}>{t('instructorPortal.draft', 'Draft')}</option>
+                  <option value={EXAM_STATUS.SCHEDULED}>{t('instructorPortal.scheduled', 'Scheduled')}</option>
+                  <option value={EXAM_STATUS.PUBLISHED}>{t('instructorPortal.publishedOpen', 'Published (open)')}</option>
+                </select>
+              )}
               <Link
                 to={`/instructor/preview-exam?classId=${selectedClassId || ''}&examId=${selectedExamId || ''}`}
                 className="btn btn-out"
@@ -988,8 +1102,18 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                   type="datetime-local"
                   className="fc"
                   value={examForm.start_datetime}
-                  onChange={(e) => setExamForm((p) => ({ ...p, start_datetime: e.target.value }))}
+                  onChange={(e) => {
+                    const start = e.target.value
+                    setExamForm((p) => ({
+                      ...p,
+                      start_datetime: start,
+                      end_datetime: p.end_datetime || defaultEndFromStart(start),
+                    }))
+                  }}
                 />
+                <div className="fh">
+                  {t('instructorPortal.availabilityWindowHint', 'When students may enter the exam (availability window).')}
+                </div>
               </div>
               <div className="fg">
                 <label className="fl">{t('instructorPortal.endDate')}</label>
@@ -999,6 +1123,9 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                   value={examForm.end_datetime}
                   onChange={(e) => setExamForm((p) => ({ ...p, end_datetime: e.target.value }))}
                 />
+                <div className="fh">
+                  {t('instructorPortal.availabilityEndHint', 'Defaults to 24 hours after start. Separate from attempt duration below.')}
+                </div>
               </div>
             </div>
             <div className="fg">
@@ -1041,6 +1168,12 @@ export default function InstructorAssessmentAuthoring({ embedded = false, embedC
                   value={examForm.duration_minutes}
                   onChange={(e) => setExamForm((p) => ({ ...p, duration_minutes: Number(e.target.value) || 0 }))}
                 />
+                <div className="fh">
+                  {t(
+                    'instructorPortal.attemptDurationHint',
+                    'Countdown for each student after they start (not the 24-hour availability window).',
+                  )}
+                </div>
               </div>
               <div className="fg">
                 <label className="fl">{t('instructorPortal.maxAttemptsAllowed')}</label>

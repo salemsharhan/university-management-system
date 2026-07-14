@@ -102,6 +102,10 @@ export function defaultAssessmentSettings() {
     grace_period_minutes: 0,
     notify_students_on_change: false,
     week_number: null,
+    /** How long the exam stays enterable after open (hours). Attempt timer is duration_minutes separately. */
+    availability_hours: 24,
+    window_start_at: null,
+    window_end_at: null,
   }
 }
 

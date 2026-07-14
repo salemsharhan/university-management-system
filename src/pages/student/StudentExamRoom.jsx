@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { getLocalizedName } from '../../utils/localizedName'
 import { mergeAssessmentSettings, RESULT_VISIBILITY, canShowReviewField } from '../../utils/assessmentSettings'
 import { autoGradeExam, studentAnswerIsAnswered } from '../../utils/autoGradeExam'
+import { resolveExamAvailabilityWindow } from '../../utils/subjectExamDateTime'
 
 const UI = {
   p: '#1a3a6b',
@@ -25,13 +26,6 @@ const UI = {
   errBg: '#fee2e2',
   info: '#1d4ed8',
   infoBg: '#dbeafe',
-}
-
-function combineDateTime(dateStr, timeStr) {
-  if (!dateStr || !timeStr) return null
-  const iso = `${dateStr}T${String(timeStr).slice(0, 8)}`
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? null : d
 }
 
 function fmtHMS(seconds) {
@@ -124,8 +118,7 @@ export default function StudentExamRoom() {
         setOptionOrder(prevData.optionOrder || {})
         setQIndex(Number(prevData.qIndex || 0) || 0)
 
-        const start = combineDateTime(ex.scheduled_date, ex.start_time)
-        const end = combineDateTime(ex.scheduled_date, ex.end_time)
+        const { start, end } = resolveExamAvailabilityWindow(ex)
         const durationSec = Number(ex.duration_minutes || 0) * 60
 
         const now = Date.now()
@@ -141,6 +134,11 @@ export default function StudentExamRoom() {
         if (startMs && now < startMs) {
           setError(t('studentPortal.elearning.examNotStarted', 'Exam has not started yet.'))
           setRemainingSec(Math.max(0, Math.floor((startMs - now) / 1000)))
+          return
+        }
+        if (endMs && now > endMs) {
+          setError(t('studentPortal.elearning.examWindowClosed', 'The exam availability window has closed.'))
+          setRemainingSec(0)
           return
         }
 
