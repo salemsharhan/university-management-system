@@ -28,7 +28,7 @@ export default function TrackApplication() {
         .from('applications')
         .select(`
           *,
-          majors (
+          majors!major_id (
             name_en,
             code
           ),
@@ -36,7 +36,7 @@ export default function TrackApplication() {
             name_en,
             code
           ),
-          colleges (
+          colleges!college_id (
             name_en,
             code
           )

@@ -91,8 +91,8 @@ const APPLICATION_EXPORT_SELECT = `
   id_expiry_date,
   home_phone,
   referral_source,
-  majors(id, name_en, name_ar, code),
-  colleges(id, name_en, name_ar, code),
+  majors!major_id(id, name_en, name_ar, code),
+  colleges!college_id(id, name_en, name_ar, code),
   semesters(
     id,
     name_en,

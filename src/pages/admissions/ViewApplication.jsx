@@ -1095,7 +1095,7 @@ export default function ViewApplication() {
         .from('applications')
         .select(`
           *,
-          majors (
+          majors!major_id (
             id,
             name_en,
             name_ar,
@@ -1108,7 +1108,7 @@ export default function ViewApplication() {
             name_ar,
             code
           ),
-          colleges (
+          colleges!college_id (
             id,
             name_en,
             name_ar,
